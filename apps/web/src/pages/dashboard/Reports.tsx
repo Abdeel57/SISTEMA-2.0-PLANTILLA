@@ -7,7 +7,7 @@ import { raffleService } from '@/services/raffles';
 import { riferoService } from '@/services/riferos';
 import { reportService, type ReportType, type ReportFormat } from '@/services/payments';
 import { ApiError } from '@/lib/api';
-import { PageHeader } from '@/components/layout/DashboardLayout';
+import { PanelIntro } from '@/components/owner/PanelKit';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -114,10 +114,7 @@ export default function Reports() {
 
   return (
     <div>
-      <PageHeader
-        title="Reportes"
-        description="Descarga la información de tus rifas en Excel o PDF."
-      />
+      <PanelIntro description="Descarga la información de tus rifas en Excel o PDF." />
 
       {/* Qué incluye tu plan */}
       <Card className="mb-5">

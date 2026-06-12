@@ -7,7 +7,7 @@ import {
 } from '@bismark/shared';
 import { riferoService } from '@/services/riferos';
 import { planService } from '@/services/plans';
-import { PageHeader } from '@/components/layout/DashboardLayout';
+import { PanelIntro } from '@/components/owner/PanelKit';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator, PageLoader } from '@/components/ui/misc';
@@ -58,17 +58,12 @@ export default function Plan() {
     (profile ? `Mi página es ${profile.publicName} (${profile.slug}).` : '');
 
   if (profileQuery.isLoading || plansQuery.isLoading) {
-    return (
-      <div>
-        <PageHeader title="Mi plan" />
-        <PageLoader />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   return (
     <div>
-      <PageHeader title="Mi plan" description="Tu suscripción y los planes disponibles." />
+      <PanelIntro description="Tu suscripción y los planes disponibles." />
 
       {/* Estado actual */}
       <Card className="mb-5">

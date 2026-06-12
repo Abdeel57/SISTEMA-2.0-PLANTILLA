@@ -4,7 +4,7 @@ import { Info, Lock, Plus, Trash2 } from 'lucide-react';
 import { paymentMethodSchema, type PaymentMethodInput } from '@bismark/shared';
 import { riferoService } from '@/services/riferos';
 import { ApiError } from '@/lib/api';
-import { PageHeader } from '@/components/layout/DashboardLayout';
+import { PanelIntro } from '@/components/owner/PanelKit';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input, Textarea } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -196,7 +196,7 @@ export default function Payments() {
 
   return (
     <div>
-      <PageHeader title="Datos de pago" description="Configura cómo te van a pagar tus compradores." />
+      <PanelIntro description="Configura cómo te van a pagar tus compradores." />
 
       {/* Sugerencias de bancos para el autocompletado */}
       <datalist id="bismark-banks">
@@ -323,7 +323,7 @@ export default function Payments() {
       </Card>
 
       {/* Barra de guardar sticky, pegada al fondo del área de scroll del panel. */}
-      <div className="sticky bottom-0 z-10 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:px-5">
+      <div className="sticky bottom-0 z-10 -mx-4 -mb-[max(1.25rem,env(safe-area-inset-bottom))] border-t bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:-mx-5 sm:px-5">
         {dirty && (
           <p className="mb-2 text-center text-xs font-semibold text-amber-600 dark:text-amber-400">
             Tienes cambios sin guardar

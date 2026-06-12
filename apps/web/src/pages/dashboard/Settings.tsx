@@ -7,7 +7,7 @@ import { Save, Clock, Upload, Trophy, Sparkles, Lock } from 'lucide-react';
 import { updateRiferoSchema } from '@bismark/shared';
 import { riferoService } from '@/services/riferos';
 import { ApiError } from '@/lib/api';
-import { PageHeader } from '@/components/layout/DashboardLayout';
+import { PanelIntro } from '@/components/owner/PanelKit';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -138,20 +138,12 @@ export default function Settings() {
   };
 
   if (profileQuery.isLoading) {
-    return (
-      <div>
-        <PageHeader title="Configuración" />
-        <PageLoader />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   return (
     <div>
-      <PageHeader
-        title="Configuración"
-        description="Ajustes que se aplican por defecto a tus nuevas rifas."
-      />
+      <PanelIntro description="Ajustes que se aplican por defecto a tus nuevas rifas." />
 
       {/* Avisos push del rifero (este dispositivo). El comprador no recibe push. */}
       <div className="mb-4">
@@ -259,7 +251,7 @@ export default function Settings() {
         </Card>
 
         {/* Barra de guardar sticky: visible apenas hay cambios, sin perseguirla. */}
-        <div className="sticky bottom-0 z-10 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:px-5">
+        <div className="sticky bottom-0 z-10 -mx-4 -mb-[max(1.25rem,env(safe-area-inset-bottom))] border-t bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:-mx-5 sm:px-5">
           {isDirty && (
             <p className="mb-2 text-center text-xs font-semibold text-amber-600 dark:text-amber-400">
               Tienes cambios sin guardar

@@ -11,7 +11,7 @@ import { raffleService, type OwnerTicketDTO } from '@/services/raffles';
 import { ticketService } from '@/services/tickets';
 import { ApiError } from '@/lib/api';
 import { useTicketChanges } from '@/lib/pwa/useTicketChanges';
-import { PageHeader } from '@/components/layout/DashboardLayout';
+import { PanelIntro } from '@/components/owner/PanelKit';
 import { TicketGrid } from '@/components/TicketGrid';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -139,19 +139,13 @@ export default function RaffleTickets() {
   }
 
   if (isError || !raffle) {
-    return (
-      <div>
-        <PageHeader title="Boletos" />
-        <EmptyState title="No pudimos cargar los boletos" description="Intenta de nuevo más tarde." />
-      </div>
-    );
+    return <EmptyState title="No pudimos cargar los boletos" description="Intenta de nuevo más tarde." />;
   }
 
   return (
     <div>
-      {/* El regreso vive en el header del panel (flecha "atrás"). */}
-      <PageHeader
-        title="Boletos"
+      {/* El título y el regreso viven en el header del panel. */}
+      <PanelIntro
         description={`${raffle.eventLabel} · ${raffle.title}`}
         action={
           <Button variant="outline" size="sm" onClick={() => setBulkOpen(true)}>

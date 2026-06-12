@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Ticket } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import {
   RAFFLE_STATUS_LABELS,
   formatMXN,
@@ -15,7 +15,7 @@ import { buildRaffleUrl } from '@/lib/site';
 import { Button } from '@/components/ui/button';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { PageLoader, EmptyState } from '@/components/ui/misc';
-import { PanelHeader, PANEL_CARD, ProgressBar } from '@/components/owner/PanelKit';
+import { PanelIntro, PANEL_CARD, ProgressBar } from '@/components/owner/PanelKit';
 import { cn } from '@/lib/cn';
 import { toast } from 'sonner';
 
@@ -158,10 +158,8 @@ export default function RafflesList() {
 
   return (
     <div>
-      <PanelHeader
-        title="Mis rifas"
+      <PanelIntro
         description="Crea, publica y administra tus sorteos."
-        icon={Ticket}
         action={
           <Button variant="brand" size="sm" onClick={() => navigate('/panel/admin/rifas/nueva')}>
             <Plus className="h-4 w-4" /> Nueva rifa

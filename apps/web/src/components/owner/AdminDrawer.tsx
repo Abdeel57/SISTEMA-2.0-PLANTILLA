@@ -110,6 +110,10 @@ export function AdminDrawer() {
   const onRifas = location.pathname.startsWith('/panel/admin/rifas');
   const masActive = !onInicio && !onOrdenes && !onRifas;
 
+  // En sub-pantallas (tienen "atrás") se oculta el menú inferior: más espacio
+  // para trabajar y una jerarquía clara de "entrar → hacer → regresar".
+  const isSubScreen = back !== null;
+
   return (
     <div className="fixed inset-0 z-50 flex">
       {/* Backdrop (escritorio): deja ver la página detrás, click cierra */}
@@ -146,20 +150,34 @@ export function AdminDrawer() {
           </button>
         </header>
 
-        {/* Contenido */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-5 sm:px-5">
-          <Suspense fallback={<PageLoader />}>
-            <Outlet />
-          </Suspense>
+        {/* Contenido. OJO: el padding vive en el wrapper interior, NO en el
+            contenedor de scroll — el padding del scroller desplaza el punto de
+            anclaje de los elementos sticky (top/bottom) y quedaban flotando. */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain">
+          <div
+            className={cn(
+              'px-4 pt-4 sm:px-5',
+              // En sub-pantallas no hay menú inferior: el padding respeta el
+              // home indicator del iPhone.
+              isSubScreen ? 'pb-[max(1.25rem,env(safe-area-inset-bottom))]' : 'pb-8',
+            )}
+          >
+            <Suspense fallback={<PageLoader />}>
+              <Outlet />
+            </Suspense>
+          </div>
         </div>
 
-        {/* Menú inferior: 4 pestañas (rutas reales; el botón atrás del teléfono funciona) */}
-        <nav className="flex shrink-0 items-stretch border-t bg-background/95 backdrop-blur safe-bottom">
-          <Tab label="Inicio" icon={Home} active={onInicio} onClick={() => navigate('/panel/admin/inicio')} />
-          <Tab label="Órdenes" icon={Receipt} active={onOrdenes} badge={pendingTotal} onClick={() => navigate('/panel/admin/ordenes')} />
-          <Tab label="Rifas" icon={Ticket} active={onRifas} onClick={() => navigate('/panel/admin/rifas')} />
-          <Tab label="Más" icon={Menu} active={masActive} onClick={() => navigate('/panel/admin/mas')} />
-        </nav>
+        {/* Menú inferior: 4 pestañas (rutas reales; el botón atrás del teléfono
+            funciona). Se oculta en sub-pantallas para despejar la vista. */}
+        {!isSubScreen && (
+          <nav className="flex shrink-0 items-stretch border-t bg-background/95 backdrop-blur safe-bottom">
+            <Tab label="Inicio" icon={Home} active={onInicio} onClick={() => navigate('/panel/admin/inicio')} />
+            <Tab label="Órdenes" icon={Receipt} active={onOrdenes} badge={pendingTotal} onClick={() => navigate('/panel/admin/ordenes')} />
+            <Tab label="Rifas" icon={Ticket} active={onRifas} onClick={() => navigate('/panel/admin/rifas')} />
+            <Tab label="Más" icon={Menu} active={masActive} onClick={() => navigate('/panel/admin/mas')} />
+          </nav>
+        )}
       </aside>
     </div>
   );

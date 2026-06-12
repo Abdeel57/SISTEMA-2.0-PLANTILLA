@@ -297,19 +297,15 @@ export default function RaffleForm() {
 
   return (
     <div ref={topRef} className="mx-auto max-w-xl">
-      {/* Cabecera + progreso */}
-      <div className="mb-5">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="font-display text-2xl font-extrabold tracking-tight">
-            {isEdit ? 'Editar rifa' : 'Nueva rifa'}
-          </h1>
-          <span className="shrink-0 text-xs font-semibold text-muted-foreground">
-            Paso {step + 1} de {STEPS.length}
-          </span>
-        </div>
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      {/* Progreso del asistente (el título de pantalla ya está en el header del
+          panel y el del paso lo pone la tarjeta de abajo). */}
+      <div className="mb-4 flex items-center gap-3">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
           <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${progress}%` }} />
         </div>
+        <span className="shrink-0 text-xs font-semibold text-muted-foreground">
+          Paso {step + 1} de {STEPS.length}
+        </span>
       </div>
 
       <form onSubmit={onSubmit}>
@@ -472,7 +468,7 @@ export default function RaffleForm() {
 
         {/* Navegación del asistente: sticky para que Siguiente/Guardar siempre
             estén a la mano (en móvil, sin perseguirlos con el scroll). */}
-        <div className="sticky bottom-0 z-10 -mx-4 mt-4 flex items-center gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:px-5">
+        <div className="sticky bottom-0 z-10 -mx-4 -mb-[max(1.25rem,env(safe-area-inset-bottom))] mt-4 flex items-center gap-3 border-t bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:-mx-5 sm:px-5">
           <Button type="button" variant="ghost" size="lg" onClick={back}>
             {step === 0 ? 'Cancelar' : 'Atrás'}
           </Button>

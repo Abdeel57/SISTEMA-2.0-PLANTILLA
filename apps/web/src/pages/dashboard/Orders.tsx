@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { Receipt, ScanLine, Search, X } from 'lucide-react';
+import { ScanLine, Search, X } from 'lucide-react';
 import {
   formatMXN,
   formatDateTimeMX,
@@ -26,7 +26,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { OrderStatusBadge } from '@/lib/statusBadges';
 import { WhatsAppButton } from '@/components/brand/WhatsAppButton';
 import { QrScanner } from '@/components/owner/QrScanner';
-import { PanelHeader, PANEL_CARD } from '@/components/owner/PanelKit';
+import { PanelIntro, PANEL_CARD } from '@/components/owner/PanelKit';
 import { cn } from '@/lib/cn';
 import { toast } from 'sonner';
 
@@ -344,10 +344,8 @@ export default function Orders() {
 
   return (
     <div>
-      <PanelHeader
-        title="Órdenes"
+      <PanelIntro
         description="Administra los apartados y pagos de tus rifas."
-        icon={Receipt}
         action={
           <Button variant="outline" size="sm" onClick={() => setScanOpen(true)}>
             <ScanLine className="h-4 w-4" /> Validar

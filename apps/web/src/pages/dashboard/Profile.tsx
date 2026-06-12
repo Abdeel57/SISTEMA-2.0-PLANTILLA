@@ -9,7 +9,7 @@ import { updateRiferoSchema } from '@bismark/shared';
 import { riferoService } from '@/services/riferos';
 import { useAuthStore } from '@/store/auth';
 import { ApiError } from '@/lib/api';
-import { PageHeader } from '@/components/layout/DashboardLayout';
+import { PanelIntro } from '@/components/owner/PanelKit';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input, Textarea } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -95,10 +95,7 @@ export default function Profile() {
 
   return (
     <div>
-      <PageHeader
-        title="Mi perfil"
-        description="Estos son los datos que verán tus compradores en tu página de rifas."
-      />
+      <PanelIntro description="Estos son los datos que verán tus compradores en tu página de rifas." />
 
       {/* Página pública + verificación */}
       <Card className="mb-5">
@@ -209,7 +206,7 @@ export default function Profile() {
         </Card>
 
         {/* Barra de guardar sticky: visible apenas hay cambios. */}
-        <div className="sticky bottom-0 z-10 -mx-4 border-t bg-background/95 px-4 py-3 backdrop-blur sm:-mx-5 sm:px-5">
+        <div className="sticky bottom-0 z-10 -mx-4 -mb-[max(1.25rem,env(safe-area-inset-bottom))] border-t bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:-mx-5 sm:px-5">
           {isDirty && (
             <p className="mb-2 text-center text-xs font-semibold text-amber-600 dark:text-amber-400">
               Tienes cambios sin guardar

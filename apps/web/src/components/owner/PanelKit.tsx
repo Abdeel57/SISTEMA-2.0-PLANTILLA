@@ -40,6 +40,31 @@ export function PanelHeader({
   );
 }
 
+// Intro de sección SIN título: el header del panel ya muestra el nombre de la
+// pantalla; repetirlo aquí hacía sentir todo duplicado y pesado en móvil.
+// Solo descripción breve (opcional) y/o la acción de la pantalla.
+export function PanelIntro({
+  description,
+  action,
+  className,
+}: {
+  description?: string;
+  action?: React.ReactNode;
+  className?: string;
+}) {
+  if (!description && !action) return null;
+  return (
+    <div className={cn('mb-4 flex items-center justify-between gap-3', className)}>
+      {description ? (
+        <p className="min-w-0 text-sm text-muted-foreground">{description}</p>
+      ) : (
+        <span />
+      )}
+      {action && <div className="shrink-0">{action}</div>}
+    </div>
+  );
+}
+
 // Etiqueta de grupo/sección (encima de listas o grupos de tarjetas).
 export function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (

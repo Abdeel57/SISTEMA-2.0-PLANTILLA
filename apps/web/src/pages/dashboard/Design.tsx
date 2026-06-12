@@ -243,14 +243,16 @@ export default function Design() {
 
   return (
     <div>
-      {/* Encabezado sticky: el estado de guardado siempre visible mientras editas. */}
-      <div className="sticky top-0 z-20 -mx-4 mb-5 flex items-center justify-between gap-3 border-b bg-background/95 px-4 py-2.5 backdrop-blur sm:-mx-5 sm:px-5">
-        <div>
-          <h1 className="text-xl font-extrabold tracking-tight">Apariencia</h1>
-          <p className="text-xs text-muted-foreground">Se guarda solo mientras editas.</p>
-        </div>
-        <SaveIndicator status={status} onRetry={retry} />
+      {/* Estado de guardado: píldora flotante siempre visible (sin repetir el
+          título — el header del panel ya dice "Apariencia"). */}
+      <div className="pointer-events-none sticky top-2 z-20 -mb-9 flex h-9 justify-end">
+        <span className="pointer-events-auto">
+          <SaveIndicator status={status} onRetry={retry} />
+        </span>
       </div>
+      <p className="mb-4 pr-36 text-sm text-muted-foreground">
+        Personaliza tu página. Se guarda solo mientras editas.
+      </p>
 
       {/* Vista previa */}
       <Card className="mb-5 overflow-hidden">
@@ -396,13 +398,13 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
 function SaveIndicator({ status, onRetry }: { status: SaveStatus; onRetry: () => void }) {
   if (status === 'saving')
     return (
-      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+      <span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border bg-background px-3 text-xs font-semibold text-muted-foreground shadow-md">
         <Loader2 className="h-3.5 w-3.5 animate-spin" /> Guardando…
       </span>
     );
   if (status === 'saved')
     return (
-      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-600">
+      <span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-emerald-600 px-3 text-xs font-bold text-white shadow-md">
         <Check className="h-3.5 w-3.5" /> Guardado
       </span>
     );
@@ -411,10 +413,12 @@ function SaveIndicator({ status, onRetry }: { status: SaveStatus; onRetry: () =>
       <button
         type="button"
         onClick={onRetry}
-        className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-destructive/10 px-3 text-xs font-bold text-destructive transition-colors hover:bg-destructive/20"
+        className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-destructive px-3 text-xs font-bold text-white shadow-lg transition-colors hover:bg-destructive/90"
       >
         No se guardó · Reintentar
       </button>
     );
-  return <span className="shrink-0 text-xs text-muted-foreground">Auto-guardado activo</span>;
+  // En reposo no se muestra nada: la descripción de la pantalla ya avisa
+  // que el guardado es automático.
+  return null;
 }

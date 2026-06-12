@@ -11,7 +11,7 @@ import { raffleService } from '@/services/raffles';
 import { winnerService } from '@/services/winners';
 import { uploadService } from '@/services/uploads';
 import { ApiError, apiAssetUrl } from '@/lib/api';
-import { PageHeader } from '@/components/layout/DashboardLayout';
+import { PanelIntro } from '@/components/owner/PanelKit';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -242,18 +242,13 @@ export default function RaffleDraw() {
   }
 
   if (!raffle) {
-    return (
-      <div>
-        <PageHeader title="Sorteo" />
-        <EmptyState title="No pudimos cargar la rifa" description="Intenta de nuevo más tarde." />
-      </div>
-    );
+    return <EmptyState title="No pudimos cargar la rifa" description="Intenta de nuevo más tarde." />;
   }
 
   return (
     <div>
-      {/* El regreso vive en el header del panel (flecha "atrás"). */}
-      <PageHeader title="Sorteo" description={`${raffle.eventLabel} · ${raffle.title}`} />
+      {/* El título y el regreso viven en el header del panel. */}
+      <PanelIntro description={`${raffle.eventLabel} · ${raffle.title}`} />
 
       {/* Aviso: solo boletos pagados */}
       <Card className="mb-4 border-blue-200 bg-blue-50/60 dark:border-blue-900 dark:bg-blue-950/30">
