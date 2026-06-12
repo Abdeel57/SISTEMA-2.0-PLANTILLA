@@ -2,11 +2,9 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { config as loadEnv } from 'dotenv';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
-import { existsSync, mkdirSync, copyFileSync } from 'node:fs';
 import { formatTicketNumber, PLAN_SLUGS, newOrderCodeFallback } from './seed-helpers.js';
 
-// Carga .env y, en producción, .env.production (para conocer LOCAL_UPLOAD_DIR y demás).
+// Carga .env y, en producción, .env.production.
 loadEnv();
 if (process.env.NODE_ENV === 'production') {
   loadEnv({ path: fileURLToPath(new URL('../.env.production', import.meta.url)) });
@@ -40,20 +38,10 @@ const GMC_DESCRIPTION = [
   '<div style="font-weight:700;">¡NO DESPRECIES TUS BOLETOS!</div>',
 ].join('');
 
-// Copia una imagen del demo (versionada en prisma/demo-assets) al directorio de
-// uploads (en prod = el volumen montado en /data/uploads). Idempotente.
-function copyDemoAsset(rel: string) {
-  const src = fileURLToPath(new URL(`./demo-assets/${rel}`, import.meta.url));
-  if (!existsSync(src)) {
-    console.warn('⚠ imagen demo no encontrada:', src);
-    return;
-  }
-  const uploadDir = process.env.LOCAL_UPLOAD_DIR || './uploads';
-  const dest = resolve(uploadDir, rel);
-  mkdirSync(dirname(dest), { recursive: true });
-  copyFileSync(src, dest);
-  console.log('✓ imagen demo copiada →', dest);
-}
+// Las imágenes del demo (logo/portada) se sirven empaquetadas en /demo-assets/
+// (ver app.ts), por eso las URLs apuntan ahí y no al volumen de /uploads.
+const DEMO_LOGO_URL = '/demo-assets/logos/demo-rifasdelasuerte-logo.png';
+const DEMO_GMC_COVER_URL = '/demo-assets/covers/demo-gmc-2026.jpg';
 
 const env = {
   adminEmail: process.env.SEED_ADMIN_EMAIL ?? 'admin@bismark.com',
@@ -207,7 +195,7 @@ async function main() {
     update: {
       primaryColor: '#16a34a',
       secondaryColor: '#052e16',
-      logoUrl: '/uploads/logos/demo-rifasdelasuerte-logo.png',
+      logoUrl: DEMO_LOGO_URL,
       logoScale: 200,
       logoGlow: true,
       paymentMethods: DEMO_PAYMENT_METHODS,
@@ -217,7 +205,7 @@ async function main() {
       publicName: 'Rifas de la Suerte',
       slug: 'rifasdelasuerte',
       subdomain: 'rifasdelasuerte',
-      logoUrl: '/uploads/logos/demo-rifasdelasuerte-logo.png',
+      logoUrl: DEMO_LOGO_URL,
       description: 'Las mejores rifas del norte. ¡Participa y gana premios increíbles cada semana!',
       whatsapp: '5551234567',
       facebook: 'https://facebook.com/rifasdelasuerte',
@@ -373,7 +361,7 @@ async function main() {
         reserveMinutes: 120,
         allowWinnerPublication: true,
         useDigitalDraw: true,
-        images: { create: [{ url: '/uploads/covers/demo-gmc-2026.jpg', sortOrder: 0 }] },
+        images: { create: [{ url: DEMO_GMC_COVER_URL, sortOrder: 0 }] },
       },
     });
 
@@ -389,10 +377,6 @@ async function main() {
     }
     console.log(`✓ Rifa demo E2 (GMC Denali 2026) creada con ${totalE2} boletos`);
   }
-
-  // ── Imágenes del demo → directorio de uploads (volumen en prod) ─
-  copyDemoAsset('logos/demo-rifasdelasuerte-logo.png');
-  copyDemoAsset('covers/demo-gmc-2026.jpg');
 
   // ── Settings globales ─────────────────────────────────────
   await prisma.platformSettings.upsert({

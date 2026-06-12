@@ -8,6 +8,7 @@ import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { mkdirSync } from 'node:fs';
 import { env } from './config/env.js';
 import { SESSION_COOKIE } from './lib/auth.js';
@@ -94,6 +95,15 @@ export async function buildApp(): Promise<FastifyInstance> {
       decorateReply: false,
     });
   }
+
+  // Imágenes del demo (logo/portada) empaquetadas en el repo. Se sirven en
+  // /demo-assets/ y NO dependen del volumen, así la página de ejemplo siempre
+  // tiene sus imágenes tras sembrar (sin necesidad de subir nada al volumen).
+  await app.register(fastifyStatic, {
+    root: fileURLToPath(new URL('../prisma/demo-assets', import.meta.url)),
+    prefix: '/demo-assets/',
+    decorateReply: false,
+  });
 
   // Guard CSRF: valida el header Origin en métodos mutantes (defensa en
   // profundidad sobre la cookie de sesión). Corre antes de parsear el body.
