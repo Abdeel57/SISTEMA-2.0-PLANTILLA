@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Trophy, Plus, X, Play, Award, CheckCircle2, Info, Video, Upload, Trash2 } from 'lucide-react';
 import {
   formatTicketNumber,
+  dialCodeForCountry,
   type WinnerDTO,
   type DrawInput,
 } from '@bismark/shared';
@@ -51,7 +52,11 @@ function WinnerCard({ winner, raffleId }: { winner: WinnerDTO; raffleId: string 
               <p className="mt-0.5 text-sm text-muted-foreground">{winner.prizeDescription}</p>
             )}
             <p className="mt-2 text-sm font-semibold">{winner.buyer?.fullName ?? 'Sin comprador asignado'}</p>
-            {winner.buyer?.phone && <p className="text-xs text-muted-foreground">{winner.buyer.phone}</p>}
+            {winner.buyer?.phone && (
+              <p className="text-xs text-muted-foreground tabular-nums">
+                +{dialCodeForCountry(winner.buyer.country)} {winner.buyer.phone}
+              </p>
+            )}
           </div>
         </div>
 

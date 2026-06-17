@@ -224,7 +224,8 @@ function OrderCard({
 export default function VerifyTickets({ subdomain }: Props) {
   const params = useParams<{ slug: string }>();
   const slug = subdomain ?? params.slug ?? '';
-  const riferoHref = subdomain ? '/' : `/r/${slug}`;
+  // Single-tenant: el perfil del rifero es la raíz del sitio.
+  const riferoHref = '/';
   useDocumentTitle('Verificar mis boletos');
 
   const [phone, setPhone] = useState('');
@@ -266,8 +267,7 @@ export default function VerifyTickets({ subdomain }: Props) {
   const orders = result?.orders ?? [];
   const hasSearched = lookup.isSuccess || !!result;
   const hasPending = orders.some((o) => isPending(o.status));
-  const basePath = subdomain ? '' : `/r/${slug}`;
-  const backToBuyHref = orders[0] ? `${basePath}/e${orders[0].eventNumber}` : riferoHref;
+  const backToBuyHref = orders[0] ? `/e${orders[0].eventNumber}` : riferoHref;
 
   return (
     <RiferoTheme primaryColor={rifero?.primaryColor} secondaryColor={rifero?.secondaryColor}>

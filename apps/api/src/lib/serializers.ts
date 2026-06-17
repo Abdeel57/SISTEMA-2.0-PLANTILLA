@@ -3,6 +3,7 @@ import {
   eventLabel,
   formatTicketNumber,
   type AuthUserDTO,
+  type FaqItemDTO,
   type PlanDTO,
   type RiferoProfileDTO,
   type PublicRiferoDTO,
@@ -14,6 +15,8 @@ import {
   type RaffleImageDTO,
   type PaymentProofDTO,
   type PaymentMethodDTO,
+  type PriceTier,
+  type PriceBundle,
 } from '@bismark/shared';
 import type {
   User,
@@ -41,8 +44,11 @@ export function toAuthUserDTO(user: User, profile?: RiferoProfile | null): AuthU
     role: user.role,
     status: user.status,
     hasProfile: !!profile,
-    riferoId: profile?.id ?? null,
+    isOwner: !!profile,
+    // El dueño deriva su rifero del perfil; el staff, de su membresía.
+    riferoId: profile?.id ?? user.memberOfRiferoId ?? null,
     slug: profile?.slug ?? null,
+    sellerCode: user.sellerCode ?? null,
   };
 }
 
@@ -74,6 +80,17 @@ export interface PlanCtxLite {
   hasActivePlan: boolean;
   plan: Plan | null;
   subscriptionStatus: Subscription['status'] | null;
+}
+
+// Preguntas frecuentes personalizadas del rifero (lista JSON de {q, a}).
+// Vacía = el frontend muestra las DEFAULT_FAQS.
+export function riferoFaqs(p: RiferoProfile): FaqItemDTO[] {
+  const raw = p.faqs;
+  if (!Array.isArray(raw)) return [];
+  return (raw as unknown[]).filter(
+    (f): f is FaqItemDTO =>
+      !!f && typeof f === 'object' && typeof (f as FaqItemDTO).q === 'string' && typeof (f as FaqItemDTO).a === 'string',
+  );
 }
 
 // Métodos de pago del rifero: lista JSON; si está vacía, sintetiza uno con los
@@ -129,6 +146,7 @@ export function toRiferoProfileDTO(p: RiferoProfile, ctx: PlanCtxLite): RiferoPr
     payInstructions: p.payInstructions ?? null,
     payWhatsapp: p.payWhatsapp ?? null,
     paymentMethods: riferoPaymentMethods(p),
+    faqs: riferoFaqs(p),
     defaultReserveMinutes: p.defaultReserveMinutes,
     allowProofUpload: p.allowProofUpload,
     showWinners: p.showWinners,
@@ -150,6 +168,31 @@ export interface RaffleStats {
 
 export function toRaffleImageDTO(img: RaffleImage): RaffleImageDTO {
   return { id: img.id, url: img.url, sortOrder: img.sortOrder };
+}
+
+// Precios por cantidad guardados como JSON en la rifa. Filtran formas inválidas.
+export function rafflePricingTiers(r: Raffle): PriceTier[] {
+  const raw = r.pricingTiers;
+  if (!Array.isArray(raw)) return [];
+  return (raw as unknown[]).filter(
+    (t): t is PriceTier =>
+      !!t &&
+      typeof t === 'object' &&
+      typeof (t as PriceTier).minQty === 'number' &&
+      typeof (t as PriceTier).unitPrice === 'number',
+  );
+}
+
+export function rafflePricingBundles(r: Raffle): PriceBundle[] {
+  const raw = r.pricingBundles;
+  if (!Array.isArray(raw)) return [];
+  return (raw as unknown[]).filter(
+    (b): b is PriceBundle =>
+      !!b &&
+      typeof b === 'object' &&
+      typeof (b as PriceBundle).qty === 'number' &&
+      typeof (b as PriceBundle).price === 'number',
+  );
 }
 
 export function toRaffleDTO(raffle: Raffle, images: RaffleImage[], stats: RaffleStats): RaffleDTO {
@@ -177,6 +220,15 @@ export function toRaffleDTO(raffle: Raffle, images: RaffleImage[], stats: Raffle
     reserveMinutes: raffle.reserveMinutes,
     allowWinnerPublication: raffle.allowWinnerPublication,
     useDigitalDraw: raffle.useDigitalDraw,
+    showCountdown: raffle.showCountdown,
+    opportunities: raffle.opportunities,
+    pricingTiers: rafflePricingTiers(raffle),
+    pricingBundles: rafflePricingBundles(raffle),
+    promoEnabled: raffle.promoEnabled,
+    promoTitle: raffle.promoTitle ?? null,
+    promoSubtitle: raffle.promoSubtitle ?? null,
+    promoColorFrom: raffle.promoColorFrom ?? null,
+    promoColorTo: raffle.promoColorTo ?? null,
     images: images.map(toRaffleImageDTO),
     soldCount: stats.soldCount,
     reservedCount: stats.reservedCount,
@@ -224,6 +276,7 @@ export function toPublicRiferoDTO(p: RiferoProfile, raffles: PublicRaffleSummary
     logoScale: p.logoScale,
     logoGlow: p.logoGlow,
     verified: p.verified,
+    faqs: riferoFaqs(p),
     raffles,
   };
 }
@@ -233,6 +286,7 @@ export function toBuyerDTO(b: Buyer): BuyerDTO {
     id: b.id,
     fullName: b.fullName,
     phone: b.phone,
+    country: b.country ?? 'MX',
     whatsapp: b.whatsapp ?? null,
     state: b.state ?? null,
   };
@@ -256,10 +310,14 @@ export type OrderWithRelations = Order & {
   tickets: TicketNumber[];
   paymentProofs?: PaymentProof[];
   digitalTicket?: DigitalTicket | null;
+  seller?: Pick<User, 'id' | 'name' | 'sellerCode'> | null;
 };
 
 export function toOrderDTO(o: OrderWithRelations): OrderDTO {
   const sortedTickets = [...o.tickets].sort((a, b) => a.number - b.number);
+  // Separa boletos elegidos (manuales) de los de regalo (oportunidades).
+  const manual = sortedTickets.filter((t) => !t.isGift).map((t) => t.displayNumber);
+  const gifts = sortedTickets.filter((t) => t.isGift).map((t) => t.displayNumber);
   const latestProof = o.paymentProofs && o.paymentProofs.length > 0 ? o.paymentProofs[o.paymentProofs.length - 1] : null;
   return {
     id: o.id,
@@ -268,7 +326,9 @@ export function toOrderDTO(o: OrderWithRelations): OrderDTO {
     raffleTitle: o.raffle.title,
     eventLabel: eventLabel(o.raffle.eventNumber),
     buyer: toBuyerDTO(o.buyer),
-    ticketNumbers: sortedTickets.map((t) => t.displayNumber),
+    ticketNumbers: manual,
+    giftNumbers: gifts,
+    opportunities: o.raffle.opportunities,
     totalAmount: o.totalAmount,
     status: o.status,
     expiresAt: iso(o.expiresAt),
@@ -276,6 +336,7 @@ export function toOrderDTO(o: OrderWithRelations): OrderDTO {
     hasProof: !!latestProof,
     proof: latestProof ? toPaymentProofDTO(latestProof) : null,
     digitalTicketCode: o.digitalTicket?.code ?? null,
+    seller: o.seller ? { id: o.seller.id, name: o.seller.name, sellerCode: o.seller.sellerCode ?? null } : null,
     createdAt: o.createdAt.toISOString(),
   };
 }

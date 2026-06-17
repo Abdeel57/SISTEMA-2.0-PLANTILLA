@@ -93,15 +93,6 @@ export function RaffleCountdown({ drawDate, status }: Props) {
             <Colon />
             <Segment value={s} label="Seg" pulse />
           </div>
-
-          {drawDate && (
-            <div className="mt-4">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-foreground/[0.06] bg-muted/50 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--rifero-primary)]" />
-                Sorteo · {formatDateTimeMX(drawDate)}
-              </span>
-            </div>
-          )}
         </div>
       </section>
     );

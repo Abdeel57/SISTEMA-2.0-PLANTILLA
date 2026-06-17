@@ -15,16 +15,20 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 export function csrfGuard(request: FastifyRequest, _reply: FastifyReply, done: (err?: Error) => void): void {
   if (SAFE_METHODS.has(request.method)) return done();
 
+  // El frontend lo sirve este mismo proceso: el origen propio siempre es válido.
+  const selfOrigin = request.headers.host ? `${request.protocol}://${request.headers.host}` : null;
+  const allowed = (origin: string) => origin === selfOrigin || isAllowedOrigin(origin);
+
   const origin = request.headers.origin;
   if (origin) {
-    if (!isAllowedOrigin(origin)) return done(forbidden('Origen no permitido'));
+    if (!allowed(origin)) return done(forbidden('Origen no permitido'));
     return done();
   }
 
   const referer = request.headers.referer;
   if (referer) {
     try {
-      if (!isAllowedOrigin(new URL(referer).origin)) return done(forbidden('Origen no permitido'));
+      if (!allowed(new URL(referer).origin)) return done(forbidden('Origen no permitido'));
     } catch {
       return done(forbidden('Origen no permitido'));
     }

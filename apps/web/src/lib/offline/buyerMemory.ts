@@ -21,6 +21,7 @@ export function rememberBuyer(buyer: BuyerInput): void {
     const clean: RememberedBuyer = {
       fullName: (buyer.fullName ?? '').trim(),
       phone: (buyer.phone ?? '').trim(),
+      country: (buyer.country ?? '').trim(),
       whatsapp: (buyer.whatsapp ?? '').trim(),
       state: (buyer.state ?? '').trim(),
     };
@@ -41,6 +42,7 @@ export function recallBuyer(): RememberedBuyer | null {
     return {
       fullName: typeof parsed.fullName === 'string' ? parsed.fullName : '',
       phone: typeof parsed.phone === 'string' ? parsed.phone : '',
+      country: typeof parsed.country === 'string' ? parsed.country : '',
       whatsapp: typeof parsed.whatsapp === 'string' ? parsed.whatsapp : '',
       state: typeof parsed.state === 'string' ? parsed.state : '',
     };

@@ -21,28 +21,33 @@ export default async function winnersRoutes(app: FastifyInstance): Promise<void>
       await assertFeature(raffle.riferoId, 'allowMultipleWinners');
     }
 
-    // Sólo participan boletos pagados.
-    const pool = await prisma.ticketNumber.findMany({
-      where: { raffleId: id, status: 'PAID' },
-      select: { id: true, buyerId: true, displayNumber: true },
-    });
-    if (pool.length === 0) throw badRequest('No hay boletos pagados que puedan participar en el sorteo');
+    // Sólo participan boletos pagados. NO se carga el pool completo en memoria
+    // (puede haber cientos de miles): se cuenta y se elige cada ganador con un
+    // salto aleatorio sobre el índice (raffleId, status) ordenado por número.
+    const poolCount = await prisma.ticketNumber.count({ where: { raffleId: id, status: 'PAID' } });
+    if (poolCount === 0) throw badRequest('No hay boletos pagados que puedan participar en el sorteo');
 
     const existing = await prisma.winner.count({ where: { raffleId: id } });
     if (existing > 0) throw conflict('Esta rifa ya tiene ganadores registrados');
 
     const prizes = [...data.prizes].sort((a, b) => a.position - b.position);
-    const available = [...pool];
     const chosen: { ticketId: string; buyerId: string | null; position: number; prizeDescription?: string }[] = [];
+    const chosenIds: string[] = [];
 
     for (const prize of prizes) {
-      if (available.length === 0) break;
-      const idx = secureRandomIndex(available.length);
-      const ticket = available[idx];
+      const exclude = data.allowRepeatWinner ? [] : chosenIds;
+      const remaining = poolCount - exclude.length;
+      if (remaining <= 0) break;
+      const offset = secureRandomIndex(remaining);
+      const ticket = await prisma.ticketNumber.findFirst({
+        where: { raffleId: id, status: 'PAID', ...(exclude.length ? { id: { notIn: exclude } } : {}) },
+        orderBy: { number: 'asc' },
+        skip: offset,
+        select: { id: true, buyerId: true },
+      });
+      if (!ticket) break;
       chosen.push({ ticketId: ticket.id, buyerId: ticket.buyerId, position: prize.position, prizeDescription: prize.prizeDescription });
-      if (!data.allowRepeatWinner) {
-        available.splice(idx, 1);
-      }
+      chosenIds.push(ticket.id);
     }
 
     const userId = request.auth!.userId;

@@ -101,10 +101,13 @@ export async function apiUpload<T>(path: string, file: File, query?: RequestOpti
   return payload as T;
 }
 
-// Construye una URL absoluta hacia un recurso de la API (PDF, imágenes locales).
+// Construye la URL hacia un recurso de la API (PDF, imágenes locales).
+// Los archivos subidos (/uploads) y los assets demo se sirven en la RAÍZ del
+// mismo origen, NO bajo /api; las rutas de API sí llevan el prefijo.
 export function apiAssetUrl(path: string): string {
   if (!path) return '';
   if (path.startsWith('http')) return path;
+  if (path.startsWith('/uploads/') || path.startsWith('/demo-assets/')) return path;
   return `${webEnv.apiUrl}${path.startsWith('/') ? path : `/${path}`}`;
 }
 

@@ -23,7 +23,8 @@ datasource db {
 
 enum UserRole {
   VISITOR
-  RIFERO
+  RIFERO // dueño/administrador de un rifero (acceso total al panel)
+  SELLER // vendedor: acceso limitado, solo sus propias ventas
   SUPER_ADMIN
 }
 
@@ -115,7 +116,20 @@ model User {
   role         UserRole   @default(RIFERO)
   status       UserStatus @default(ACTIVE)
 
-  riferoProfile RiferoProfile?
+  // Perfil propio (solo el DUEÑO de un rifero tiene uno). Relación nombrada para
+  // poder coexistir con la membresía de staff de abajo.
+  riferoProfile RiferoProfile? @relation("RiferoOwner")
+
+  // Membresía de staff: a qué rifero pertenece este usuario (admins extra y
+  // vendedores). El dueño deriva su rifero del riferoProfile; el staff, de aquí.
+  memberOfRiferoId String?
+  memberOfRifero   RiferoProfile? @relation("RiferoStaff", fields: [memberOfRiferoId], references: [id], onDelete: Cascade)
+
+  // Código único de vendedor (solo para role SELLER). Alimenta el link de venta.
+  sellerCode String? @unique
+
+  sellerOrders Order[] @relation("OrderSeller")
+
   activityLogs  ActivityLog[]
   drawsExecuted Winner[]       @relation("WinnerDrawnBy")
   passwordResetTokens PasswordResetToken[]
@@ -126,6 +140,7 @@ model User {
 
   @@index([role])
   @@index([status])
+  @@index([memberOfRiferoId])
 }
 
 // Token de recuperación de contraseña. Se guarda HASHEADO (sha256); el valor en
@@ -161,7 +176,10 @@ model PushSubscription {
 model RiferoProfile {
   id         String @id @default(cuid())
   userId     String @unique
-  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User   @relation("RiferoOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Staff del rifero: admins extra y vendedores (no dueños).
+  staff      User[] @relation("RiferoStaff")
 
   publicName String
   slug       String  @unique // usado como subdominio: <slug>.bismark.com
@@ -194,6 +212,9 @@ model RiferoProfile {
   // Varios métodos de pago (lista JSON de PaymentMethodDTO); los campos pay* de
   // arriba quedan como compatibilidad (espejo del primer método).
   paymentMethods  Json?
+  // Preguntas frecuentes personalizadas (lista JSON de {q, a}). Vacía = se
+  // muestran las DEFAULT_FAQS de @bismark/shared en la página pública.
+  faqs            Json    @default("[]")
 
   // Configuración operativa
   defaultReserveMinutes Int     @default(120) // tiempo de apartado por defecto
@@ -302,6 +323,27 @@ model Raffle {
 
   allowWinnerPublication Boolean @default(true)
   useDigitalDraw         Boolean @default(false)
+  showCountdown          Boolean @default(true) // mostrar la cuenta regresiva al sorteo en la rifa pública
+
+  // Oportunidades por boleto: por cada boleto manual elegido, el comprador recibe
+  // (opportunities - 1) números de regalo del rango de emisiones extra. 1 = sin
+  // regalos (comportamiento original). Emisiones totales = totalTickets * opportunities.
+  // Rango manual: [ticketStart, ticketEnd]. Rango regalo: [ticketEnd+1, ticketStart + emisiones - 1].
+  opportunities  Int     @default(1)
+
+  // Promociones de volumen (listas JSON). Vacías = sólo precio base.
+  // pricingTiers:   [{ minQty, unitPrice }]  → a partir de minQty, cada boleto a unitPrice (a todo el pedido)
+  // pricingBundles: [{ qty, price }]         → qty boletos por price (cantidad exacta)
+  pricingTiers   Json @default("[]")
+  pricingBundles Json @default("[]")
+
+  // Promoción/aviso: tira a todo lo ancho bajo el header de la rifa pública.
+  // Se configura por rifa desde "Promociones" en el panel del rifero.
+  promoEnabled   Boolean @default(false)
+  promoTitle     String?
+  promoSubtitle  String?
+  promoColorFrom String? // hex; null = degradado naranja-rojo por defecto
+  promoColorTo   String?
 
   images  RaffleImage[]
   tickets TicketNumber[]
@@ -336,6 +378,12 @@ model TicketNumber {
   displayNumber String // formateado: "001"
   status        TicketStatus @default(AVAILABLE)
 
+  // Boleto de regalo (oportunidades). Los regalos NO son seleccionables a mano y
+  // viven en el rango de emisiones extra. parentNumber = número del boleto manual
+  // que lo generó (dentro de la misma rifa); null en boletos manuales.
+  isGift       Boolean @default(false)
+  parentNumber Int?
+
   buyerId String?
   buyer   Buyer?  @relation(fields: [buyerId], references: [id])
   orderId String?
@@ -352,6 +400,9 @@ model TicketNumber {
 
   @@unique([raffleId, number])
   @@index([raffleId, status])
+  @@index([raffleId, updatedAt])
+  // Acelera el muestreo del pool de regalos disponibles por rifa.
+  @@index([raffleId, isGift, status])
   @@index([orderId])
   @@index([buyerId])
 }
@@ -364,6 +415,7 @@ model Buyer {
   id       String  @id @default(cuid())
   fullName String
   phone    String
+  country  String  @default("MX") // ISO MX/US: define la lada (+52/+1) del WhatsApp
   whatsapp String?
   state    String?
 
@@ -387,6 +439,11 @@ model Order {
   totalAmount Int
   status      OrderStatus @default(RESERVED)
 
+  // Vendedor al que se atribuye la venta (si el comprador llegó por su link).
+  // Nulo = venta directa / sin vendedor. Las órdenes antiguas quedan así.
+  sellerId String?
+  seller   User?   @relation("OrderSeller", fields: [sellerId], references: [id])
+
   expiresAt DateTime?
   paidAt    DateTime?
 
@@ -400,6 +457,7 @@ model Order {
 
   @@index([raffleId, status])
   @@index([buyerId])
+  @@index([sellerId])
 }
 
 model OrderTicket {

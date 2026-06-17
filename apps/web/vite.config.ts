@@ -28,9 +28,9 @@ export default defineConfig({
         'offline.html',
       ],
       manifest: {
-        name: 'Bismark — Rifas y sorteos',
-        short_name: 'Bismark',
-        description: 'Crea tu página de rifas y administra tus boletos desde el celular.',
+        name: 'Rifas y sorteos',
+        short_name: 'Rifas',
+        description: 'Aparta tus boletos, paga fácil y recibe tu boleto digital con QR.',
         theme_color: '#2751fb',
         background_color: '#070b18',
         display: 'standalone',
@@ -60,11 +60,14 @@ export default defineConfig({
     port: 5173,
     proxy: {
       // Proxy de la API en desarrollo para compartir cookies same-origin.
+      // El backend monta sus rutas bajo /api (mismo path que en producción).
       '/api': {
         target: 'http://localhost:4000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      // Archivos subidos (imágenes) servidos por la API.
+      '/uploads': { target: 'http://localhost:4000', changeOrigin: true },
+      '/demo-assets': { target: 'http://localhost:4000', changeOrigin: true },
     },
   },
 });

@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { prisma } from '../../lib/prisma.js';
 import { notFound } from '../../lib/errors.js';
 import { requireRifero } from '../../middlewares/auth.js';
@@ -11,8 +11,11 @@ import { ORDER_STATUS_LABELS } from '@bismark/shared';
 
 const STATUS_LABEL = (s: string): string => ORDER_STATUS_LABELS[s as keyof typeof ORDER_STATUS_LABELS] ?? s;
 
-function verifyUrl(code: string): string {
-  return `${env.publicWebUrl.replace(/\/$/, '')}/validar/${code}`;
+// URL absoluta de validación (va dentro del QR del boleto). Si PUBLIC_WEB_URL no
+// está definida, se infiere del host de la petición (frontend y API comparten origen).
+function verifyUrl(code: string, request: FastifyRequest): string {
+  const base = env.publicWebUrl || `${request.protocol}://${request.headers.host ?? ''}`;
+  return `${base.replace(/\/$/, '')}/validar/${code}`;
 }
 
 const ORDER_FULL_INCLUDE = {
@@ -60,7 +63,7 @@ export default async function digitalTicketsRoutes(app: FastifyInstance): Promis
         totalAmount: o.totalAmount,
         createdAt: o.createdAt.toISOString(),
         pdfUrl: dt ? `/tickets/digital/${dt.code}/pdf` : null,
-        verifyUrl: dt ? verifyUrl(dt.code) : '',
+        verifyUrl: dt ? verifyUrl(dt.code, request) : '',
         // Marca del rifero (para mostrar la página de pago con SU identidad, no la de Bismark).
         riferoSlug: profile.slug,
         riferoLogoUrl: profile.logoUrl,
@@ -105,7 +108,7 @@ export default async function digitalTicketsRoutes(app: FastifyInstance): Promis
       statusLabel: STATUS_LABEL(o.status),
       totalAmount: o.totalAmount,
       orderCode: o.code,
-      verifyUrl: verifyUrl(dt.code),
+      verifyUrl: verifyUrl(dt.code, request),
       createdAt: o.createdAt,
       primaryColor: o.raffle.rifero.primaryColor,
     });
@@ -143,6 +146,6 @@ export default async function digitalTicketsRoutes(app: FastifyInstance): Promis
       const { newDigitalTicketCode } = await import('../../lib/codes.js');
       dt = await prisma.digitalTicket.create({ data: { orderId: id, code: newDigitalTicketCode() } });
     }
-    return { code: dt.code, pdfUrl: `/tickets/digital/${dt.code}/pdf`, verifyUrl: verifyUrl(dt.code) };
+    return { code: dt.code, pdfUrl: `/tickets/digital/${dt.code}/pdf`, verifyUrl: verifyUrl(dt.code, request) };
   });
 }

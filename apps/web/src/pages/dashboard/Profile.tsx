@@ -1,13 +1,22 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { z } from 'zod';
-import { ExternalLink, Copy, Globe } from 'lucide-react';
-import { updateRiferoSchema } from '@bismark/shared';
+import {
+  ExternalLink,
+  Copy,
+  Globe,
+  HelpCircle,
+  Plus,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+  RotateCcw,
+} from 'lucide-react';
+import { updateRiferoSchema, DEFAULT_FAQS, type FaqItemDTO, type RiferoProfileDTO } from '@bismark/shared';
 import { riferoService } from '@/services/riferos';
-import { useAuthStore } from '@/store/auth';
 import { ApiError } from '@/lib/api';
 import { PanelIntro } from '@/components/owner/PanelKit';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -31,7 +40,6 @@ type ProfileForm = z.infer<typeof profileFormSchema>;
 
 export default function Profile() {
   const queryClient = useQueryClient();
-  const user = useAuthStore((s) => s.user);
 
   const { data, isLoading } = useQuery({
     queryKey: ['rifero', 'me'],
@@ -79,12 +87,12 @@ export default function Profile() {
     },
   });
 
-  const slug = user?.slug ?? profile?.slug ?? '';
-  const publicUrl = `${slug || 'tuslug'}.bismark.com`;
+  // Single-tenant: la página pública del rifero es la raíz del propio dominio.
+  const publicUrl = window.location.origin.replace(/^https?:\/\//, '');
 
   const copyUrl = async () => {
     try {
-      await navigator.clipboard.writeText(`https://${publicUrl}`);
+      await navigator.clipboard.writeText(window.location.origin);
       toast.success('Enlace copiado');
     } catch {
       toast.error('No se pudo copiar el enlace');
@@ -129,17 +137,13 @@ export default function Profile() {
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" size="sm" disabled={!slug}>
-              <Link to={`/r/${slug}`} target="_blank" rel="noopener noreferrer">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/" target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4" />
                 Ver mi página
               </Link>
             </Button>
-            <Badge variant="muted">Tu enlace: /r/{slug || 'tuslug'}</Badge>
           </div>
-          <p className="text-xs text-muted-foreground">
-            El nombre de tu página (tuslug) no se puede cambiar desde aquí.
-          </p>
         </CardContent>
       </Card>
 
@@ -224,6 +228,180 @@ export default function Profile() {
           </Button>
         </div>
       </form>
+
+      {/* Preguntas frecuentes (sección independiente con su propio guardar) */}
+      {profile && <FaqEditor profile={profile} />}
     </div>
+  );
+}
+
+// ── Editor de preguntas frecuentes ───────────────────────────
+// Las preguntas de la sección "Preguntas frecuentes" de la página pública.
+// Mientras el rifero no guarde las suyas se muestran las de fábrica
+// (DEFAULT_FAQS), que también precargan este editor como punto de partida.
+function FaqEditor({ profile }: { profile: RiferoProfileDTO }) {
+  const queryClient = useQueryClient();
+  const [items, setItems] = useState<FaqItemDTO[]>(() =>
+    profile.faqs.length > 0 ? profile.faqs.map((f) => ({ ...f })) : DEFAULT_FAQS.map((f) => ({ ...f })),
+  );
+  const [dirty, setDirty] = useState(false);
+
+  const save = useMutation({
+    mutationFn: (faqs: FaqItemDTO[]) => riferoService.update({ faqs }),
+    onSuccess: (res) => {
+      toast.success('Preguntas frecuentes guardadas');
+      queryClient.setQueryData(['rifero', 'me'], res);
+      void queryClient.invalidateQueries({ queryKey: ['rifero', 'me'] });
+      setDirty(false);
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'No se pudieron guardar las preguntas'),
+  });
+
+  const update = (i: number, patch: Partial<FaqItemDTO>) => {
+    setItems((cur) => cur.map((f, idx) => (idx === i ? { ...f, ...patch } : f)));
+    setDirty(true);
+  };
+  const remove = (i: number) => {
+    setItems((cur) => cur.filter((_, idx) => idx !== i));
+    setDirty(true);
+  };
+  const move = (i: number, dir: -1 | 1) => {
+    setItems((cur) => {
+      const next = [...cur];
+      const j = i + dir;
+      if (j < 0 || j >= next.length) return cur;
+      [next[i], next[j]] = [next[j]!, next[i]!];
+      return next;
+    });
+    setDirty(true);
+  };
+  const add = () => {
+    setItems((cur) => [...cur, { q: '', a: '' }]);
+    setDirty(true);
+  };
+  const restoreDefaults = () => {
+    setItems(DEFAULT_FAQS.map((f) => ({ ...f })));
+    setDirty(true);
+  };
+
+  const invalid = items.some((f) => f.q.trim().length < 3 || f.a.trim().length < 3);
+
+  const submit = () => {
+    if (invalid) {
+      toast.error('Completa la pregunta y la respuesta de cada elemento (o elimínalo).');
+      return;
+    }
+    save.mutate(items.map((f) => ({ q: f.q.trim(), a: f.a.trim() })));
+  };
+
+  return (
+    <Card className="mb-5 mt-5">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <HelpCircle className="h-5 w-5 text-primary" />
+          Preguntas frecuentes
+        </CardTitle>
+        <CardDescription>
+          Las preguntas que aparecen al final de tu página pública. Puedes editarlas, reordenarlas o agregar
+          nuevas (máximo 10).
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {items.length === 0 && (
+          <p className="rounded-xl border border-dashed p-4 text-center text-sm text-muted-foreground">
+            Sin preguntas propias: tu página mostrará las preguntas de fábrica.
+          </p>
+        )}
+        {items.map((f, i) => (
+          <div key={i} className="rounded-xl border p-3.5">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="font-ticket text-xs font-bold text-muted-foreground">
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => move(i, -1)}
+                  disabled={i === 0}
+                  aria-label="Subir"
+                >
+                  <ChevronUp className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => move(i, 1)}
+                  disabled={i === items.length - 1}
+                  aria-label="Bajar"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive"
+                  onClick={() => remove(i)}
+                  aria-label="Eliminar pregunta"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div>
+                <Label htmlFor={`faq-q-${i}`}>Pregunta</Label>
+                <Input
+                  id={`faq-q-${i}`}
+                  value={f.q}
+                  maxLength={120}
+                  placeholder="¿Cómo participo?"
+                  onChange={(e) => update(i, { q: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor={`faq-a-${i}`}>Respuesta</Label>
+                <Textarea
+                  id={`faq-a-${i}`}
+                  rows={2}
+                  value={f.a}
+                  maxLength={600}
+                  placeholder="Explica el paso a paso con tus palabras."
+                  onChange={(e) => update(i, { a: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={add} disabled={items.length >= 10}>
+            <Plus className="h-4 w-4" />
+            Agregar pregunta
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={restoreDefaults}>
+            <RotateCcw className="h-4 w-4" />
+            Restaurar predeterminadas
+          </Button>
+        </div>
+
+        <Button
+          type="button"
+          size="lg"
+          variant="brand"
+          className="w-full"
+          loading={save.isPending}
+          disabled={!dirty || save.isPending}
+          onClick={submit}
+        >
+          Guardar preguntas
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

@@ -2,7 +2,7 @@ import { apiFetch, apiUpload } from '@/lib/api';
 import type {
   PublicRiferoDTO,
   PublicRaffleDTO,
-  TicketLiteDTO,
+  TicketMapDTO,
   ValidationResultDTO,
   DigitalTicketDTO,
   PaymentProofDTO,
@@ -60,8 +60,9 @@ export const publicService = {
     apiFetch<{ active: boolean; raffle?: PublicRaffleDTO }>(
       `/public/raffles/by-event/${encodeURIComponent(subdomain)}/${eventNumber}`,
     ),
-  raffleTickets: (raffleId: string) =>
-    apiFetch<{ items: TicketLiteDTO[] }>(`/public/raffles/${raffleId}/tickets`),
+  // Mapa compacto de estados (1 carácter por boleto): escala a 1M de boletos.
+  raffleTicketMap: (raffleId: string) =>
+    apiFetch<TicketMapDTO>(`/public/raffles/${raffleId}/ticket-map`),
   digitalTicket: (code: string) => apiFetch<{ ticket: DigitalTicketDTO }>(`/tickets/digital/${code}`),
   validate: (code: string) => apiFetch<ValidationResultDTO>(`/validar/${code}`),
   // El comprador sube su comprobante de pago (por folio de la orden).

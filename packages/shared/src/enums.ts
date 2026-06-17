@@ -3,9 +3,16 @@
 export const UserRole = {
   VISITOR: 'VISITOR',
   RIFERO: 'RIFERO',
+  SELLER: 'SELLER',
   SUPER_ADMIN: 'SUPER_ADMIN',
 } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+
+// Etiquetas para los roles del panel (solo los que se asignan a staff).
+export const STAFF_ROLE_LABELS: Record<'RIFERO' | 'SELLER', string> = {
+  RIFERO: 'Administrador',
+  SELLER: 'Vendedor',
+};
 
 export const UserStatus = {
   ACTIVE: 'ACTIVE',

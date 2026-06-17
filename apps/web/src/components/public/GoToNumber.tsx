@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Delete, Search, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { TicketStatus, type TicketLiteDTO } from '@bismark/shared';
+import { TicketStatus, formatTicketNumber } from '@bismark/shared';
+import { statusOfNumber, type TicketMapData } from '@/lib/ticketMap';
 import {
   Dialog,
   DialogContent,
@@ -13,12 +14,8 @@ import { Button } from '@/components/ui/button';
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Lista de boletos de la rifa (para saber cuáles están disponibles). */
-  tickets: TicketLiteDTO[];
-  /** Dígitos del número (relleno con ceros). Ej: formato 4 -> "0007". */
-  ticketFormat: number;
-  /** Total de boletos de la rifa (para validar el rango). */
-  totalTickets: number;
+  /** Mapa compacto de boletos de la rifa (estado por número, O(1)). */
+  map: TicketMapData | null;
   /** Selección actual de PublicRaffle (el puente C4). */
   selected: number[];
   /** Setter de la selección de PublicRaffle. */
@@ -41,28 +38,15 @@ type Feedback =
  * No toca TicketGrid: opera sobre la misma selección (`selected`/`onSelect`)
  * que PublicRaffle ya controla (contrato C4).
  */
-export function GoToNumber({
-  open,
-  onOpenChange,
-  tickets,
-  ticketFormat,
-  totalTickets,
-  selected,
-  onSelect,
-}: Props) {
+export function GoToNumber({ open, onOpenChange, map, selected, onSelect }: Props) {
   const [digits, setDigits] = useState('');
   const [feedback, setFeedback] = useState<Feedback>(null);
 
-  // Índice número -> estado, para saber al instante si está disponible.
-  const statusByNumber = useMemo(() => {
-    const map = new Map<number, TicketLiteDTO['status']>();
-    for (const t of tickets) map.set(t.number, t.status);
-    return map;
-  }, [tickets]);
+  const ticketFormat = map?.format ?? 3;
+  const lastNumber = map ? map.start + map.total - 1 : 0;
+  const maxLen = Math.max(ticketFormat, String(Math.max(lastNumber, 0)).length);
 
-  const maxLen = Math.max(ticketFormat, String(Math.max(totalTickets - 1, 0)).length);
-
-  const pad = (n: number) => String(n).padStart(ticketFormat, '0');
+  const pad = (n: number) => formatTicketNumber(n, ticketFormat);
 
   const reset = () => {
     setDigits('');
@@ -80,20 +64,17 @@ export function GoToNumber({
   };
 
   const submit = () => {
-    if (digits === '') return;
+    if (digits === '' || !map) return;
     const num = parseInt(digits, 10);
-    if (!Number.isFinite(num) || num < 0 || num >= totalTickets) {
+    // El estado por número es O(1) sobre el mapa; undefined = fuera de rango.
+    const status = Number.isFinite(num) ? statusOfNumber(map, num) : undefined;
+    if (status === undefined) {
       setFeedback({ kind: 'range' });
       return;
     }
     const label = pad(num);
     if (selected.includes(num)) {
       setFeedback({ kind: 'already', label });
-      return;
-    }
-    const status = statusByNumber.get(num);
-    if (status === undefined) {
-      setFeedback({ kind: 'missing', label });
       return;
     }
     if (status !== TicketStatus.AVAILABLE) {

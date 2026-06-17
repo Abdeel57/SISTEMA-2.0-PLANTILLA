@@ -3,9 +3,11 @@ import type { RaffleStats } from './serializers.js';
 
 // Cuenta boletos por estado para una rifa.
 export async function getRaffleStats(raffleId: string, totalTickets: number): Promise<RaffleStats> {
+  // Solo boletos MANUALES: los de regalo son emisiones extra y no cuentan en el
+  // progreso de venta ni en la disponibilidad del pool seleccionable.
   const grouped = await prisma.ticketNumber.groupBy({
     by: ['status'],
-    where: { raffleId },
+    where: { raffleId, isGift: false },
     _count: { _all: true },
   });
   const map = new Map(grouped.map((g) => [g.status, g._count._all]));
@@ -21,7 +23,7 @@ export async function getPaidCounts(raffleIds: string[]): Promise<Map<string, nu
   if (raffleIds.length === 0) return new Map();
   const grouped = await prisma.ticketNumber.groupBy({
     by: ['raffleId'],
-    where: { raffleId: { in: raffleIds }, status: { in: ['PAID', 'WINNER'] } },
+    where: { raffleId: { in: raffleIds }, isGift: false, status: { in: ['PAID', 'WINNER'] } },
     _count: { _all: true },
   });
   return new Map(grouped.map((g) => [g.raffleId, g._count._all]));

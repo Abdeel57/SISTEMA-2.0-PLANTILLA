@@ -1,32 +1,21 @@
 // Open Graph dinámico para compartir (WhatsApp, Facebook, Telegram…).
 //
-// El frontend es un SPA en otro dominio (Netlify): los crawlers no ejecutan JS,
-// así que no leen los meta tags que React inyecta. Estos endpoints devuelven
-// HTML real con meta tags OG por rifa/rifero y redirigen al SPA para humanos.
+// Los crawlers no ejecutan JS, así que no leen los meta tags que React inyecta.
+// Estos endpoints devuelven HTML real con meta tags OG por rifa/rifero y
+// redirigen al SPA (que sirve este mismo proceso) para humanos.
 //
 // Los botones de "compartir" del frontend deben compartir estas URLs `/s/...`
 // (no las del SPA) para que la vista previa muestre el premio/imagen.
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { prisma } from '../../lib/prisma.js';
-import { getPlanContext } from '../../lib/plan.js';
 import { env } from '../../config/env.js';
 import { escapeHtml } from '../../lib/mailer.js';
-import { riferoPublicUrl, rafflePublicPath } from '@bismark/shared';
+import { findSiteProfile } from '../public/public.routes.js';
 
-const PUBLIC_URL_CFG = {
-  rootDomain: env.publicUrlConfig.rootDomain,
-  useSubdomains: env.publicUrlConfig.useSubdomains,
-  protocol: env.publicUrlConfig.protocol,
-};
-
-// Imagen de respaldo cuando la rifa/rifero no tiene imagen propia (la sirve el SPA).
-const DEFAULT_OG_IMAGE = `${env.publicWebUrl}/og-default.png`;
-
-// Convierte una ruta del SPA (posiblemente relativa "/r/slug") en URL absoluta.
-function toAbsoluteWebUrl(pathOrUrl: string): string {
-  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
-  return `${env.publicWebUrl}${pathOrUrl.startsWith('/') ? '' : '/'}${pathOrUrl}`;
+// Base pública del sitio: PUBLIC_WEB_URL si está definida; si no, el host de la
+// petición (frontend y API comparten origen en producción).
+function siteBase(request: FastifyRequest): string {
+  return env.publicWebUrl || `${request.protocol}://${request.headers.host ?? ''}`;
 }
 
 // Convierte una ruta de archivo de la API (p. ej. "/uploads/..") en URL absoluta.
@@ -46,12 +35,14 @@ interface OgData {
   title: string;
   description: string;
   image: string | null;
+  fallbackImage: string; // imagen de respaldo (og-default.png del sitio)
+  siteName: string; // nombre de la página de rifas (no "Bismark")
   url: string; // URL canónica a compartir (esta misma /s/...)
   redirectUrl: string; // a dónde mandar al humano (SPA)
 }
 
 function renderOgHtml(d: OgData): string {
-  const image = d.image || DEFAULT_OG_IMAGE;
+  const image = d.image || d.fallbackImage;
   const img = `<meta property="og:image" content="${escapeHtml(image)}" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -68,7 +59,7 @@ function renderOgHtml(d: OgData): string {
   <link rel="canonical" href="${escapeHtml(d.url)}" />
 
   <meta property="og:type" content="website" />
-  <meta property="og:site_name" content="Bismark" />
+  <meta property="og:site_name" content="${escapeHtml(d.siteName)}" />
   <meta property="og:title" content="${escapeHtml(d.title)}" />
   <meta property="og:description" content="${escapeHtml(d.description)}" />
   <meta property="og:url" content="${escapeHtml(d.url)}" />
@@ -100,40 +91,38 @@ export default async function ogRoutes(app: FastifyInstance): Promise<void> {
   // GET /s/r/:slug — vista previa de la página del rifero
   app.get('/s/r/:slug', async (request, reply) => {
     const { slug } = request.params as { slug: string };
-    const key = slug.toLowerCase();
-    const profile = await prisma.riferoProfile.findFirst({
-      where: { OR: [{ slug: key }, { subdomain: key }] },
-    });
+    const profile = await findSiteProfile(slug);
 
-    const redirectUrl = profile
-      ? toAbsoluteWebUrl(riferoPublicUrl(profile.slug, PUBLIC_URL_CFG))
-      : env.publicWebUrl;
-    const shareUrl = `${env.publicApiUrl || `${request.protocol}://${request.headers.host ?? ''}`}/s/r/${encodeURIComponent(slug)}`;
+    // Single-tenant: la página del rifero ES la raíz del sitio.
+    const base = siteBase(request);
+    const fallbackImage = `${base}/og-default.png`;
+    const shareUrl = `${env.publicApiUrl || base}/s/r/${encodeURIComponent(slug)}`;
 
     if (!profile || profile.status === 'DELETED') {
       return sendOg(
         reply,
         renderOgHtml({
-          title: 'Bismark — Rifas y sorteos',
-          description: 'Crea tu página de rifas y administra tus boletos desde el celular.',
+          title: 'Rifas y sorteos',
+          description: 'Aparta tus boletos y paga fácil desde el celular.',
           image: null,
+          fallbackImage,
+          siteName: 'Rifas y sorteos',
           url: shareUrl,
-          redirectUrl: env.publicWebUrl,
+          redirectUrl: base,
         }),
       );
     }
 
-    const ctx = await getPlanContext(profile.id);
-    const inactive = !ctx.hasActivePlan || profile.status === 'SUSPENDED';
-
     const html = renderOgHtml({
-      title: `${profile.publicName} — Rifas y sorteos`,
+      title: profile.publicName,
       description:
-        profile.description?.slice(0, 200) ||
+        profile.description?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200) ||
         `Participa en las rifas de ${profile.publicName}. Aparta tus boletos y paga fácil.`,
       image: toAbsoluteApiUrl(profile.coverUrl || profile.logoUrl, request),
+      fallbackImage,
+      siteName: profile.publicName,
       url: shareUrl,
-      redirectUrl: inactive ? env.publicWebUrl : redirectUrl,
+      redirectUrl: base,
     });
     return sendOg(reply, html);
   });
@@ -141,61 +130,43 @@ export default async function ogRoutes(app: FastifyInstance): Promise<void> {
   // GET /s/r/:slug/:eventNumber — vista previa de una rifa
   app.get('/s/r/:slug/:eventNumber', async (request, reply) => {
     const { slug, eventNumber } = request.params as { slug: string; eventNumber: string };
-    const key = slug.toLowerCase();
     const n = parseEventNumber(eventNumber);
-    const shareUrl = `${env.publicApiUrl || `${request.protocol}://${request.headers.host ?? ''}`}/s/r/${encodeURIComponent(slug)}/e${Number.isNaN(n) ? '' : n}`;
+    const base = siteBase(request);
+    const fallbackImage = `${base}/og-default.png`;
+    const shareUrl = `${env.publicApiUrl || base}/s/r/${encodeURIComponent(slug)}/e${Number.isNaN(n) ? '' : n}`;
 
-    const profile = await prisma.riferoProfile.findFirst({
-      where: { OR: [{ slug: key }, { subdomain: key }] },
-    });
+    const profile = Number.isNaN(n) ? null : await findSiteProfile(slug);
 
     if (!profile || Number.isNaN(n)) {
       return sendOg(
         reply,
         renderOgHtml({
-          title: 'Bismark — Rifas y sorteos',
-          description: 'Crea tu página de rifas y administra tus boletos desde el celular.',
+          title: 'Rifas y sorteos',
+          description: 'Aparta tus boletos y paga fácil desde el celular.',
           image: null,
+          fallbackImage,
+          siteName: 'Rifas y sorteos',
           url: shareUrl,
-          redirectUrl: env.publicWebUrl,
+          redirectUrl: base,
         }),
       );
     }
 
-    const raffle = await prisma.raffle.findFirst({
-      where: { riferoId: profile.id, eventNumber: n, status: { in: ['PUBLISHED', 'FINISHED'] } },
-      include: { images: { orderBy: { sortOrder: 'asc' }, take: 1 } },
-    });
-    const ctx = await getPlanContext(profile.id);
-    const inactive = !ctx.hasActivePlan || profile.status === 'SUSPENDED';
-    const raffleUrl = toAbsoluteWebUrl(rafflePublicPath(profile.slug, n, PUBLIC_URL_CFG));
-
-    if (!raffle || inactive) {
-      return sendOg(
-        reply,
-        renderOgHtml({
-          title: `${profile.publicName} — Rifas y sorteos`,
-          description: `Participa en las rifas de ${profile.publicName}.`,
-          image: toAbsoluteApiUrl(profile.coverUrl || profile.logoUrl, request),
-          url: shareUrl,
-          redirectUrl: inactive ? env.publicWebUrl : toAbsoluteWebUrl(riferoPublicUrl(profile.slug, PUBLIC_URL_CFG)),
-        }),
-      );
-    }
-
-    const priceLine = `Boletos desde $${raffle.ticketPrice.toLocaleString('es-MX')} MXN`;
-    const description = raffle.prize
-      ? `🎁 ${raffle.prize}. ${priceLine}. ¡Aparta el tuyo!`
-      : raffle.description?.slice(0, 200) || `${priceLine}. ¡Aparta tus boletos!`;
-
+    // Identidad de la PÁGINA del rifero (nombre + logo/portada), no del evento:
+    // al compartir cualquier rifa se ve siempre la marca de la página de rifas.
+    // El humano sí aterriza en la rifa concreta (/eN).
     return sendOg(
       reply,
       renderOgHtml({
-        title: `${raffle.title} — ${profile.publicName}`,
-        description,
-        image: toAbsoluteApiUrl(raffle.images[0]?.url || profile.coverUrl || profile.logoUrl, request),
+        title: profile.publicName,
+        description:
+          profile.description?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200) ||
+          `Participa en las rifas de ${profile.publicName}. Aparta tus boletos y paga fácil.`,
+        image: toAbsoluteApiUrl(profile.coverUrl || profile.logoUrl, request),
+        fallbackImage,
+        siteName: profile.publicName,
         url: shareUrl,
-        redirectUrl: raffleUrl,
+        redirectUrl: `${base}/e${n}`,
       }),
     );
   });

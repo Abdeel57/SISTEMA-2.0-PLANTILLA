@@ -1,13 +1,17 @@
 import { ArrowRight } from 'lucide-react';
-import { BRAND } from '@bismark/shared';
-import { buildHomeUrl } from '@/lib/site';
+import { BRAND, buildWhatsappLink } from '@bismark/shared';
+import { webEnv } from '@/lib/env';
 import { LogoMark } from './LogoMark';
 import { cn } from '@/lib/cn';
 
-// Cierre de marca a todo el ancho para el final de las páginas públicas. Una
-// banda oscura y sobria que "desconecta" de la página de la rifa e invita a
-// crear las propias. El botón lleva a la landing (/), donde está toda la info.
+// Cierre de marca a todo el ancho para el final de las páginas públicas:
+// "Desarrollado por Bismark". El botón abre el WhatsApp de Bismark (configurable
+// con VITE_BISMARK_WHATSAPP) para quien quiera su propia página de rifas.
 export function BismarkCta({ className }: { className?: string }) {
+  const whatsappHref = webEnv.bismarkWhatsapp
+    ? buildWhatsappLink(webEnv.bismarkWhatsapp, 'Hola Bismark, quiero mi propia página de rifas.')
+    : null;
+
   return (
     <section
       className={cn(
@@ -30,19 +34,23 @@ export function BismarkCta({ className }: { className?: string }) {
         </div>
 
         <h2 className="font-display text-xl font-bold tracking-tight text-white sm:text-2xl">
-          Empieza a rifar aquí
+          Sitio desarrollado por Bismark
         </h2>
         <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-white/55">
-          Crea tus propias rifas digitales: cobros en línea, boletos con QR y sorteos transparentes.
+          ¿Quieres tu propia página de rifas como esta? Escríbenos.
         </p>
 
-        <a
-          href={buildHomeUrl()}
-          className="group mt-5 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-6 py-2.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:border-white/40 hover:bg-white/20"
-        >
-          Conoce Bismark
-          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-        </a>
+        {whatsappHref && (
+          <a
+            href={whatsappHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group mt-5 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-6 py-2.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:border-white/40 hover:bg-white/20"
+          >
+            Contactar por WhatsApp
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </a>
+        )}
 
         <p className="mt-6 font-ticket text-[10px] uppercase tracking-[0.3em] text-white/30">
           {BRAND.poweredBy}

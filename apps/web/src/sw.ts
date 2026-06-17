@@ -62,7 +62,7 @@ registerRoute(
 );
 
 // ── Background Sync: reintento de subida de comprobante ─────────────────────
-// Subida de comprobante del comprador: POST /public/orders/:code/proof.
+// Subida de comprobante del comprador: POST /api/public/orders/:code/proof.
 // Cuando hay red, NetworkOnly es un passthrough transparente (igual que sin SW);
 // si falla por falta de red, workbox la encola y la reintenta al reconectar.
 const proofSyncPlugin = new BackgroundSyncPlugin('bismark-proof-uploads', {
@@ -70,7 +70,7 @@ const proofSyncPlugin = new BackgroundSyncPlugin('bismark-proof-uploads', {
 });
 registerRoute(
   ({ url, request }) =>
-    request.method === 'POST' && /^\/public\/orders\/[^/]+\/proof$/.test(url.pathname),
+    request.method === 'POST' && /^\/api\/public\/orders\/[^/]+\/proof$/.test(url.pathname),
   new NetworkOnly({ plugins: [proofSyncPlugin] }),
   'POST',
 );
@@ -95,7 +95,7 @@ self.addEventListener('push', (event) => {
     body: payload.body || '',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-    data: { url: payload.url || '/panel/admin/ordenes' },
+    data: { url: payload.url || '/admin/ordenes' },
     // Vibración corta en móvil (donde esté soportada).
     vibrate: [80, 40, 80],
   } as NotificationOptions;
@@ -105,7 +105,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification.data as { url?: string } | undefined)?.url || '/panel/admin/ordenes';
+  const targetUrl = (event.notification.data as { url?: string } | undefined)?.url || '/admin/ordenes';
 
   event.waitUntil(
     (async () => {

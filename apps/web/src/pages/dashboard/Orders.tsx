@@ -1,18 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { ScanLine, Search, X } from 'lucide-react';
+import { ScanLine, Search, X, Store, Gift } from 'lucide-react';
 import {
   formatMXN,
   formatDateTimeMX,
   timeRemaining,
   waReserveMessage,
+  dialCodeForCountry,
   type OrderDTO,
 } from '@bismark/shared';
 import { orderService, type OrderFilter } from '@/services/orders';
 import { ApiError, apiAssetUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { useAuthStore } from '@/store/auth';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageLoader, EmptyState } from '@/components/ui/misc';
 import {
@@ -184,6 +187,8 @@ function OrderCard({ order }: { order: OrderDTO }) {
   const isPending = order.status === 'PENDING' || order.status === 'RESERVED';
   const remaining = timeRemaining(order.expiresAt);
   const waPhone = order.buyer.whatsapp ?? order.buyer.phone;
+  // Lada del comprador (+52 México / +1 USA) para que el WhatsApp abra correcto.
+  const buyerDial = dialCodeForCountry(order.buyer.country);
   const waMessage = waReserveMessage({
     raffleName: `${order.raffleTitle} (${order.eventLabel})`,
     ticketNumbers: order.ticketNumbers.join(', '),
@@ -197,7 +202,10 @@ function OrderCard({ order }: { order: OrderDTO }) {
         <div className="min-w-0">
           <p className="font-mono text-xs font-semibold text-muted-foreground">{order.code}</p>
           <p className="truncate text-base font-bold leading-tight">{order.buyer.fullName}</p>
-          <p className="text-sm text-muted-foreground">{order.buyer.phone}</p>
+          <p className="text-sm text-muted-foreground tabular-nums">
+            +{buyerDial} {order.buyer.phone}
+            {order.buyer.country === 'US' && <span className="ml-1 font-semibold">🇺🇸 USA</span>}
+          </p>
         </div>
         <OrderStatusBadge status={order.status} />
       </div>
@@ -207,7 +215,41 @@ function OrderCard({ order }: { order: OrderDTO }) {
         <span className="text-muted-foreground">· {order.eventLabel}</span>
       </div>
 
-      <TicketChips numbers={order.ticketNumbers} />
+      {/* Vendedor atribuido (o venta directa) */}
+      <div className="flex items-center gap-1.5 text-xs">
+        <Store className="h-3.5 w-3.5 text-muted-foreground" />
+        {order.seller ? (
+          <span className="font-semibold">
+            {order.seller.name}
+            {order.seller.sellerCode && (
+              <span className="ml-1 font-mono font-bold text-muted-foreground">({order.seller.sellerCode})</span>
+            )}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">Venta directa</span>
+        )}
+      </div>
+
+      {order.giftNumbers.length > 0 ? (
+        <div className="space-y-2">
+          <div>
+            <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Elegidos</p>
+            <TicketChips numbers={order.ticketNumbers} />
+          </div>
+          <div>
+            <p className="mb-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-primary">
+              <Gift className="h-3.5 w-3.5" /> Regalo ({order.giftNumbers.length})
+            </p>
+            <TicketChips numbers={order.giftNumbers} />
+          </div>
+          <p className="text-xs font-semibold text-muted-foreground">
+            Números participantes: {order.ticketNumbers.length + order.giftNumbers.length}
+            <span className="ml-1 font-normal">· {order.opportunities} oportunidades por boleto</span>
+          </p>
+        </div>
+      ) : (
+        <TicketChips numbers={order.ticketNumbers} />
+      )}
 
       <div className="flex items-center justify-between gap-2 border-t pt-3">
         <p className="text-xl font-extrabold tracking-tight">{formatMXN(order.totalAmount)}</p>
@@ -234,7 +276,7 @@ function OrderCard({ order }: { order: OrderDTO }) {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <WhatsAppButton phone={waPhone} message={waMessage} size="sm" />
+        <WhatsAppButton phone={waPhone} dialCode={buyerDial} message={waMessage} size="sm" />
         {order.digitalTicketCode && (
           <Button asChild variant="outline" size="sm">
             <a
@@ -308,8 +350,12 @@ function OrderCard({ order }: { order: OrderDTO }) {
 export default function Orders() {
   const params = useParams<{ filter?: string }>();
   const navigate = useNavigate();
+  const role = useAuthStore((s) => s.user?.role);
+  const isSeller = role === 'SELLER';
   const [scanOpen, setScanOpen] = useState(false);
   const [search, setSearch] = useState('');
+  // Filtro por vendedor (solo admin): 'all' | 'direct' | <sellerId>.
+  const [sellerFilter, setSellerFilter] = useState<string>('all');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const urlFilter: UrlFilter =
@@ -323,29 +369,43 @@ export default function Orders() {
 
   const orders = ordersQuery.data?.items ?? [];
 
-  // Búsqueda local: código de orden, nombre, teléfono o rifa.
+  // Vendedores presentes en las órdenes cargadas (para el desplegable de filtro).
+  const sellerOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const o of orders) {
+      if (o.seller) map.set(o.seller.id, o.seller.sellerCode ? `${o.seller.name} (${o.seller.sellerCode})` : o.seller.name);
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [orders]);
+
+  // Búsqueda local (código, nombre, teléfono, rifa) + filtro por vendedor.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return orders;
-    return orders.filter(
-      (o) =>
+    return orders.filter((o) => {
+      if (sellerFilter === 'direct' && o.seller) return false;
+      if (sellerFilter !== 'all' && sellerFilter !== 'direct' && o.seller?.id !== sellerFilter) return false;
+      if (!q) return true;
+      return (
         o.code.toLowerCase().includes(q) ||
         o.buyer.fullName.toLowerCase().includes(q) ||
         o.buyer.phone.toLowerCase().includes(q) ||
-        o.raffleTitle.toLowerCase().includes(q),
-    );
-  }, [orders, search]);
+        o.raffleTitle.toLowerCase().includes(q)
+      );
+    });
+  }, [orders, search, sellerFilter]);
 
   // Render incremental: con cientos de órdenes el DOM no se desploma.
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [urlFilter, search]);
+  }, [urlFilter, search, sellerFilter]);
   const visible = filtered.slice(0, visibleCount);
 
   return (
     <div>
       <PanelIntro
-        description="Administra los apartados y pagos de tus rifas."
+        description={
+          isSeller ? 'Estas son las ventas generadas con tu link.' : 'Administra los apartados y pagos de tus rifas.'
+        }
         action={
           <Button variant="outline" size="sm" onClick={() => setScanOpen(true)}>
             <ScanLine className="h-4 w-4" /> Validar
@@ -354,7 +414,7 @@ export default function Orders() {
       />
       <QrScanner open={scanOpen} onOpenChange={setScanOpen} />
 
-      <Tabs value={urlFilter} onValueChange={(v) => navigate(`/panel/admin/ordenes/${v}`)}>
+      <Tabs value={urlFilter} onValueChange={(v) => navigate(`/admin/ordenes/${v}`)}>
         <TabsList>
           {TABS.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value}>
@@ -386,6 +446,21 @@ export default function Orders() {
         )}
       </div>
 
+      {/* Filtro por vendedor (solo administradores). */}
+      {!isSeller && sellerOptions.length > 0 && (
+        <div className="mt-3">
+          <Select value={sellerFilter} onChange={(e) => setSellerFilter(e.target.value)} aria-label="Filtrar por vendedor">
+            <option value="all">Todos los vendedores</option>
+            <option value="direct">Venta directa (sin vendedor)</option>
+            {sellerOptions.map(([id, label]) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
+
       <div className="mt-4">
         {ordersQuery.isLoading ? (
           <PageLoader />
@@ -403,7 +478,7 @@ export default function Orders() {
           )
         ) : (
           <>
-            <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-2">
               {visible.map((order) => (
                 <OrderCard key={order.id} order={order} />
               ))}

@@ -1,15 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ListPlus, User, Hash } from 'lucide-react';
-import {
-  TICKET_STATUS_LABELS,
-  type TicketLiteDTO,
-  type TicketStatus,
-} from '@bismark/shared';
-import { raffleService, type OwnerTicketDTO } from '@/services/raffles';
+import { ListPlus, User, Hash, Gift } from 'lucide-react';
+import { TICKET_STATUS_LABELS, dialCodeForCountry, type TicketStatus } from '@bismark/shared';
+import { raffleService } from '@/services/raffles';
 import { ticketService } from '@/services/tickets';
 import { ApiError } from '@/lib/api';
+import { decodeTicketMap, applyTicketChanges, type TicketMapData } from '@/lib/ticketMap';
 import { useTicketChanges } from '@/lib/pwa/useTicketChanges';
 import { PanelIntro } from '@/components/owner/PanelKit';
 import { TicketGrid } from '@/components/TicketGrid';
@@ -54,7 +51,8 @@ export default function RaffleTickets() {
   const raffleId = id as string;
   const queryClient = useQueryClient();
 
-  const [selected, setSelected] = useState<OwnerTicketDTO | null>(null);
+  // Número del boleto abierto en el diálogo; su detalle se pide bajo demanda.
+  const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkText, setBulkText] = useState('');
 
@@ -63,40 +61,40 @@ export default function RaffleTickets() {
     queryFn: () => raffleService.get(raffleId),
   });
 
-  const {
-    data: ticketsData,
-    isLoading: loadingTickets,
-    isError,
-  } = useQuery({
-    queryKey: ['owner-tickets', raffleId],
-    queryFn: () => raffleService.ownerTickets(raffleId),
+  // Mapa compacto (1 byte por boleto): escala a 1,000,000 de boletos.
+  const mapQuery = useQuery({
+    queryKey: ['owner-ticket-map', raffleId],
+    queryFn: () => raffleService.ownerTicketMap(raffleId),
   });
+  const [ticketMap, setTicketMap] = useState<TicketMapData | null>(null);
+  useEffect(() => {
+    if (mapQuery.data) setTicketMap(decodeTicketMap(mapQuery.data));
+  }, [mapQuery.data]);
 
   const raffle = raffleData?.raffle;
-  const ownerTickets = ticketsData?.items ?? [];
 
-  const liteTickets: TicketLiteDTO[] = useMemo(
-    () =>
-      ownerTickets.map((t) => ({
-        number: t.number,
-        displayNumber: t.displayNumber,
-        status: t.status as TicketStatus,
-      })),
-    [ownerTickets],
-  );
+  // Detalle del boleto seleccionado (comprador/orden), solo cuando se abre.
+  const detailQuery = useQuery({
+    queryKey: ['owner-ticket', raffleId, selectedNumber],
+    queryFn: () => raffleService.ownerTicket(raffleId, selectedNumber!),
+    enabled: selectedNumber !== null,
+  });
+  const selected = selectedNumber !== null ? (detailQuery.data?.ticket ?? null) : null;
 
   function invalidate() {
-    void queryClient.invalidateQueries({ queryKey: ['owner-tickets', raffleId] });
+    void queryClient.invalidateQueries({ queryKey: ['owner-ticket-map', raffleId] });
     void queryClient.invalidateQueries({ queryKey: ['raffle', raffleId] });
   }
 
-  // Tiempo real (contrato C2): cuando un comprador aparta/paga, refrescamos los
-  // boletos del rifero. No tocamos TicketGrid; solo invalidamos para recargar
-  // los datos completos (incluye comprador). Inactivo si hay un diálogo abierto.
+  // Tiempo real (contrato C2): los cambios incrementales parchan el mapa en
+  // memoria (sin recargar todos los boletos) y refrescan los conteos.
   useTicketChanges(
     raffleId,
-    () => invalidate(),
-    selected === null && !bulkOpen,
+    (items) => {
+      setTicketMap((m) => (m ? applyTicketChanges(m, items) : m));
+      void queryClient.invalidateQueries({ queryKey: ['raffle', raffleId] });
+    },
+    selectedNumber === null && !bulkOpen,
   );
 
   const setStatus = useMutation({
@@ -107,7 +105,7 @@ export default function RaffleTickets() {
         vars.status === 'RIFERO_RESERVED' ? 'Boleto reservado para ti.' : 'Boleto liberado.',
       );
       invalidate();
-      setSelected(null);
+      setSelectedNumber(null);
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'No se pudo actualizar el boleto'),
   });
@@ -134,11 +132,11 @@ export default function RaffleTickets() {
 
   const parsedPreview = useMemo(() => parseTicketNumbers(bulkText), [bulkText]);
 
-  if (loadingRaffle || loadingTickets) {
+  if (loadingRaffle || (!ticketMap && !mapQuery.isError)) {
     return <PageLoader label="Cargando boletos..." />;
   }
 
-  if (isError || !raffle) {
+  if (mapQuery.isError || !raffle || !ticketMap) {
     return <EmptyState title="No pudimos cargar los boletos" description="Intenta de nuevo más tarde." />;
   }
 
@@ -183,17 +181,12 @@ export default function RaffleTickets() {
         </Card>
       </div>
 
-      <TicketGrid
-        tickets={liteTickets}
-        onTicketClick={(t) => {
-          const owner = ownerTickets.find((o) => o.number === t.number) ?? null;
-          setSelected(owner);
-        }}
-      />
+      <TicketGrid map={ticketMap} onTicketClick={(t) => setSelectedNumber(t.number)} />
 
-      {/* Dialog de boleto individual */}
-      <Dialog open={selected !== null} onOpenChange={(open) => !open && setSelected(null)}>
+      {/* Dialog de boleto individual (el detalle se carga bajo demanda) */}
+      <Dialog open={selectedNumber !== null} onOpenChange={(open) => !open && setSelectedNumber(null)}>
         <DialogContent>
+          {selectedNumber !== null && detailQuery.isLoading && <PageLoader label="Cargando boleto..." />}
           {selected && (
             <>
               <DialogHeader>
@@ -210,6 +203,20 @@ export default function RaffleTickets() {
                   <TicketStatusBadge status={selected.status as TicketStatus} />
                 </div>
 
+                {/* Oportunidades: marca de regalo + boleto manual que lo generó */}
+                {selected.isGift && (
+                  <div className="flex items-center justify-between rounded-lg bg-primary/5 px-3 py-2">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+                      <Gift className="h-4 w-4" /> Boleto de regalo
+                    </span>
+                    {selected.parentDisplayNumber && (
+                      <span className="text-xs text-muted-foreground">
+                        de <span className="font-mono font-semibold">{selected.parentDisplayNumber}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {selected.buyer ? (
                   <>
                     <Separator />
@@ -218,7 +225,9 @@ export default function RaffleTickets() {
                         <User className="h-4 w-4 text-muted-foreground" />
                         {selected.buyer.fullName}
                       </p>
-                      <p className="text-sm text-muted-foreground">{selected.buyer.phone}</p>
+                      <p className="text-sm text-muted-foreground tabular-nums">
+                        +{dialCodeForCountry(selected.buyer.country)} {selected.buyer.phone}
+                      </p>
                       {selected.buyer.state && (
                         <p className="text-sm text-muted-foreground">{selected.buyer.state}</p>
                       )}
@@ -253,7 +262,7 @@ export default function RaffleTickets() {
                     Liberar boleto
                   </Button>
                 )}
-                <Button variant="ghost" onClick={() => setSelected(null)}>
+                <Button variant="ghost" onClick={() => setSelectedNumber(null)}>
                   Cerrar
                 </Button>
               </DialogFooter>

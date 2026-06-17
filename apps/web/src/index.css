@@ -184,6 +184,58 @@
     background-repeat: no-repeat;
     animation: brand-shine 1.9s ease-in-out infinite;
   }
+  /* Destello del sello "Estos sorteos son seguros": efecto de "pulido" — una
+     línea de brillo delgada que cruza la píldora despacio (como al pulir un
+     metal) y descansa unos segundos antes de la siguiente pasada. Mismo
+     lenguaje del BrandLoader (barrido diagonal 115° por background-position),
+     pero más fino, más lento y con núcleo azul-blanco para verse sobre claro. */
+  @keyframes seal-shine {
+    0% {
+      background-position: 100% 0;
+    }
+    55%,
+    100% {
+      background-position: 0% 0;
+    }
+  }
+  .safe-seal-shine {
+    background-image: linear-gradient(
+      115deg,
+      transparent 48%,
+      rgba(37, 99, 235, 0.1) 49%,
+      rgba(150, 180, 255, 0.55) 50%,
+      rgba(37, 99, 235, 0.1) 51%,
+      transparent 52%
+    );
+    background-size: 300% 100%;
+    background-repeat: no-repeat;
+    animation: seal-shine 7s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+  /* Destello "pulido" blanco que barre la tira de promoción (PromoBanner).
+     Misma pasada diagonal del sello, pero blanca y un poco más ancha para
+     leerse sobre el degradado de color de la tira. */
+  @keyframes promo-shine {
+    0% {
+      background-position: 100% 0;
+    }
+    45%,
+    100% {
+      background-position: 0% 0;
+    }
+  }
+  .promo-shine {
+    background-image: linear-gradient(
+      115deg,
+      transparent 44%,
+      rgba(255, 255, 255, 0.08) 47%,
+      rgba(255, 255, 255, 0.5) 50%,
+      rgba(255, 255, 255, 0.08) 53%,
+      transparent 56%
+    );
+    background-size: 300% 100%;
+    background-repeat: no-repeat;
+    animation: promo-shine 5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
   /* Gradiente de texto de marca */
   .text-gradient-brand {
     background: linear-gradient(120deg, #fff 20%, #6fa0ff 55%, #1a4dff 100%);

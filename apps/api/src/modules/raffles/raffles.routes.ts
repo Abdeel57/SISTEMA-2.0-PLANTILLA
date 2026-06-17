@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { Prisma } from '@prisma/client';
 import { createRaffleSchema, updateRaffleSchema, slugify } from '@bismark/shared';
 import { prisma } from '../../lib/prisma.js';
 import { validate } from '../../lib/http.js';
@@ -6,7 +7,7 @@ import { badRequest, conflict } from '../../lib/errors.js';
 import { requireRifero } from '../../middlewares/auth.js';
 import { loadOwnedRaffle } from '../../lib/ownership.js';
 import { assertCanPublishRaffle } from '../../lib/plan.js';
-import { generateTickets, hasCommittedTickets } from '../../lib/tickets.js';
+import { generateAllTickets, hasCommittedTickets } from '../../lib/tickets.js';
 import { getRaffleStats } from '../../lib/stats.js';
 import { toRaffleDTO } from '../../lib/serializers.js';
 import { logActivity } from '../../lib/activity.js';
@@ -119,6 +120,10 @@ export default async function rafflesRoutes(app: FastifyInstance): Promise<void>
         reserveMinutes: data.reserveMinutes ?? profile.defaultReserveMinutes,
         allowWinnerPublication: data.allowWinnerPublication ?? true,
         useDigitalDraw: data.useDigitalDraw ?? false,
+        showCountdown: data.showCountdown ?? true,
+        opportunities: data.opportunities ?? 1,
+        pricingTiers: (data.pricingTiers ?? []) as unknown as Prisma.InputJsonValue,
+        pricingBundles: (data.pricingBundles ?? []) as unknown as Prisma.InputJsonValue,
         status: 'DRAFT',
         images: data.images?.length
           ? { create: data.images.map((url, i) => ({ url, sortOrder: i })) }
@@ -126,7 +131,7 @@ export default async function rafflesRoutes(app: FastifyInstance): Promise<void>
       },
     });
 
-    await generateTickets(raffle.id, ticketStart, data.totalTickets, data.ticketFormat ?? 3);
+    await generateAllTickets(raffle.id, ticketStart, data.totalTickets, data.ticketFormat ?? 3, data.opportunities ?? 1);
     await logActivity({
       userId: request.auth!.userId,
       type: 'RAFFLE',
@@ -150,13 +155,20 @@ export default async function rafflesRoutes(app: FastifyInstance): Promise<void>
     const raffle = await loadOwnedRaffle(id, request.auth!);
     const data = validate(updateRaffleSchema, request.body);
 
+    const opportunitiesChange =
+      data.opportunities !== undefined && data.opportunities !== raffle.opportunities;
     const structuralChange =
       (data.totalTickets !== undefined && data.totalTickets !== raffle.totalTickets) ||
       (data.ticketStart !== undefined && data.ticketStart !== raffle.ticketStart) ||
-      (data.ticketFormat !== undefined && data.ticketFormat !== raffle.ticketFormat);
+      (data.ticketFormat !== undefined && data.ticketFormat !== raffle.ticketFormat) ||
+      opportunitiesChange;
 
     if (structuralChange) {
       if (await hasCommittedTickets(id)) {
+        // Mensaje específico para oportunidades (Opción A: bloqueo si ya hay ventas).
+        if (opportunitiesChange) {
+          throw conflict('No puedes modificar las oportunidades porque esta rifa ya tiene órdenes generadas.');
+        }
         throw conflict('No puedes cambiar la numeración: ya hay boletos apartados o pagados.');
       }
       // Editar borradores es libre (sin plan). El límite de boletos del plan se
@@ -164,12 +176,13 @@ export default async function rafflesRoutes(app: FastifyInstance): Promise<void>
       const newTotal = data.totalTickets ?? raffle.totalTickets;
       const newStart = data.ticketStart ?? raffle.ticketStart;
       const newFormat = data.ticketFormat ?? raffle.ticketFormat;
-      // Regenerar boletos desde cero (sólo DRAFT sin compromisos).
+      const newOpportunities = data.opportunities ?? raffle.opportunities;
+      // Regenerar boletos desde cero (manuales + regalos). Sólo DRAFT sin compromisos.
       await prisma.ticketNumber.deleteMany({ where: { raffleId: id } });
-      await generateTickets(id, newStart, newTotal, newFormat);
+      await generateAllTickets(id, newStart, newTotal, newFormat, newOpportunities);
       await prisma.raffle.update({
         where: { id },
-        data: { ticketEnd: newStart + newTotal - 1 },
+        data: { ticketEnd: newStart + newTotal - 1, opportunities: newOpportunities },
       });
     }
 
@@ -202,6 +215,14 @@ export default async function rafflesRoutes(app: FastifyInstance): Promise<void>
         ...(rest.reserveMinutes !== undefined ? { reserveMinutes: rest.reserveMinutes as number } : {}),
         ...(rest.allowWinnerPublication !== undefined ? { allowWinnerPublication: rest.allowWinnerPublication as boolean } : {}),
         ...(rest.useDigitalDraw !== undefined ? { useDigitalDraw: rest.useDigitalDraw as boolean } : {}),
+        ...(rest.showCountdown !== undefined ? { showCountdown: rest.showCountdown as boolean } : {}),
+        ...(rest.pricingTiers !== undefined ? { pricingTiers: rest.pricingTiers as Prisma.InputJsonValue } : {}),
+        ...(rest.pricingBundles !== undefined ? { pricingBundles: rest.pricingBundles as Prisma.InputJsonValue } : {}),
+        ...(rest.promoEnabled !== undefined ? { promoEnabled: rest.promoEnabled as boolean } : {}),
+        ...(rest.promoTitle !== undefined ? { promoTitle: (rest.promoTitle as string) || null } : {}),
+        ...(rest.promoSubtitle !== undefined ? { promoSubtitle: (rest.promoSubtitle as string) || null } : {}),
+        ...(rest.promoColorFrom !== undefined ? { promoColorFrom: (rest.promoColorFrom as string) || null } : {}),
+        ...(rest.promoColorTo !== undefined ? { promoColorTo: (rest.promoColorTo as string) || null } : {}),
       },
     });
 
@@ -236,5 +257,31 @@ export default async function rafflesRoutes(app: FastifyInstance): Promise<void>
     await loadOwnedRaffle(id, request.auth!);
     await prisma.raffle.update({ where: { id }, data: { status: 'CANCELLED' } });
     return { raffle: await raffleDTO(id) };
+  });
+
+  // DELETE /raffles/:id — eliminar una rifa por completo (boletos, órdenes,
+  // imágenes y promociones se borran en cascada). Protegido: una rifa con pagos
+  // confirmados NO se borra (conserva el historial de dinero real); para esos
+  // casos el rifero debe usar "Cancelar".
+  app.delete('/raffles/:id', { preHandler: requireRifero }, async (request) => {
+    const { id } = request.params as { id: string };
+    await loadOwnedRaffle(id, request.auth!);
+
+    const paidCount = await prisma.order.count({ where: { raffleId: id, status: 'PAID' } });
+    if (paidCount > 0) {
+      throw conflict(
+        'No puedes eliminar una rifa con pagos confirmados. Cancélala para conservar el historial de ventas.',
+      );
+    }
+
+    // Borra ganadores primero (su FK hacia el boleto es restrictiva); el resto
+    // (boletos, órdenes, imágenes, promociones) cae por cascada al borrar la rifa.
+    await prisma.$transaction([
+      prisma.winner.deleteMany({ where: { raffleId: id } }),
+      prisma.raffle.delete({ where: { id } }),
+    ]);
+
+    await logActivity({ userId: request.auth!.userId, type: 'RAFFLE', action: 'delete_raffle', meta: { raffleId: id } });
+    return { ok: true };
   });
 }

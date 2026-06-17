@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -14,18 +14,26 @@ import {
   Triangle,
   X,
   Hash,
+  ChevronDown,
+  FileText,
 } from 'lucide-react';
 import {
   formatMXN,
   formatDateMX,
   waReserveMessage,
   buildWhatsappLink,
+  computeOrderPrice,
+  nextDealHint,
   MEXICAN_STATES,
+  US_STATES,
+  PHONE_COUNTRIES,
   type BuyerInput,
   type OrderReceiptDTO,
 } from '@bismark/shared';
 import { ApiError, apiAssetUrl } from '@/lib/api';
 import { sanitizeHtml, isRichHtml } from '@/lib/sanitizeHtml';
+import { decodeTicketMap, applyTicketChanges, type TicketMapData } from '@/lib/ticketMap';
+import { useTicketChanges } from '@/lib/pwa/useTicketChanges';
 import { track } from '@/lib/analytics';
 import { publicService } from '@/services/publicSite';
 import { ticketService } from '@/services/tickets';
@@ -51,19 +59,23 @@ import { BismarkCta } from '@/components/brand/BismarkCta';
 import { TicketGrid } from '@/components/TicketGrid';
 import { GoToNumber } from '@/components/public/GoToNumber';
 import { RaffleBrandBar, BAR_TOTAL } from '@/components/public/RaffleBrandBar';
+import { PromoBanner } from '@/components/public/PromoBanner';
 import { PaymentCard } from '@/components/public/PaymentCard';
 import { SafeSeal } from '@/components/public/SafeSeal';
 import { RaffleCountdown } from '@/components/public/RaffleCountdown';
 import { ReserveTimer } from '@/components/public/ReserveTimer';
 import { recallBuyer, rememberBuyer } from '@/lib/offline/buyerMemory';
+import { rememberReferral, getReferral } from '@/lib/referral';
 import { toast } from 'sonner';
 
 interface Props {
   subdomain?: string;
 }
 
-// Formulario del comprador (estilo referencia: WhatsApp · Nombre(s) · Apellidos · Estado).
+// Formulario del comprador (estilo referencia: País · WhatsApp · Nombre(s) · Apellidos · Estado).
 const reserveFormSchema = z.object({
+  // País del teléfono: México (+52) por defecto; USA (+1) para clientes en USA.
+  country: z.string().min(2).max(2).default('MX'),
   whatsapp: z.string().min(10, 'Escribe tu WhatsApp (10 dígitos)').max(20),
   nombres: z.string().trim().min(2, 'Escribe tu(s) nombre(s)').max(60),
   // Opcional: permite nombres de una sola palabra y el prellenado de nombres ya guardados.
@@ -121,9 +133,15 @@ function PrizeGallery({ images, title }: { images: { id: string; url: string }[]
 }
 
 export default function PublicRaffle({ subdomain }: Props) {
-  const params = useParams<{ slug: string; eventParam: string }>();
+  const params = useParams<{ slug: string; eventParam: string; ref?: string }>();
   const slug = subdomain ?? params.slug ?? '';
   const eventNumber = parseInt((params.eventParam ?? '').replace(/^e/i, ''), 10);
+
+  // Captura la referencia del vendedor (de /eN/CODE o ?ref=CODE) para atribuir
+  // la venta al apartar. Persiste en la sesión aunque el comprador navegue.
+  useEffect(() => {
+    rememberReferral(params.ref ?? new URLSearchParams(window.location.search).get('ref'));
+  }, [params.ref]);
 
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -143,15 +161,25 @@ export default function PublicRaffle({ subdomain }: Props) {
 
   const raffle = data?.raffle;
 
-  const ticketsQuery = useQuery({
-    queryKey: ['public-raffle-tickets', raffle?.id],
-    queryFn: () => publicService.raffleTickets(raffle!.id),
+  // Mapa compacto de boletos (1 byte por boleto): escala a 1,000,000.
+  const mapQuery = useQuery({
+    queryKey: ['public-ticket-map', raffle?.id],
+    queryFn: () => publicService.raffleTicketMap(raffle!.id),
     enabled: !!raffle?.id,
+  });
+  const [ticketMap, setTicketMap] = useState<TicketMapData | null>(null);
+  useEffect(() => {
+    if (mapQuery.data) setTicketMap(decodeTicketMap(mapQuery.data));
+  }, [mapQuery.data]);
+
+  // Tiempo real: parcha el mapa con los cambios incrementales (cada ~4.5 s).
+  useTicketChanges(raffle?.id, (items) => {
+    setTicketMap((m) => (m ? applyTicketChanges(m, items) : m));
   });
 
   const form = useForm<ReserveFormInput>({
     resolver: zodResolver(reserveFormSchema),
-    defaultValues: { whatsapp: '', nombres: '', apellidos: '', state: '' },
+    defaultValues: { country: 'MX', whatsapp: '', nombres: '', apellidos: '', state: '' },
   });
 
   const reserveMutation = useMutation({
@@ -159,6 +187,8 @@ export default function PublicRaffle({ subdomain }: Props) {
       ticketService.reserve(raffle!.id, {
         buyer: { ...buyer, whatsapp: buyer.whatsapp || buyer.phone },
         ticketNumbers: selected,
+        // Atribuye la venta al vendedor cuyo link trajo al comprador (si hay).
+        sellerCode: getReferral() ?? '',
       }),
     onSuccess: (res, variables) => {
       track('order_reserved', {
@@ -167,23 +197,24 @@ export default function PublicRaffle({ subdomain }: Props) {
       });
       setBuyerOpen(false);
       setSelected([]);
-      form.reset({ whatsapp: '', nombres: '', apellidos: '', state: '' });
-      void queryClient.invalidateQueries({ queryKey: ['public-raffle-tickets', raffle?.id] });
+      form.reset({ country: 'MX', whatsapp: '', nombres: '', apellidos: '', state: '' });
+      void queryClient.invalidateQueries({ queryKey: ['public-ticket-map', raffle?.id] });
       // Al apartar va a "Verificar boletos" (con su teléfono): ahí ve su orden, puede
       // subir el comprobante, ver los números de cuenta y, una vez que el organizador
       // confirme el pago, abrir su boleto digital.
       const tel = encodeURIComponent(variables.phone);
-      navigate(subdomain ? `/verificar?tel=${tel}` : `/r/${slug}/verificar?tel=${tel}`);
+      navigate(`/verificar?tel=${tel}`);
     },
     onError: (err) => {
       // Boletos ya no disponibles u otro error: refrescar cuadrícula.
       toast.error(err instanceof ApiError ? err.message : 'No se pudo apartar. Intenta de nuevo.');
-      void queryClient.invalidateQueries({ queryKey: ['public-raffle-tickets', raffle?.id] });
+      void queryClient.invalidateQueries({ queryKey: ['public-ticket-map', raffle?.id] });
       setBuyerOpen(false);
     },
   });
 
-  useDocumentTitle(raffle ? `${raffle.title} · ${raffle.rifero.publicName}` : undefined);
+  // La pestaña muestra el nombre de la página de rifas, no el del evento.
+  useDocumentTitle(raffle?.rifero.publicName);
 
   if (isLoading) {
     return <BrandLoader />;
@@ -209,14 +240,25 @@ export default function PublicRaffle({ subdomain }: Props) {
   }
 
   const rifero = raffle.rifero;
-  // Perfil del rifero: en subdominio es la raíz; en local va bajo /r/{slug}.
-  const riferoHref = subdomain ? '/' : `/r/${rifero.slug}`;
-  const verificarHref = subdomain ? '/verificar' : `/r/${rifero.slug}/verificar`;
+  // Single-tenant: el perfil del rifero es la raíz del sitio.
+  const riferoHref = '/';
+  const verificarHref = '/verificar';
   const pay = raffle.paymentProfile;
   const hasPayInfo = !!(pay.holderName || pay.bank || pay.clabe || pay.cardNumber || pay.concept || pay.instructions);
   // El cintillo (RaffleBrandBar) tiene altura fija; el panel de selección va justo debajo.
   const panelTopPx = BAR_TOTAL + 6;
   const heroPadTopPx = 30;
+
+  // Precio con promociones de volumen (niveles + paquetes). El mismo cálculo lo
+  // hace el backend al apartar, así que lo que ve el comprador es lo que paga.
+  const pricingCfg = {
+    basePrice: raffle.ticketPrice,
+    tiers: raffle.pricingTiers,
+    bundles: raffle.pricingBundles,
+  };
+  const priceResult = computeOrderPrice(selected.length, pricingCfg);
+  const dealHint = nextDealHint(selected.length, pricingCfg);
+  const hasDeals = raffle.pricingTiers.length > 0 || raffle.pricingBundles.length > 0;
 
   const onSubmitBuyer = (values: ReserveFormInput) => {
     // El WhatsApp es el contacto (también el teléfono); el nombre se arma con nombres + apellidos.
@@ -226,6 +268,7 @@ export default function PublicRaffle({ subdomain }: Props) {
         .filter(Boolean)
         .join(' '),
       phone: values.whatsapp,
+      country: values.country || 'MX',
       whatsapp: values.whatsapp,
       state: (values.state || '').toUpperCase(),
     };
@@ -239,9 +282,15 @@ export default function PublicRaffle({ subdomain }: Props) {
     const saved = recallBuyer();
     if (saved) {
       const { nombres, apellidos } = splitName(saved.fullName);
-      form.reset({ whatsapp: saved.whatsapp || saved.phone || '', nombres, apellidos, state: saved.state || '' });
+      form.reset({
+        country: saved.country || 'MX',
+        whatsapp: saved.whatsapp || saved.phone || '',
+        nombres,
+        apellidos,
+        state: saved.state || '',
+      });
     } else {
-      form.reset({ whatsapp: '', nombres: '', apellidos: '', state: '' });
+      form.reset({ country: 'MX', whatsapp: '', nombres: '', apellidos: '', state: '' });
     }
     setBuyerOpen(true);
   };
@@ -258,6 +307,10 @@ export default function PublicRaffle({ subdomain }: Props) {
   // Nombre y apellidos del comprador: se muestran y guardan en MAYÚSCULAS.
   const nombresField = form.register('nombres');
   const apellidosField = form.register('apellidos');
+  // País del teléfono: define la lada (+52 México / +1 USA) y la lista de estados.
+  const selectedCountry = form.watch('country') || 'MX';
+  const statesForCountry = selectedCountry === 'US' ? US_STATES : MEXICAN_STATES;
+  const countryField = form.register('country');
   const toUpperLive =
     (field: { onChange: (e: ChangeEvent<HTMLInputElement>) => void }) =>
     (e: ChangeEvent<HTMLInputElement>) => {
@@ -279,6 +332,20 @@ export default function PublicRaffle({ subdomain }: Props) {
           left={{ line1: 'Métodos', line2: 'de pago', onClick: () => setPayOpen(true) }}
           right={{ line1: 'Sube tu', line2: 'pago aquí', href: verificarHref, pulse: true }}
         />
+
+        {/* ── Promoción/aviso de la rifa (se configura en el panel: Promociones).
+            Fija bajo el cintillo, salvo cuando el panel de apartado está abierto
+            (selección activa): ahí cede el espacio y se desplaza con la página. ── */}
+        {raffle.promoEnabled && raffle.promoTitle && (
+          <PromoBanner
+            title={raffle.promoTitle}
+            subtitle={raffle.promoSubtitle}
+            colorFrom={raffle.promoColorFrom}
+            colorTo={raffle.promoColorTo}
+            sticky={selected.length === 0}
+            topPx={BAR_TOTAL}
+          />
+        )}
 
         {/* ── Panel de selección flotante (se mantiene arriba al deslizar) ── */}
         {selected.length > 0 && (
@@ -313,8 +380,21 @@ export default function PublicRaffle({ subdomain }: Props) {
 
               <p className="mt-2 text-center text-sm font-extrabold uppercase tracking-wide text-[#ffe600] [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
                 {selected.length} {selected.length === 1 ? 'boleto' : 'boletos'} ·{' '}
-                {formatMXN(selected.length * raffle.ticketPrice)}
+                {priceResult.savings > 0 && (
+                  <span className="font-semibold text-white/55 line-through">{formatMXN(priceResult.baseTotal)}</span>
+                )}{' '}
+                {formatMXN(priceResult.total)}
               </p>
+              {priceResult.savings > 0 && (
+                <p className="text-center text-xs font-extrabold uppercase tracking-wide text-emerald-400">
+                  ¡Ahorras {formatMXN(priceResult.savings)}!
+                </p>
+              )}
+              {dealHint && (
+                <p className="text-center text-xs font-semibold text-white/90">
+                  Agrega {dealHint.addQty} más y {dealHint.atQty} boletos te salen en {formatMXN(dealHint.newTotal)}
+                </p>
+              )}
               <p className="text-center text-xs font-semibold text-[#ffe600]/90">
                 Para eliminar, toca el boleto ·{' '}
                 <button type="button" onClick={() => setSelected([])} className="underline hover:text-white">
@@ -364,25 +444,63 @@ export default function PublicRaffle({ subdomain }: Props) {
             </div>
           </div>
 
-          {/* ── Cuenta regresiva al sorteo (debajo de la imagen, mismo fondo del hero) ── */}
-          <RaffleCountdown drawDate={raffle.drawDate} status={raffle.status} />
+          {/* ── Cuenta regresiva al sorteo (debajo de la imagen, mismo fondo del hero).
+              Se puede ocultar por rifa desde el panel (paso "Sorteo y pago"). ── */}
+          {raffle.showCountdown && <RaffleCountdown drawDate={raffle.drawDate} status={raffle.status} />}
         </header>
 
-        {/* ── Tabla de precios (única sección en negro) ── */}
+        {/* ── Tabla de precios (única sección en negro). Cada fila ya refleja la
+            mejor oferta (paquetes/niveles) para esa cantidad. ── */}
         <div className="bg-zinc-950 py-5 text-white">
           <div className="mx-auto max-w-2xl px-4">
             <div className="divide-y divide-white/10 overflow-hidden rounded-2xl bg-white/[0.04] ring-1 ring-white/10">
-              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                <div
-                  key={n}
-                  className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-bold uppercase tracking-wide"
-                >
-                  <span className="text-[var(--rifero-primary)]">{n}</span>
-                  <span>{n === 1 ? 'boleto por' : 'boletos por'}</span>
-                  <span className="tabular-nums">{formatMXN(n * raffle.ticketPrice)}</span>
-                </div>
-              ))}
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
+                const row = computeOrderPrice(n, pricingCfg);
+                return (
+                  <div
+                    key={n}
+                    className="flex items-center justify-center gap-1.5 py-2.5 text-sm font-bold uppercase tracking-wide"
+                  >
+                    <span className="text-[var(--rifero-primary)]">{n}</span>
+                    <span>{n === 1 ? 'boleto por' : 'boletos por'}</span>
+                    {row.savings > 0 && (
+                      <span className="text-xs font-semibold text-white/40 line-through">
+                        {formatMXN(row.baseTotal)}
+                      </span>
+                    )}
+                    <span className="tabular-nums">{formatMXN(row.total)}</span>
+                  </div>
+                );
+              })}
             </div>
+
+            {/* Promociones por cantidad (niveles y paquetes) */}
+            {hasDeals && (
+              <div className="mt-3 flex flex-wrap justify-center gap-2">
+                {raffle.pricingBundles
+                  .slice()
+                  .sort((a, b) => a.qty - b.qty)
+                  .map((b, i) => (
+                    <span
+                      key={`b${i}`}
+                      className="rounded-full bg-[var(--rifero-primary)]/15 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[var(--rifero-primary)] ring-1 ring-[var(--rifero-primary)]/30"
+                    >
+                      {b.qty} boletos por {formatMXN(b.price)}
+                    </span>
+                  ))}
+                {raffle.pricingTiers
+                  .slice()
+                  .sort((a, b) => a.minQty - b.minQty)
+                  .map((t, i) => (
+                    <span
+                      key={`t${i}`}
+                      className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-emerald-400 ring-1 ring-emerald-500/30"
+                    >
+                      Desde {t.minQty}: {formatMXN(t.unitPrice)} c/u
+                    </span>
+                  ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -419,11 +537,11 @@ export default function PublicRaffle({ subdomain }: Props) {
               Ir a mi número
             </button>
 
-            {ticketsQuery.isLoading ? (
+            {!ticketMap ? (
               <BrandLoader fullScreen={false} />
             ) : (
               <TicketGrid
-                tickets={ticketsQuery.data?.items ?? []}
+                map={ticketMap}
                 selectable
                 minimal
                 selected={selected}
@@ -475,12 +593,18 @@ export default function PublicRaffle({ subdomain }: Props) {
             </div>
           )}
 
-          {/* Términos */}
+          {/* Términos (plegados: solo se cargan al pulsar, para los curiosos) */}
           {raffle.terms && (
-            <div className="mt-8">
-              <h2 className="mb-1.5 text-lg font-extrabold">Términos y condiciones</h2>
-              <p className="whitespace-pre-line text-sm text-muted-foreground">{raffle.terms}</p>
-            </div>
+            <details className="group mt-8 overflow-hidden rounded-2xl border bg-card shadow-sm [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex cursor-pointer list-none items-center gap-2.5 px-4 py-3.5 font-display text-base font-extrabold tracking-tight">
+                <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
+                <span className="flex-1">Términos y condiciones</span>
+                <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+              </summary>
+              <p className="whitespace-pre-line border-t px-4 py-3.5 text-sm leading-relaxed text-muted-foreground">
+                {raffle.terms}
+              </p>
+            </details>
           )}
         </div>
 
@@ -557,20 +681,57 @@ export default function PublicRaffle({ subdomain }: Props) {
 
             <p className="mt-2 text-center text-xl font-black uppercase" style={{ color: 'var(--rifero-primary)' }}>
               {selected.length} {selected.length === 1 ? 'boleto' : 'boletos'} por{' '}
-              {formatMXN(selected.length * raffle.ticketPrice)}
+              {priceResult.savings > 0 && (
+                <span className="text-base font-bold text-muted-foreground line-through">
+                  {formatMXN(priceResult.baseTotal)}
+                </span>
+              )}{' '}
+              {formatMXN(priceResult.total)}
             </p>
+            {priceResult.savings > 0 && (
+              <p className="text-center text-sm font-extrabold uppercase text-emerald-600">
+                ¡Ahorras {formatMXN(priceResult.savings)}!
+              </p>
+            )}
 
             <form onSubmit={form.handleSubmit(onSubmitBuyer)} className="mt-5 space-y-3">
-              {/* WhatsApp (blanco con borde) */}
+              {/* País + WhatsApp: la bandera/lada define el +52 (México) o +1 (USA)
+                  para que el comprobante llegue por WhatsApp a cualquier cliente. */}
               <div>
-                <Input
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="tel"
-                  placeholder="Número WhatsApp (10 dígitos)"
-                  className="h-12 rounded-xl border-2 text-base placeholder:font-semibold placeholder:uppercase placeholder:tracking-wide focus-visible:border-[var(--rifero-primary)] focus-visible:ring-[var(--rifero-primary)]"
-                  {...form.register('whatsapp')}
-                />
+                <div className="flex gap-2">
+                  {/* Selector de país (bandera + lada) */}
+                  <div className="relative shrink-0">
+                    <select
+                      aria-label="País del teléfono"
+                      className="h-12 appearance-none rounded-xl border-2 bg-background pl-3 pr-7 text-base font-semibold focus-visible:border-[var(--rifero-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--rifero-primary)]"
+                      {...countryField}
+                      onChange={(e) => {
+                        void countryField.onChange(e);
+                        // Limpia el estado: las listas de México y USA no coinciden.
+                        form.setValue('state', '');
+                      }}
+                    >
+                      {PHONE_COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.flag} +{c.dialCode}
+                        </option>
+                      ))}
+                    </select>
+                    <Triangle className="pointer-events-none absolute right-2 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rotate-180 fill-muted-foreground text-muted-foreground" />
+                  </div>
+
+                  {/* Número WhatsApp (la lada ya se eligió en el selector de la izquierda) */}
+                  <div className="flex-1">
+                    <Input
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      placeholder="WhatsApp (10 dígitos)"
+                      className="h-12 rounded-xl border-2 text-base placeholder:font-semibold placeholder:uppercase placeholder:tracking-wide focus-visible:border-[var(--rifero-primary)] focus-visible:ring-[var(--rifero-primary)]"
+                      {...form.register('whatsapp')}
+                    />
+                  </div>
+                </div>
                 {form.formState.errors.whatsapp && (
                   <p className="mt-1 text-sm text-destructive">{form.formState.errors.whatsapp.message}</p>
                 )}
@@ -607,8 +768,10 @@ export default function PublicRaffle({ subdomain }: Props) {
                 className="h-12 rounded-xl border-transparent bg-muted text-base uppercase tracking-wide focus-visible:border-[var(--rifero-primary)] focus-visible:bg-background focus-visible:ring-[var(--rifero-primary)]"
                 {...form.register('state')}
               >
-                <option value="">Selecciona estado</option>
-                {MEXICAN_STATES.map((s) => (
+                <option value="">
+                  {selectedCountry === 'US' ? 'Selecciona estado (USA)' : 'Selecciona estado'}
+                </option>
+                {statesForCountry.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
@@ -665,8 +828,25 @@ export default function PublicRaffle({ subdomain }: Props) {
 
                 {/* Boletos y total */}
                 <div className="rounded-xl border p-3">
-                  <p className="mb-1 text-[11px] text-muted-foreground">Tus boletos</p>
+                  <p className="mb-1 text-[11px] text-muted-foreground">
+                    {receipt.giftNumbers.length > 0 ? 'Boletos elegidos' : 'Tus boletos'}
+                  </p>
                   <p className="text-sm font-semibold tabular-nums">{receipt.ticketNumbers.join(', ')}</p>
+
+                  {/* Oportunidades de regalo */}
+                  {receipt.giftNumbers.length > 0 && (
+                    <div className="mt-3 rounded-lg bg-[var(--rifero-primary)]/8 p-2.5">
+                      <p className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--rifero-primary)]">
+                        <Trophy className="h-3.5 w-3.5" /> Oportunidades de regalo
+                      </p>
+                      <p className="mt-0.5 text-sm font-semibold tabular-nums">{receipt.giftNumbers.join(', ')}</p>
+                      <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
+                        Por cada boleto seleccionado recibiste oportunidades adicionales de regalo. Participas con{' '}
+                        <strong>{receipt.ticketNumbers.length + receipt.giftNumbers.length}</strong> números en total.
+                      </p>
+                    </div>
+                  )}
+
                   <Separator className="my-3" />
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Total a pagar</span>
@@ -728,9 +908,7 @@ export default function PublicRaffle({ subdomain }: Props) {
       <GoToNumber
         open={goToOpen}
         onOpenChange={setGoToOpen}
-        tickets={ticketsQuery.data?.items ?? []}
-        ticketFormat={raffle.ticketFormat}
-        totalTickets={raffle.totalTickets}
+        map={ticketMap}
         selected={selected}
         onSelect={setSelected}
       />
@@ -750,7 +928,7 @@ export default function PublicRaffle({ subdomain }: Props) {
               const f = folio.trim().toUpperCase();
               if (!f) return;
               setFolioOpen(false);
-              navigate(subdomain ? `/pago/${f}` : `/r/${slug}/pago/${f}`);
+              navigate(`/pago/${f}`);
             }}
             className="space-y-3"
           >

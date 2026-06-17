@@ -15,14 +15,11 @@ export function SafeSeal() {
         hidden && 'translate-y-full opacity-0',
       )}
     >
-      <div className="relative inline-flex items-center gap-1 overflow-hidden rounded-full border border-blue-200 bg-white/95 px-2.5 py-0.5 text-[10px] font-bold text-blue-600 shadow-md backdrop-blur dark:border-blue-900/60 dark:bg-zinc-900/95 dark:text-blue-400">
-        <VerifiedBadge size={12} />
+      <div className="relative inline-flex items-center gap-1.5 overflow-hidden rounded-full border border-blue-200 bg-white/95 px-3 py-[3px] text-[12.5px] font-bold text-blue-600 shadow-md backdrop-blur dark:border-blue-900/60 dark:bg-zinc-900/95 dark:text-blue-400">
+        <VerifiedBadge size={15} />
         Estos sorteos son seguros
-        {/* Reflejo/brillo que cruza la etiqueta cada pocos segundos. */}
-        <span
-          className="pointer-events-none absolute inset-0 animate-shine"
-          style={{ background: 'linear-gradient(110deg, transparent 40%, rgba(37,99,235,0.22) 50%, transparent 60%)' }}
-        />
+        {/* Destello diagonal que barre la etiqueta (mismo lenguaje que el BrandLoader). */}
+        <span aria-hidden className="safe-seal-shine pointer-events-none absolute inset-0" />
       </div>
     </div>
   );

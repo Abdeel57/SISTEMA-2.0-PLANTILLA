@@ -20,17 +20,17 @@ import { formatMXN } from '@bismark/shared';
 import { raffleService } from '@/services/raffles';
 import { riferoService } from '@/services/riferos';
 import { useAuthStore } from '@/store/auth';
-import { buildRiferoUrl } from '@/lib/site';
+import { buildRiferoShareUrl } from '@/lib/site';
 import { PageLoader } from '@/components/ui/misc';
 import { PanelHeader, StatTile, SectionLabel, PANEL_CARD } from '@/components/owner/PanelKit';
 import { cn } from '@/lib/cn';
 import { toast } from 'sonner';
 
 const QUICK_ACTIONS: { to: string; label: string; icon: LucideIcon; accent?: boolean }[] = [
-  { to: '/panel/admin/rifas/nueva', label: 'Nueva rifa', icon: Plus, accent: true },
-  { to: '/panel/admin/ordenes', label: 'Órdenes', icon: Receipt },
-  { to: '/panel', label: 'Ver mi página', icon: ExternalLink },
-  { to: '/panel/admin/reportes', label: 'Reportes', icon: FileBarChart },
+  { to: '/admin/rifas/nueva', label: 'Nueva rifa', icon: Plus, accent: true },
+  { to: '/admin/ordenes', label: 'Órdenes', icon: Receipt },
+  { to: '/', label: 'Ver mi página', icon: ExternalLink },
+  { to: '/admin/reportes', label: 'Reportes', icon: FileBarChart },
 ];
 
 const SHARED_KEY = 'bsk-shared-page';
@@ -108,7 +108,6 @@ export default function Home() {
 
   const summary = summaryQuery.data?.summary;
   const profile = profileQuery.data?.profile;
-  const hasActivePlan = profile?.hasActivePlan ?? true;
   const raffles = rafflesQuery.data?.items ?? [];
 
   // Estado de los primeros pasos
@@ -120,7 +119,7 @@ export default function Home() {
 
   const sharePage = () => {
     if (!profile) return;
-    const url = buildRiferoUrl(profile.slug);
+    const url = buildRiferoShareUrl(profile.slug);
     const finish = () => {
       localStorage.setItem(SHARED_KEY, '1');
       setShared(true);
@@ -145,21 +144,6 @@ export default function Home() {
     <div>
       <PanelHeader title={`Hola, ${firstName}`} description="Este es el resumen de tus rifas." />
 
-      {!profileQuery.isLoading && !hasActivePlan && (
-        <Link to="/panel/admin/plan" className="mb-5 block">
-          <div className="flex items-center gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-[0_12px_28px_-18px_rgba(180,120,0,0.35)] transition-colors hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-400/90 text-amber-950">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-bold leading-tight">Activa un plan para publicar</p>
-              <p className="text-sm opacity-90">Tu página está lista, pero necesitas un plan para recibir compradores.</p>
-            </div>
-            <ChevronRight className="h-5 w-5 shrink-0" />
-          </div>
-        </Link>
-      )}
-
       {/* ── Primeros pasos (desaparece al completarse) ── */}
       {setupLoaded && !allDone && (
         <div className={cn(PANEL_CARD, 'mb-5 p-4')}>
@@ -175,21 +159,21 @@ export default function Home() {
               title="Configura tus datos de pago"
               desc="A qué cuenta te pagan tus compradores."
               done={hasPayment}
-              to="/panel/admin/pagos"
+              to="/admin/pagos"
             />
             <StepRow
               n={2}
               title="Crea tu primera rifa"
               desc="Premio, boletos, precio y fecha del sorteo."
               done={hasRaffle}
-              to="/panel/admin/rifas/nueva"
+              to="/admin/rifas/nueva"
             />
             <StepRow
               n={3}
               title="Publícala"
               desc="Hazla visible para tus compradores."
               done={hasPublished}
-              to="/panel/admin/rifas"
+              to="/admin/rifas"
             />
             <StepRow
               n={4}
@@ -206,12 +190,12 @@ export default function Home() {
         <PageLoader />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             <StatTile
               icon={Receipt}
               label="Por cobrar"
               value={summary?.pendingOrders ?? 0}
-              to="/panel/admin/ordenes/pendientes"
+              to="/admin/ordenes/pendientes"
               accent
             />
             <StatTile icon={CheckCircle2} label="Pagadas" value={summary?.paidOrders ?? 0} />
@@ -222,7 +206,7 @@ export default function Home() {
           </div>
 
           <SectionLabel>Accesos rápidos</SectionLabel>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {QUICK_ACTIONS.map((action) => {
               const Icon = action.icon;
               return (

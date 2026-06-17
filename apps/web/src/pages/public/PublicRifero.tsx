@@ -1,12 +1,13 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { Ticket, Clock, ChevronDown, ArrowRight, PlayCircle, Trophy } from 'lucide-react';
+import { Ticket, Clock, ChevronDown, ArrowRight, PlayCircle, Trophy, QrCode } from 'lucide-react';
 import {
   RaffleStatus,
-  eventLabel,
   formatMXN,
   formatDateMX,
   buildWhatsappLink,
+  DEFAULT_FAQS,
   type PublicRaffleSummaryDTO,
 } from '@bismark/shared';
 import { apiAssetUrl } from '@/lib/api';
@@ -23,6 +24,7 @@ import { PoweredBy } from '@/components/brand/PoweredBy';
 import { BismarkCta } from '@/components/brand/BismarkCta';
 import { LazyImage } from '@/components/public/LazyImage';
 import { SafeSeal } from '@/components/public/SafeSeal';
+import { rememberReferral } from '@/lib/referral';
 
 interface Props {
   subdomain?: string;
@@ -67,20 +69,6 @@ function RafflePost({ raffle, basePath }: { raffle: PublicRaffleSummaryDTO; base
           </div>
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent" />
-
-        <span
-          className="absolute left-3 top-3 rounded-md px-2 py-0.5 font-display text-[11px] font-extrabold text-white shadow"
-          style={{ background: BRAND }}
-        >
-          {eventLabel(raffle.eventNumber)}
-        </span>
-        <span
-          className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide shadow ${
-            finished ? 'bg-white/90 text-foreground' : 'bg-emerald-500 text-white'
-          }`}
-        >
-          {finished ? 'Finalizada' : 'Disponible'}
-        </span>
 
         <div className="absolute bottom-2.5 left-3 flex items-center gap-2 text-white">
           {days !== null && (
@@ -181,6 +169,23 @@ function WinnerCard({ w }: { w: PublicRiferoWinner }) {
   );
 }
 
+// Convierte la mención "Verificar mis boletos" de una respuesta en enlace real
+// (las respuestas personalizadas son texto plano).
+function linkifyAnswer(text: string, verificarHref: string): React.ReactNode {
+  const phrase = 'Verificar mis boletos';
+  const idx = text.indexOf(phrase);
+  if (idx === -1) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <Link to={verificarHref} className="font-semibold underline" style={{ color: BRAND }}>
+        {phrase}
+      </Link>
+      {text.slice(idx + phrase.length)}
+    </>
+  );
+}
+
 // ── Pregunta frecuente (acordeón nativo, numerado) ──────────────
 function Faq({ n, q, children }: { n: number; q: string; children: React.ReactNode }) {
   return (
@@ -225,8 +230,15 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 export default function PublicRifero({ subdomain, previewData }: Props) {
   const params = useParams<{ slug: string }>();
   const slug = subdomain ?? params.slug ?? previewData?.rifero?.slug ?? '';
-  const basePath = subdomain ? '' : `/r/${slug}`;
-  const verificarHref = `${basePath}/verificar`;
+  // Single-tenant: el perfil vive en la raíz; todos los enlaces son absolutos.
+  const basePath = '';
+  const verificarHref = '/verificar';
+
+  // Captura ?ref=CODE (link general del vendedor) para atribuir la venta luego.
+  useEffect(() => {
+    if (previewData) return;
+    rememberReferral(new URLSearchParams(window.location.search).get('ref'));
+  }, [previewData]);
 
   const query = useQuery({
     queryKey: ['public-rifero', slug],
@@ -271,6 +283,8 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
 
   const active = rifero.raffles.filter((r) => r.status === RaffleStatus.PUBLISHED);
   const finished = rifero.raffles.filter((r) => r.status === RaffleStatus.FINISHED);
+  // FAQ personalizadas del rifero; si no ha guardado las suyas, las de fábrica.
+  const faqs = rifero.faqs && rifero.faqs.length > 0 ? rifero.faqs : DEFAULT_FAQS;
 
   return (
     <RiferoTheme primaryColor={rifero.primaryColor} secondaryColor={rifero.secondaryColor}>
@@ -478,6 +492,18 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
             )}
           </section>
 
+          {/* ── Sorteos realizados (rifas finalizadas: ver resultado) ── */}
+          {finished.length > 0 && (
+            <section className="mt-10 lg:mt-14">
+              <SectionTitle>Sorteos realizados</SectionTitle>
+              <div className={finished.length > 1 ? 'grid gap-4 lg:grid-cols-2 lg:gap-5' : 'mx-auto grid max-w-xl gap-4'}>
+                {finished.map((r) => (
+                  <RafflePost key={r.id} raffle={r} basePath={basePath} />
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* ── Ganadores ── */}
           {winners.length > 0 && (
             <section className="mt-10 lg:mt-14">
@@ -490,52 +516,64 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
             </section>
           )}
 
-          {/* ── Preguntas frecuentes ── */}
-          <section className="mx-auto mt-10 max-w-3xl lg:mt-14">
-            <SectionTitle>Preguntas frecuentes</SectionTitle>
-            <div className="grid gap-2.5">
-              <Faq n={1} q="¿Cómo participo?">
-                Entra a la rifa, elige tus números disponibles, apártalos con tu nombre y teléfono, y realiza tu pago.
-              </Faq>
-              <Faq n={2} q="¿Cómo pago mis boletos?">
-                Haz tu transferencia o depósito a los datos del rifero (los ves en “Métodos de pago”) y sube tu
-                comprobante. El organizador confirma tu pago.
-              </Faq>
-              <Faq n={3} q="¿Dónde veo mis boletos?">
-                En{' '}
-                <Link to={verificarHref} className="font-semibold underline" style={{ color: BRAND }}>
-                  Verificar mis boletos
-                </Link>{' '}
-                buscas con tu teléfono tus boletos apartados o pagados, subes tu comprobante y abres tu boleto digital.
-              </Faq>
-              <Faq n={4} q="¿Cuándo se realiza el sorteo?">
-                En la fecha indicada en cada rifa. Tu boleto pagado es tu boleto participante.
-              </Faq>
-              <Faq n={5} q="¿Es confiable?">
-                {rifero.verified ? 'Este rifero está verificado. ' : ''}
-                Cada boleto pagado genera un boleto digital con código QR para validarlo el día del sorteo.
-              </Faq>
-            </div>
-          </section>
+          {/* ── Preguntas frecuentes (personalizables desde el admin) ── */}
+          {faqs.length > 0 && (
+            <section className="mx-auto mt-10 max-w-3xl lg:mt-14">
+              <SectionTitle>Preguntas frecuentes</SectionTitle>
+              <div className="grid gap-2.5">
+                {faqs.map((f, i) => (
+                  <Faq key={`${i}-${f.q}`} n={i + 1} q={f.q}>
+                    {linkifyAnswer(f.a, verificarHref)}
+                  </Faq>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* ── Cierre de confianza ── */}
           <footer className="mx-auto mt-14 max-w-3xl">
-            <div className="flex flex-col items-center gap-3 rounded-2xl border bg-card px-6 py-6 text-center shadow-sm">
-              {rifero.verified && (
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold"
-                  style={{ background: BRAND_SOFT, color: BRAND }}
-                >
-                  <VerifiedBadge size={15} /> Rifero verificado
-                </span>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Cada boleto pagado genera un boleto digital con QR.{' '}
-                <Link to={verificarHref} className="font-semibold underline" style={{ color: BRAND }}>
-                  Verifica los tuyos aquí
-                </Link>
-                .
+            <div className="relative overflow-hidden rounded-2xl border bg-card px-6 py-7 text-center shadow-sm sm:px-10">
+              {/* Hairline superior en el color del rifero (mismo lenguaje que los títulos de sección) */}
+              <span
+                aria-hidden
+                className="absolute inset-x-0 top-0 h-[3px]"
+                style={{
+                  background:
+                    'linear-gradient(90deg, transparent, color-mix(in srgb, var(--rifero-primary) 70%, transparent), transparent)',
+                }}
+              />
+
+              <div
+                className="mx-auto grid h-12 w-12 place-items-center rounded-xl"
+                style={{ background: BRAND_SOFT, color: BRAND }}
+              >
+                <QrCode className="h-6 w-6" />
+              </div>
+
+              <h2 className="mt-3 font-display text-lg font-extrabold tracking-[-0.02em] sm:text-xl">
+                Compra con confianza
+                <span className="text-[var(--rifero-primary)]">.</span>
+              </h2>
+              <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">
+                Cada boleto pagado genera un boleto digital con código QR para validarlo el día del sorteo.
               </p>
+
+              <Button
+                asChild
+                size="lg"
+                className="mt-4 rounded-full font-display font-extrabold uppercase tracking-wide text-white"
+                style={{ background: BRAND }}
+              >
+                <Link to={verificarHref}>
+                  Verificar mis boletos <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+
+              {rifero.verified && (
+                <p className="mt-4 flex items-center justify-center gap-1.5 text-xs font-bold" style={{ color: BRAND }}>
+                  <VerifiedBadge size={15} /> Rifero verificado
+                </p>
+              )}
             </div>
           </footer>
         </div>

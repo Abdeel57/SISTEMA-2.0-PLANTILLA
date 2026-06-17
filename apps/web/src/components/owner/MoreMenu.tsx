@@ -15,23 +15,23 @@ const GROUPS: { label: string; rows: RowDef[] }[] = [
   {
     label: 'Tu página',
     rows: [
-      { title: 'Apariencia', desc: 'Logo, colores y portada', to: '/panel/admin/diseno' },
-      { title: 'Perfil', desc: 'Nombre, descripción y redes', to: '/panel/admin/perfil' },
+      { title: 'Apariencia', desc: 'Logo, colores y portada', to: '/admin/diseno' },
+      { title: 'Perfil', desc: 'Nombre, descripción y redes', to: '/admin/perfil' },
     ],
   },
   {
     label: 'Cobros',
     rows: [
-      { title: 'Datos de pago', desc: 'Cuenta, CLABE e instrucciones', to: '/panel/admin/pagos' },
-      { title: 'Mi plan', desc: 'Suscripción y límites', to: '/panel/admin/plan' },
+      { title: 'Datos de pago', desc: 'Cuenta, CLABE e instrucciones', to: '/admin/pagos' },
     ],
   },
   {
     label: 'Tu negocio',
     rows: [
-      { title: 'Resumen', desc: 'Métricas de tus rifas', to: '/panel/admin/inicio' },
-      { title: 'Reportes', desc: 'Exporta órdenes, boletos y compradores', to: '/panel/admin/reportes' },
-      { title: 'Ajustes', desc: 'Apartado, comprobantes y ganadores', to: '/panel/admin/configuracion' },
+      { title: 'Resumen', desc: 'Métricas de tus rifas', to: '/admin/inicio' },
+      { title: 'Reportes', desc: 'Exporta órdenes, boletos y compradores', to: '/admin/reportes' },
+      { title: 'Usuarios y Roles', desc: 'Administradores y vendedores con su link', to: '/admin/usuarios' },
+      { title: 'Ajustes', desc: 'Apartado, comprobantes y ganadores', to: '/admin/configuracion' },
     ],
   },
   {
@@ -51,7 +51,7 @@ export function MoreMenu({ onPick }: { onPick: (to: string) => void }) {
 
   const handle = async (row: RowDef) => {
     if (row.to) return onPick(row.to);
-    if (row.action === 'verPagina') return navigate('/panel');
+    if (row.action === 'verPagina') return navigate('/');
     if (row.action === 'cerrarSesion') {
       await logout();
       navigate('/', { replace: true });

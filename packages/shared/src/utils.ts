@@ -1,4 +1,4 @@
-import { RESERVED_SLUGS, SLUG_REGEX } from './constants.js';
+import { RESERVED_SLUGS, SLUG_REGEX, PHONE_COUNTRIES, DEFAULT_COUNTRY, type CountryCode } from './constants.js';
 
 // ── Slug ────────────────────────────────────────────────────
 export function slugify(input: string): string {
@@ -27,6 +27,37 @@ export function formatTicketNumber(n: number, padding: number): string {
   return String(n).padStart(padding, '0');
 }
 
+// ── Oportunidades (boletos de regalo) ───────────────────────
+// Por cada boleto manual elegido, el comprador recibe (opportunities - 1) números
+// de regalo. Los regalos viven en un rango de emisiones EXTRA, posterior al rango
+// manual, así nunca chocan con los boletos seleccionables a mano.
+//
+// Manual:  [ticketStart, ticketStart + totalTickets - 1]
+// Regalo:  [manualEnd + 1, ticketStart + totalTickets*opportunities - 1]
+//
+// Con opportunities <= 1 NO hay rango de regalo (devuelve null): comportamiento
+// idéntico al sistema original.
+export interface GiftRange {
+  start: number;
+  end: number;
+  count: number; // totalTickets * (opportunities - 1)
+}
+
+export function totalEmissions(totalTickets: number, opportunities: number): number {
+  return totalTickets * Math.max(1, opportunities);
+}
+
+export function giftTicketRange(
+  ticketStart: number,
+  totalTickets: number,
+  opportunities: number,
+): GiftRange | null {
+  if (!opportunities || opportunities <= 1 || totalTickets <= 0) return null;
+  const manualEnd = ticketStart + totalTickets - 1;
+  const end = ticketStart + totalEmissions(totalTickets, opportunities) - 1;
+  return { start: manualEnd + 1, end, count: totalTickets * (opportunities - 1) };
+}
+
 // ── Dinero (MXN) ────────────────────────────────────────────
 export function formatMXN(pesos: number): string {
   return new Intl.NumberFormat('es-MX', {
@@ -45,16 +76,31 @@ export function generateOrderCode(seed?: string): string {
   return `BSK-${tail}`;
 }
 
+// ── Países / lada ───────────────────────────────────────────
+// Normaliza un código de país a uno soportado (MX/US); cae a MX por defecto.
+export function normalizeCountryCode(code: string | null | undefined): CountryCode {
+  const up = (code ?? '').toUpperCase();
+  return PHONE_COUNTRIES.find((c) => c.code === up)?.code ?? DEFAULT_COUNTRY;
+}
+
+// Lada telefónica de un país (52 para México, 1 para USA). Cae a 52.
+export function dialCodeForCountry(code: string | null | undefined): string {
+  const up = (code ?? '').toUpperCase();
+  return PHONE_COUNTRIES.find((c) => c.code === up)?.dialCode ?? '52';
+}
+
 // ── WhatsApp ────────────────────────────────────────────────
-export function sanitizePhoneForWa(phone: string): string {
+// Arma el número internacional para wa.me. `dialCode` es la lada del comprador
+// (52 México por defecto, 1 USA). Si el número ya viene con lada (>10 dígitos)
+// se respeta tal cual; sólo se antepone la lada a un número nacional de 10.
+export function sanitizePhoneForWa(phone: string, dialCode: string = '52'): string {
   const digits = phone.replace(/\D/g, '');
-  // México: anteponer 52 si parece número nacional de 10 dígitos.
-  if (digits.length === 10) return `52${digits}`;
+  if (digits.length === 10) return `${dialCode}${digits}`;
   return digits;
 }
 
-export function buildWhatsappLink(phone: string, message: string): string {
-  const num = sanitizePhoneForWa(phone);
+export function buildWhatsappLink(phone: string, message: string, dialCode: string = '52'): string {
+  const num = sanitizePhoneForWa(phone, dialCode);
   return `https://wa.me/${num}?text=${encodeURIComponent(message)}`;
 }
 

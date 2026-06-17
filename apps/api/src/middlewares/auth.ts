@@ -39,18 +39,40 @@ export function requireRole(...roles: UserRole[]) {
   };
 }
 
-// Requiere ser RIFERO con perfil. Garantiza request.auth.riferoId presente.
+// Requiere ser ADMINISTRADOR del rifero (dueño o admin extra). Garantiza
+// request.auth.riferoId presente. NOTA: bloquea a los vendedores (SELLER), por
+// eso protege por defecto TODAS las rutas de administración que ya lo usan.
 export function requireRifero(request: FastifyRequest, _reply: FastifyReply, done: (err?: Error) => void): void {
   if (!request.auth) {
     done(unauthorized());
     return;
   }
   if (request.auth.role !== 'RIFERO' && request.auth.role !== 'SUPER_ADMIN') {
-    done(forbidden('Solo riferos pueden acceder'));
+    done(forbidden('Solo administradores pueden acceder'));
     return;
   }
   if (!request.auth.riferoId) {
     done(forbidden('Completa tu perfil de rifero primero'));
+    return;
+  }
+  done();
+}
+
+// Requiere pertenecer al rifero como STAFF: administrador (RIFERO/SUPER_ADMIN) o
+// vendedor (SELLER). Se usa SOLO en endpoints que el vendedor puede tocar; cada
+// ruta debe además acotar por sellerId cuando el rol es SELLER.
+export function requireStaff(request: FastifyRequest, _reply: FastifyReply, done: (err?: Error) => void): void {
+  if (!request.auth) {
+    done(unauthorized());
+    return;
+  }
+  const { role, riferoId } = request.auth;
+  if (role !== 'RIFERO' && role !== 'SUPER_ADMIN' && role !== 'SELLER') {
+    done(forbidden('No tienes acceso al panel'));
+    return;
+  }
+  if (!riferoId) {
+    done(forbidden('Tu cuenta no está vinculada a un rifero'));
     return;
   }
   done();

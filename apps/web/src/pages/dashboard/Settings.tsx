@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { Save, Clock, Upload, Trophy, Sparkles, Lock } from 'lucide-react';
+import { Save, Clock, Upload, Trophy, Sparkles, Lock, Users, ChevronRight } from 'lucide-react';
 import { updateRiferoSchema } from '@bismark/shared';
 import { riferoService } from '@/services/riferos';
 import { ApiError } from '@/lib/api';
@@ -78,6 +79,7 @@ function ToggleRow({ icon: Icon, title, description, checked, onChange, disabled
 
 export default function Settings() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const profileQuery = useQuery({
     queryKey: ['rifero-me'],
@@ -144,6 +146,24 @@ export default function Settings() {
   return (
     <div>
       <PanelIntro description="Ajustes que se aplican por defecto a tus nuevas rifas." />
+
+      {/* Acceso a Usuarios y Roles (administradores y vendedores). */}
+      <button
+        type="button"
+        onClick={() => navigate('/admin/usuarios')}
+        className="mb-4 flex w-full items-center gap-3 rounded-2xl border bg-card px-4 py-3.5 text-left shadow-sm transition-colors hover:bg-accent"
+      >
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+          <Users className="h-5 w-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold leading-tight">Usuarios y Roles</span>
+          <span className="block text-xs text-muted-foreground">
+            Da acceso a administradores y vendedores, con su link de venta y métricas.
+          </span>
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/60" />
+      </button>
 
       {/* Avisos push del rifero (este dispositivo). El comprador no recibe push. */}
       <div className="mb-4">

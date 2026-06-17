@@ -11,6 +11,7 @@ import type {
   PaymentMethod,
   PaymentProofStatus,
 } from './enums.js';
+import type { PriceTier, PriceBundle } from './pricing.js';
 
 export interface ApiError {
   error: string;
@@ -26,8 +27,38 @@ export interface AuthUserDTO {
   role: UserRole;
   status: UserStatus;
   hasProfile: boolean;
+  // true sólo para el DUEÑO del rifero (tiene perfil propio). Los admins extra y
+  // vendedores pertenecen al rifero por membresía, no son dueños.
+  isOwner: boolean;
   riferoId: string | null;
   slug: string | null;
+  // Código de vendedor (solo role SELLER). Alimenta su link de venta.
+  sellerCode: string | null;
+}
+
+// Métricas de ventas de un vendedor (o del propio vendedor en su panel).
+export interface SellerStatsDTO {
+  ordersTotal: number;
+  ticketsSold: number; // boletos pagados
+  revenue: number; // dinero de órdenes pagadas (MXN)
+  pendingOrders: number; // RESERVED + PENDING
+  paidOrders: number; // PAID
+  cancelledOrders: number; // CANCELLED + REJECTED + EXPIRED
+}
+
+// Usuario interno del panel (administrador o vendedor) para "Usuarios y Roles".
+export interface PanelUserDTO {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  role: UserRole; // RIFERO (Administrador) | SELLER (Vendedor)
+  status: UserStatus;
+  isOwner: boolean; // el dueño no se puede desactivar ni degradar
+  sellerCode: string | null;
+  createdAt: string;
+  // Solo para vendedores: métricas de sus ventas.
+  stats?: SellerStatsDTO | null;
 }
 
 export interface AuthResponse {
@@ -79,6 +110,12 @@ export interface PaymentMethodDTO {
   instructions?: string | null;
 }
 
+// Pregunta frecuente de la página pública (personalizable por el rifero).
+export interface FaqItemDTO {
+  q: string;
+  a: string;
+}
+
 export interface RiferoProfileDTO {
   id: string;
   userId: string;
@@ -106,6 +143,7 @@ export interface RiferoProfileDTO {
   payInstructions: string | null;
   payWhatsapp: string | null;
   paymentMethods: PaymentMethodDTO[];
+  faqs: FaqItemDTO[];
   defaultReserveMinutes: number;
   allowProofUpload: boolean;
   showWinners: boolean;
@@ -137,6 +175,7 @@ export interface PublicRiferoDTO {
   logoScale: number;
   logoGlow: boolean;
   verified: boolean;
+  faqs: FaqItemDTO[];
   raffles: PublicRaffleSummaryDTO[];
 }
 
@@ -170,6 +209,18 @@ export interface RaffleDTO {
   reserveMinutes: number;
   allowWinnerPublication: boolean;
   useDigitalDraw: boolean;
+  showCountdown: boolean; // mostrar la cuenta regresiva al sorteo
+  // Oportunidades por boleto (1 = sin regalos). Emisiones totales = totalTickets * opportunities.
+  opportunities: number;
+  // Promociones de volumen: niveles por umbral y paquetes exactos (pueden ir vacíos).
+  pricingTiers: PriceTier[];
+  pricingBundles: PriceBundle[];
+  // Promoción/aviso: tira a todo lo ancho bajo el header de la rifa pública.
+  promoEnabled: boolean;
+  promoTitle: string | null;
+  promoSubtitle: string | null;
+  promoColorFrom: string | null; // hex; null = degradado por defecto
+  promoColorTo: string | null;
   images: RaffleImageDTO[];
   // Stats
   soldCount: number; // pagados
@@ -229,6 +280,7 @@ export interface BuyerDTO {
   id: string;
   fullName: string;
   phone: string;
+  country: string; // ISO: 'MX' | 'US' (define la lada del WhatsApp)
   whatsapp: string | null;
   state: string | null;
 }
@@ -240,7 +292,11 @@ export interface OrderDTO {
   raffleTitle: string;
   eventLabel: string;
   buyer: BuyerDTO;
-  ticketNumbers: string[]; // formateados
+  ticketNumbers: string[]; // boletos MANUALES (elegidos), formateados
+  // Boletos de REGALO (oportunidades) asignados a la orden, formateados.
+  giftNumbers: string[];
+  // Oportunidades por boleto vigentes al momento de la compra (1 = sin regalos).
+  opportunities: number;
   totalAmount: number;
   status: OrderStatus;
   expiresAt: string | null;
@@ -248,7 +304,16 @@ export interface OrderDTO {
   hasProof: boolean;
   proof?: PaymentProofDTO | null;
   digitalTicketCode: string | null;
+  // Vendedor atribuido (null = venta directa).
+  seller: OrderSellerDTO | null;
   createdAt: string;
+}
+
+// Vendedor mínimo embebido en una orden (para la columna "Vendedor" del admin).
+export interface OrderSellerDTO {
+  id: string;
+  name: string;
+  sellerCode: string | null;
 }
 
 // Resumen mostrado al comprador tras apartar (sin datos de otros)
@@ -256,7 +321,9 @@ export interface OrderReceiptDTO {
   code: string;
   raffleTitle: string;
   eventLabel: string;
-  ticketNumbers: string[];
+  ticketNumbers: string[]; // boletos elegidos (manuales)
+  giftNumbers: string[]; // oportunidades de regalo
+  opportunities: number; // oportunidades por boleto (1 = sin regalos)
   totalAmount: number;
   status: OrderStatus;
   expiresAt: string | null;

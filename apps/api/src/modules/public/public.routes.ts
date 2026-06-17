@@ -1,9 +1,9 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../lib/prisma.js';
 import { notFound } from '../../lib/errors.js';
 import { getPlanContext } from '../../lib/plan.js';
 import { getRaffleStats, getPaidCounts } from '../../lib/stats.js';
-import { env } from '../../config/env.js';
+import { buildTicketMap } from '../../lib/ticket-map.js';
 import {
   toPublicRiferoDTO,
   toPublicRaffleSummaryDTO,
@@ -19,53 +19,28 @@ function parseEventNumber(raw: string): number {
   return n;
 }
 
-// ── Helpers para vista previa de enlaces (Open Graph) ────────
-// Convierte una URL de imagen (posiblemente relativa, p. ej. /uploads/..) en
-// absoluta para que los crawlers de WhatsApp/Facebook puedan descargarla.
-function absoluteImage(url: string | null | undefined, request: FastifyRequest): string | null {
-  if (!url) return null;
-  if (/^https?:\/\//i.test(url)) return url;
-  const host = request.headers.host;
-  if (!host) return null;
-  return `${request.protocol}://${host}${url.startsWith('/') ? url : `/${url}`}`;
-}
-
-// URL pública canónica del rifero / la rifa (subdominio o ruta, según config).
-function riferoWebUrl(slug: string): string {
-  return env.useSubdomains
-    ? `${env.publicUrlConfig.protocol}://${slug}.${env.rootDomain}`
-    : `${env.publicWebUrl}/r/${slug}`;
-}
-function raffleWebUrl(slug: string, eventNumber: number): string {
-  return env.useSubdomains
-    ? `${riferoWebUrl(slug)}/e${eventNumber}`
-    : `${env.publicWebUrl}/r/${slug}/e${eventNumber}`;
-}
-
-function moneyMxn(amount: number): string {
-  return `$${amount.toLocaleString('es-MX')} MXN`;
-}
-function formatDrawDate(d: Date | null): string | null {
-  if (!d) return null;
-  try {
-    return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
-  } catch {
-    return null;
+// Resuelve el rifero del sitio. El frontend usa el alias "_" (sitio único);
+// también se aceptan los slugs reales para no romper enlaces antiguos.
+export async function findSiteProfile(raw: string) {
+  const key = raw.toLowerCase().trim();
+  if (key === '_' || key === '') {
+    return prisma.riferoProfile.findFirst({ orderBy: { createdAt: 'asc' } });
   }
+  const exact = await prisma.riferoProfile.findFirst({
+    where: { OR: [{ subdomain: key }, { slug: key }] },
+  });
+  return exact ?? prisma.riferoProfile.findFirst({ orderBy: { createdAt: 'asc' } });
 }
 
 export default async function publicRoutes(app: FastifyInstance): Promise<void> {
   // GET /public/riferos/by-subdomain/:subdomain
   app.get('/public/riferos/by-subdomain/:subdomain', async (request) => {
     const { subdomain } = request.params as { subdomain: string };
-    const profile = await prisma.riferoProfile.findFirst({
-      where: { OR: [{ subdomain: subdomain.toLowerCase() }, { slug: subdomain.toLowerCase() }] },
-    });
+    const profile = await findSiteProfile(subdomain);
     if (!profile || profile.status === 'DELETED') throw notFound('Esta página no existe');
 
     const ctx = await getPlanContext(profile.id);
     if (!ctx.hasActivePlan || profile.status === 'SUSPENDED') {
-      // La página pública sólo está disponible con plan activo.
       return { active: false, publicName: profile.publicName };
     }
 
@@ -111,9 +86,7 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
     const n = parseEventNumber(eventNumber);
     if (Number.isNaN(n)) throw notFound('Evento no encontrado');
 
-    const profile = await prisma.riferoProfile.findFirst({
-      where: { OR: [{ subdomain: subdomain.toLowerCase() }, { slug: subdomain.toLowerCase() }] },
-    });
+    const profile = await findSiteProfile(subdomain);
     if (!profile) throw notFound('Esta página no existe');
 
     const ctx = await getPlanContext(profile.id);
@@ -161,18 +134,14 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
     };
   });
 
-  // GET /public/raffles/:raffleId/tickets — boletos ligeros para la cuadrícula (sin comprador)
-  app.get('/public/raffles/:raffleId/tickets', async (request) => {
+  // GET /public/raffles/:raffleId/ticket-map — mapa compacto de estados para la
+  // cuadrícula (un carácter por boleto). Escala a 1,000,000 de boletos: viaja
+  // comprimido y el cliente deriva número/displayNumber con start/format.
+  app.get('/public/raffles/:raffleId/ticket-map', async (request) => {
     const { raffleId } = request.params as { raffleId: string };
     const raffle = await prisma.raffle.findUnique({ where: { id: raffleId } });
     if (!raffle || raffle.status === 'DRAFT') throw notFound('Rifa no encontrada');
-
-    const tickets = await prisma.ticketNumber.findMany({
-      where: { raffleId },
-      orderBy: { number: 'asc' },
-      select: { number: true, displayNumber: true, status: true },
-    });
-    return { items: tickets };
+    return buildTicketMap(raffle);
   });
 
   // POST /public/orders/lookup — el comprador busca SUS órdenes por teléfono.
@@ -186,13 +155,11 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
       const body = (request.body ?? {}) as { slug?: string; phone?: string };
       const slug = (body.slug ?? '').toLowerCase().trim();
       const phone = (body.phone ?? '').replace(/\D/g, '');
-      if (slug.length < 3 || phone.length < 10) {
+      if (phone.length < 10) {
         return { orders: [], paymentProfile: null };
       }
 
-      const profile = await prisma.riferoProfile.findFirst({
-        where: { OR: [{ subdomain: slug }, { slug }] },
-      });
+      const profile = await findSiteProfile(slug);
       if (!profile) throw notFound('Esta página no existe');
 
       const orders = await prisma.order.findMany({
@@ -243,82 +210,4 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
     },
   );
 
-  // ── Vista previa de enlaces (Open Graph dinámico) ──────────
-  // Lo consume la edge function de Netlify para inyectar <meta og:*> por rifa.
-  // Devuelve SIEMPRE 200 con un meta utilizable (cae a genérico si no resuelve),
-  // para que un fallo nunca rompa la vista previa del enlace compartido.
-  const DEFAULT_META = {
-    title: 'Bismark — Crea tu página de rifas',
-    description:
-      'Tu página de rifas personalizada: recibe órdenes, controla boletos, confirma pagos y organiza sorteos desde el celular.',
-    image: null as string | null,
-    url: env.publicWebUrl,
-    siteName: 'Bismark',
-  };
-
-  async function buildMeta(
-    request: FastifyRequest,
-    subdomain: string,
-    eventRaw?: string,
-  ): Promise<typeof DEFAULT_META> {
-    const sub = subdomain.toLowerCase();
-    const profile = await prisma.riferoProfile.findFirst({
-      where: { OR: [{ subdomain: sub }, { slug: sub }] },
-    });
-    if (!profile || profile.status === 'DELETED' || profile.status === 'SUSPENDED') return DEFAULT_META;
-
-    const ctx = await getPlanContext(profile.id);
-    if (!ctx.hasActivePlan) return DEFAULT_META;
-
-    // Vista de una rifa concreta.
-    if (eventRaw) {
-      const n = parseEventNumber(eventRaw);
-      if (!Number.isNaN(n)) {
-        const raffle = await prisma.raffle.findFirst({
-          where: { riferoId: profile.id, eventNumber: n, status: { in: ['PUBLISHED', 'FINISHED'] } },
-          include: { images: { orderBy: { sortOrder: 'asc' }, take: 1 } },
-        });
-        if (raffle) {
-          const draw = formatDrawDate(raffle.drawDate);
-          const descParts = [
-            `Boleto ${moneyMxn(raffle.ticketPrice)}`,
-            draw ? `Sorteo ${draw}` : null,
-            raffle.prize ? `Premio: ${raffle.prize}` : null,
-          ].filter(Boolean);
-          return {
-            title: `${raffle.title} — ${profile.publicName}`,
-            description:
-              descParts.join(' · ') ||
-              raffle.description?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() ||
-              DEFAULT_META.description,
-            image: absoluteImage(raffle.images[0]?.url ?? profile.coverUrl ?? profile.logoUrl, request),
-            url: raffleWebUrl(profile.slug, raffle.eventNumber),
-            siteName: profile.publicName,
-          };
-        }
-      }
-    }
-
-    // Vista del rifero (su página principal).
-    return {
-      title: `${profile.publicName} — Rifas y sorteos`,
-      description:
-        profile.description ??
-        `Participa en las rifas de ${profile.publicName}: boletos en línea, pago fácil y boleto digital con QR.`,
-      image: absoluteImage(profile.coverUrl ?? profile.logoUrl, request),
-      url: riferoWebUrl(profile.slug),
-      siteName: profile.publicName,
-    };
-  }
-
-  // GET /public/meta/:subdomain        → meta del rifero
-  // GET /public/meta/:subdomain/:event → meta de una rifa (e1, e2, …)
-  app.get('/public/meta/:subdomain', async (request) => {
-    const { subdomain } = request.params as { subdomain: string };
-    return buildMeta(request, subdomain);
-  });
-  app.get('/public/meta/:subdomain/:event', async (request) => {
-    const { subdomain, event } = request.params as { subdomain: string; event: string };
-    return buildMeta(request, subdomain, event);
-  });
 }

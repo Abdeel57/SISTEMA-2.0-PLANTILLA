@@ -37,3 +37,21 @@ export function newResetToken(): { token: string; tokenHash: string } {
   const token = randomBytes(32).toString('base64url'); // ~43 chars URL-safe
   return { token, tokenHash: hashToken(token) };
 }
+
+// Contraseña temporal legible (sin caracteres ambiguos) para usuarios nuevos.
+// Se muestra UNA sola vez al administrador que crea la cuenta.
+export function newTempPassword(): string {
+  return randomCode(10);
+}
+
+// Siguiente código de vendedor (VEN01, VEN02, …) a partir de los ya usados.
+// Crece a 3+ dígitos tras VEN99. `existing` es la lista de códigos actuales.
+export function nextSellerCode(existing: string[]): string {
+  let max = 0;
+  for (const code of existing) {
+    const m = /^VEN(\d+)$/.exec(code ?? '');
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  const next = max + 1;
+  return `VEN${String(next).padStart(2, '0')}`;
+}

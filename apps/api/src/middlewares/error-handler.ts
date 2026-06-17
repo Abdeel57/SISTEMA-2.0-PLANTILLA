@@ -64,7 +64,6 @@ export function registerErrorHandler(app: FastifyInstance): void {
     });
   });
 
-  app.setNotFoundHandler((request, reply) => {
-    reply.code(404).send({ error: 'not_found', message: `Ruta no encontrada: ${request.method} ${request.url}` });
-  });
+  // El 404 se define en app.ts: ahí decide entre el JSON de la API y el
+  // fallback del SPA (index.html) cuando este proceso sirve el frontend.
 }

@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Buyer" ADD COLUMN "country" TEXT NOT NULL DEFAULT 'MX';

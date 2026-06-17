@@ -1,3 +1,4 @@
+import { PassThrough } from 'node:stream';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import { BRAND } from '@bismark/shared';
@@ -9,6 +10,40 @@ export interface ReportColumn {
 }
 
 export type ReportRow = Record<string, string | number>;
+
+// Excel en streaming (WorkbookWriter): las filas se escriben y liberan conforme
+// llegan del iterador, así un reporte de cientos de miles de boletos no carga
+// todo en memoria; solo se acumula el .xlsx final (comprimido).
+export async function buildExcelStream(
+  title: string,
+  columns: ReportColumn[],
+  rows: AsyncIterable<ReportRow>,
+): Promise<Buffer> {
+  const stream = new PassThrough();
+  const chunks: Buffer[] = [];
+  stream.on('data', (c: Buffer) => chunks.push(c));
+  const finished = new Promise<void>((resolve, reject) => {
+    stream.on('end', resolve);
+    stream.on('error', reject);
+  });
+
+  const wb = new ExcelJS.stream.xlsx.WorkbookWriter({ stream, useStyles: true, useSharedStrings: false });
+  wb.creator = BRAND.name;
+  const ws = wb.addWorksheet(title.slice(0, 28) || 'Reporte');
+  ws.columns = columns.map((c) => ({ header: c.header, key: c.key, width: c.width ?? 18 }));
+  const headerRow = ws.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1D4ED8' } };
+  headerRow.commit();
+
+  for await (const row of rows) {
+    ws.addRow(row).commit();
+  }
+  ws.commit();
+  await wb.commit();
+  await finished;
+  return Buffer.concat(chunks);
+}
 
 export async function buildExcel(
   title: string,

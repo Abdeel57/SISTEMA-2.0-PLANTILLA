@@ -6,17 +6,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   createRaffleSchema,
   formatTicketNumber,
+  giftTicketRange,
+  totalEmissions,
   type CreateRaffleInput,
   type RaffleDTO,
 } from '@bismark/shared';
 import { raffleService } from '@/services/raffles';
 import { uploadService } from '@/services/uploads';
 import { useAuthStore } from '@/store/auth';
-import { buildRaffleUrl } from '@/lib/site';
+import { buildRaffleUrl, buildRaffleShareUrl } from '@/lib/site';
 import { ApiError, apiAssetUrl } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input, Textarea } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { PageLoader } from '@/components/ui/misc';
 import { FormSection, Field } from '@/components/ui/form-section';
 import { RichTextEditor } from '@/components/ui/rich-text';
@@ -34,7 +37,7 @@ const STEPS = [
 
 const STEP_FIELDS: (keyof CreateRaffleInput)[][] = [
   ['title', 'prize', 'description'],
-  ['ticketPrice', 'totalTickets', 'ticketFormat', 'ticketStart', 'maxTicketsPerOrder'],
+  ['ticketPrice', 'totalTickets', 'ticketFormat', 'ticketStart', 'opportunities', 'maxTicketsPerOrder'],
   [],
   ['terms', 'paymentInstructions'],
 ];
@@ -88,8 +91,10 @@ export default function RaffleForm() {
       totalTickets: 100,
       ticketFormat: 3,
       ticketStart: 1,
+      opportunities: 1,
       allowWinnerPublication: true,
       useDigitalDraw: false,
+      showCountdown: true,
       images: [],
     },
   });
@@ -111,12 +116,14 @@ export default function RaffleForm() {
       totalTickets: r.totalTickets,
       ticketFormat: r.ticketFormat,
       ticketStart: r.ticketStart,
+      opportunities: r.opportunities,
       maxTicketsPerOrder: r.maxTicketsPerOrder ?? undefined,
       terms: r.terms ?? '',
       paymentInstructions: r.paymentInstructions ?? '',
       reserveMinutes: r.reserveMinutes,
       allowWinnerPublication: r.allowWinnerPublication,
       useDigitalDraw: r.useDigitalDraw,
+      showCountdown: r.showCountdown,
       images: r.images.map((img) => img.url),
     });
     setImages(r.images.map((img) => img.url));
@@ -129,6 +136,21 @@ export default function RaffleForm() {
 
   const ticketFormat = Number(watch('ticketFormat')) || 3;
   const ticketStart = Number(watch('ticketStart')) || 0;
+  const totalTicketsW = Number(watch('totalTickets')) || 0;
+  const opportunities = Number(watch('opportunities')) || 1;
+
+  // Resumen de emisiones y rangos manual/regalo (explicación dinámica del campo).
+  const emissions = totalEmissions(totalTicketsW, opportunities);
+  const giftRange = giftTicketRange(ticketStart, totalTicketsW, opportunities);
+  const manualRangeText =
+    totalTicketsW > 0
+      ? `${formatTicketNumber(ticketStart, ticketFormat)} - ${formatTicketNumber(ticketStart + totalTicketsW - 1, ticketFormat)}`
+      : '—';
+  const giftRangeText = giftRange
+    ? `${formatTicketNumber(giftRange.start, ticketFormat)} - ${formatTicketNumber(giftRange.end, ticketFormat)}`
+    : null;
+  // Si la rifa ya tiene boletos comprometidos, no se puede cambiar oportunidades.
+  const raffleHasOrders = isEdit && !!existing?.raffle && existing.raffle.soldCount + existing.raffle.reservedCount > 0;
 
   const save = useMutation({
     mutationFn: (input: CreateRaffleInput) =>
@@ -138,7 +160,7 @@ export default function RaffleForm() {
       if (isEdit) {
         toast.success('Rifa actualizada');
         void queryClient.invalidateQueries({ queryKey: ['raffle', id] });
-        navigate('/panel/admin/rifas');
+        navigate('/admin/rifas');
         return;
       }
       // Al crear: pantalla de éxito con el siguiente paso claro (publicar).
@@ -167,7 +189,7 @@ export default function RaffleForm() {
 
   const shareCreated = () => {
     if (!created || !slug) return;
-    const url = buildRaffleUrl(slug, created.eventNumber);
+    const url = buildRaffleShareUrl(slug, created.eventNumber);
     if (navigator.share) {
       void navigator.share({ title: created.title, text: `Participa en mi rifa "${created.title}": ${url}`, url }).catch(() => {});
       return;
@@ -201,7 +223,7 @@ export default function RaffleForm() {
     }
   };
   const back = () => {
-    if (step === 0) navigate('/panel/admin/rifas');
+    if (step === 0) navigate('/admin/rifas');
     else setStep((s) => s - 1);
   };
 
@@ -283,7 +305,7 @@ export default function RaffleForm() {
                 </a>
               </Button>
             )}
-            <Button variant="ghost" size="lg" className="w-full rounded-xl" onClick={() => navigate('/panel/admin/rifas')}>
+            <Button variant="ghost" size="lg" className="w-full rounded-xl" onClick={() => navigate('/admin/rifas')}>
               Ir a mis rifas
             </Button>
           </div>
@@ -381,6 +403,67 @@ export default function RaffleForm() {
                 <span className="text-muted-foreground">Así se verá un boleto: </span>
                 <span className="font-mono font-bold tabular-nums">{exampleTicket}</span>
               </div>
+
+              {/* Oportunidades por boleto */}
+              <Field
+                label="Oportunidades por boleto"
+                htmlFor="opportunities"
+                hint={
+                  raffleHasOrders
+                    ? 'No se puede cambiar: esta rifa ya tiene órdenes generadas.'
+                    : isEdit
+                      ? 'No se puede cambiar después de crear la rifa.'
+                      : 'Define cuántos números participan por cada boleto seleccionado. Si configuras 3, el cliente elige 1 boleto y el sistema le asigna 2 números de regalo automáticamente.'
+                }
+                error={errors.opportunities?.message}
+              >
+                <Input
+                  id="opportunities"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={50}
+                  disabled={isEdit}
+                  {...register('opportunities', { valueAsNumber: true })}
+                />
+              </Field>
+
+              {/* Explicación dinámica de emisiones y rangos */}
+              <div
+                className={cn(
+                  'rounded-xl border px-4 py-3 text-sm',
+                  opportunities > 1
+                    ? 'border-primary/30 bg-primary/5'
+                    : 'border-border bg-muted/40 text-muted-foreground',
+                )}
+              >
+                {opportunities > 1 ? (
+                  <>
+                    <p className="font-medium text-foreground">
+                      Esta rifa tendrá{' '}
+                      <strong>{totalTicketsW.toLocaleString('es-MX')}</strong> boletos seleccionables y{' '}
+                      <strong>{emissions.toLocaleString('es-MX')}</strong> emisiones totales. Cada boleto comprado
+                      generará{' '}
+                      <strong>
+                        {opportunities - 1} número{opportunities - 1 === 1 ? '' : 's'}
+                      </strong>{' '}
+                      de regalo.
+                    </p>
+                    <div className="mt-2 grid gap-1 font-mono text-xs">
+                      <span>
+                        <span className="text-muted-foreground">Rango manual:</span>{' '}
+                        <strong>{manualRangeText}</strong>
+                      </span>
+                      <span>
+                        <span className="text-muted-foreground">Rango de regalo:</span>{' '}
+                        <strong>{giftRangeText}</strong>
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <span>Con 1 oportunidad no hay números de regalo: funciona como una rifa normal.</span>
+                )}
+              </div>
             </>
           )}
 
@@ -446,6 +529,19 @@ export default function RaffleForm() {
                   }}
                 />
               </Field>
+              {/* Mostrar/ocultar la cuenta regresiva al sorteo en la rifa pública. */}
+              <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/40 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Mostrar cuenta regresiva</p>
+                  <p className="text-xs text-muted-foreground">
+                    Un contador de días, horas y minutos hasta el sorteo, visible para tus compradores.
+                  </p>
+                </div>
+                <Switch
+                  checked={watch('showCountdown') ?? true}
+                  onCheckedChange={(v) => setValue('showCountdown', v)}
+                />
+              </div>
               <Field
                 label="Términos y condiciones"
                 htmlFor="terms"

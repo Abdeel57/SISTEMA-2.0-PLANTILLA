@@ -57,9 +57,9 @@ export const env = {
     .filter(Boolean),
   corsRootDomain: process.env.CORS_ROOT_DOMAIN || '',
 
-  rootDomain: str('ROOT_DOMAIN', 'bismark.com'),
-  useSubdomains: bool('USE_SUBDOMAINS', false),
-  publicWebUrl: str('PUBLIC_WEB_URL', 'http://localhost:5173'),
+  // URL pública del sitio. Vacía = se infiere del host de cada petición
+  // (frontend y API comparten origen en producción).
+  publicWebUrl: (process.env.PUBLIC_WEB_URL ?? '').replace(/\/$/, ''),
 
   // URL pública de la propia API (para construir enlaces absolutos: OG, imágenes locales).
   // Si no se define, se infiere host:port en runtime al construir cada enlace.
@@ -90,14 +90,6 @@ export const env = {
     vapidSubject: process.env.VAPID_SUBJECT || 'mailto:soporte@bismark.com',
   },
 
-  seed: {
-    adminEmail: str('SEED_ADMIN_EMAIL', 'admin@bismark.com'),
-    adminPassword: str('SEED_ADMIN_PASSWORD', 'Admin1234!'),
-    adminName: str('SEED_ADMIN_NAME', 'Super Admin Bismark'),
-    riferoEmail: str('SEED_RIFERO_EMAIL', 'demo@bismark.com'),
-    riferoPassword: str('SEED_RIFERO_PASSWORD', 'Demo1234!'),
-  },
-
   storage: {
     driver: (process.env.STORAGE_DRIVER ?? 'local') as 'local' | 'cloudinary' | 's3',
     localDir: str('LOCAL_UPLOAD_DIR', './uploads'),
@@ -117,11 +109,6 @@ export const env = {
     },
   },
 
-  publicUrlConfig: {
-    rootDomain: str('ROOT_DOMAIN', 'bismark.com'),
-    useSubdomains: bool('USE_SUBDOMAINS', false),
-    protocol: isProd ? 'https' : 'http',
-  },
 } as const;
 
 export type Env = typeof env;

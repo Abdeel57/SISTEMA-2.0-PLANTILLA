@@ -27,3 +27,16 @@ export async function loadOwnedOrder(
   }
   return order;
 }
+
+// Como loadOwnedOrder, pero además acota por vendedor: un SELLER solo puede
+// acceder a órdenes atribuidas a él. Administradores ven todas las del rifero.
+export async function loadAccessibleOrder(
+  orderId: string,
+  auth: { userId: string; role: string; riferoId: string | null },
+): Promise<Order & { raffle: Raffle }> {
+  const order = await loadOwnedOrder(orderId, auth);
+  if (auth.role === 'SELLER' && order.sellerId !== auth.userId) {
+    throw forbidden('Esta orden no te pertenece');
+  }
+  return order;
+}

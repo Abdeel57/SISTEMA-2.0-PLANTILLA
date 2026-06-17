@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../lib/prisma.js';
 import { badRequest, notFound, forbidden } from '../../lib/errors.js';
-import { requireRifero } from '../../middlewares/auth.js';
-import { loadOwnedOrder } from '../../lib/ownership.js';
+import { requireStaff } from '../../middlewares/auth.js';
+import { loadAccessibleOrder } from '../../lib/ownership.js';
 import { getPlanContext } from '../../lib/plan.js';
 import { storage } from '../../lib/storage.js';
 import { toPaymentProofDTO } from '../../lib/serializers.js';
@@ -76,17 +76,17 @@ export default async function paymentsRoutes(app: FastifyInstance): Promise<void
       void sendPushToUser(profile.userId, {
         title: 'Comprobante recibido 🧾',
         body: `Orden ${order.code}: el comprador subió su comprobante. Revísalo para confirmar.`,
-        url: `${env.publicWebUrl}/panel/admin/ordenes`,
+        url: '/admin/ordenes',
       });
 
       return reply.code(201).send({ proof: toPaymentProofDTO(proof) });
     },
   );
 
-  // GET /orders/:id/proof — el rifero dueño consulta los comprobantes
-  app.get('/orders/:id/proof', { preHandler: requireRifero }, async (request) => {
+  // GET /orders/:id/proof — staff consulta los comprobantes (vendedor: solo los suyos)
+  app.get('/orders/:id/proof', { preHandler: requireStaff }, async (request) => {
     const { id } = request.params as { id: string };
-    await loadOwnedOrder(id, request.auth!);
+    await loadAccessibleOrder(id, request.auth!);
     const proofs = await prisma.paymentProof.findMany({ where: { orderId: id }, orderBy: { uploadedAt: 'asc' } });
     return { items: proofs.map(toPaymentProofDTO) };
   });

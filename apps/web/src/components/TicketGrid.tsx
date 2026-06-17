@@ -8,6 +8,14 @@ import {
   type TicketLiteDTO,
   type TicketStatus,
 } from '@bismark/shared';
+import {
+  type TicketMapData,
+  statusAt,
+  displayAt,
+  displayOfNumber,
+  filterIndices,
+  pickRandomAvailable,
+} from '@/lib/ticketMap';
 import { cn } from '@/lib/cn';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -77,7 +85,9 @@ const FILTERS: { key: Filter; label: string }[] = [
 ];
 
 interface Props {
-  tickets: TicketLiteDTO[];
+  // Mapa compacto de la rifa (1 byte por boleto): escala a 1,000,000 sin
+  // materializar un objeto por boleto.
+  map: TicketMapData;
   selectable?: boolean;
   selected?: number[];
   onSelectionChange?: (numbers: number[]) => void;
@@ -91,10 +101,22 @@ interface Props {
   minimal?: boolean; // oculta filtros y leyenda (vista pública de comprador)
 }
 
-const SELECTABLE_STATUSES: TicketStatus[] = ['AVAILABLE'];
+// Posición de un índice dentro de la vista filtrada (asc). -1 si no está.
+function positionInView(view: Uint32Array, idx: number): number {
+  let lo = 0;
+  let hi = view.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const v = view[mid]!;
+    if (v === idx) return mid;
+    if (v < idx) lo = mid + 1;
+    else hi = mid - 1;
+  }
+  return -1;
+}
 
 export function TicketGrid({
-  tickets,
+  map,
   selectable = false,
   selected = [],
   onSelectionChange,
@@ -107,8 +129,13 @@ export function TicketGrid({
   cellSize = 48,
   minimal = false,
 }: Props) {
-  const [filter, setFilter] = useState<Filter>(minimal ? 'AVAILABLE' : 'all');
+  // En la vista pública mostramos TODOS los boletos: los disponibles en blanco y
+  // los no disponibles en negro (antes el filtro fijo "Disponibles" los ocultaba).
+  const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
+  // La búsqueda barre todos los boletos (hasta 1M): se aplica con un pequeño
+  // debounce para no barrer en cada tecla.
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const parentRef = useRef<HTMLDivElement>(null);
   const [columns, setColumns] = useState(6);
   // Maquinita de la suerte
@@ -121,6 +148,11 @@ export function TicketGrid({
   const spinRef = useRef<number | null>(null);
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search), 250);
+    return () => window.clearTimeout(t);
+  }, [search]);
 
   // Calcular columnas según el ancho disponible.
   useEffect(() => {
@@ -137,15 +169,15 @@ export function TicketGrid({
     return () => ro.disconnect();
   }, [cellSize]);
 
-  const filtered = useMemo(() => {
-    let list = tickets;
-    if (filter !== 'all') list = list.filter((t) => t.status === filter);
-    const q = search.trim();
-    if (q) list = list.filter((t) => t.displayNumber.includes(q) || String(t.number) === q);
-    return list;
-  }, [tickets, filter, search]);
+  // Vista filtrada: índices que pasan filtro/búsqueda. null = todos.
+  const view = useMemo(
+    () => filterIndices(map, filter === 'all' ? 'all' : (filter as TicketStatus), debouncedSearch),
+    [map, filter, debouncedSearch],
+  );
+  const viewLength = view ? view.length : map.total;
+  const idxAt = (pos: number): number => (view ? view[pos]! : pos);
 
-  const rowCount = Math.ceil(filtered.length / columns);
+  const rowCount = Math.ceil(viewLength / columns);
   const gap = 5;
   const rowHeight = Math.round(cellSize * 0.62); // celdas rectangulares (más anchas que altas)
   const rowVirtualizer = useVirtualizer({
@@ -161,7 +193,7 @@ export function TicketGrid({
       return;
     }
     if (!selectable) return;
-    if (!SELECTABLE_STATUSES.includes(t.status)) return;
+    if (t.status !== 'AVAILABLE') return;
     const next = new Set(selectedSet);
     if (next.has(t.number)) {
       next.delete(t.number);
@@ -178,23 +210,16 @@ export function TicketGrid({
   // Elige N boletos disponibles al azar (sin aplicarlos todavía).
   const computePicks = (n: number): number[] | null => {
     if (!selectable || !onSelectionChange) return null;
-    const avail = tickets.filter((t) => t.status === 'AVAILABLE' && !selectedSet.has(t.number));
-    const room = maxSelectable ? Math.max(0, maxSelectable - selected.length) : avail.length;
-    const count = Math.max(0, Math.min(n, avail.length, room));
-    if (count === 0) {
+    const room = maxSelectable ? Math.max(0, maxSelectable - selected.length) : n;
+    const count = Math.min(n, room);
+    const picked = count > 0 ? pickRandomAvailable(map, count, selectedSet) : [];
+    if (picked.length === 0) {
       toast.error(
         maxSelectable && selected.length >= maxSelectable
           ? `Ya alcanzaste el máximo de ${maxSelectable} boletos`
           : 'No hay más boletos disponibles para agregar',
       );
       return null;
-    }
-    const pool = avail.slice();
-    const picked: number[] = [];
-    for (let i = 0; i < count; i++) {
-      const idx = Math.floor(Math.random() * pool.length);
-      picked.push(pool[idx].number);
-      pool.splice(idx, 1);
     }
     return picked;
   };
@@ -211,8 +236,9 @@ export function TicketGrid({
     window.setTimeout(() => setBurst(null), 2700);
     setJustPicked(new Set(picked));
     window.setTimeout(() => setJustPicked(new Set()), 800);
-    const idx0 = filtered.findIndex((t) => t.number === picked[0]);
-    if (idx0 >= 0) rowVirtualizer.scrollToIndex(Math.floor(idx0 / columns), { align: 'center' });
+    const idx0 = picked[0]! - map.start;
+    const pos0 = view ? positionInView(view, idx0) : idx0;
+    if (pos0 >= 0) rowVirtualizer.scrollToIndex(Math.floor(pos0 / columns), { align: 'center' });
     toast.success(picked.length === 1 ? '¡1 boleto de la suerte!' : `¡${picked.length} boletos de la suerte!`);
   };
 
@@ -221,7 +247,7 @@ export function TicketGrid({
     if (spinText !== null) return; // ya está girando
     const picked = computePicks(n);
     if (!picked) return;
-    const display = tickets.find((t) => t.number === picked[0])?.displayNumber ?? String(picked[0]);
+    const display = displayOfNumber(map, picked[0]!);
     const len = display.length;
     setSpinText('0'.repeat(len));
     spinRef.current = window.setInterval(() => {
@@ -378,16 +404,18 @@ export function TicketGrid({
         </div>
       )}
 
-      {/* Encabezado "Blancos - Disponibles" (vista de comprador) */}
+      {/* Leyenda (vista de comprador): blanco = disponible, negro = no disponible.
+          Sin el conteo de disponibles, a propósito (no exponer cuántos quedan). */}
       {minimal && (
-        <div className="mb-2 flex items-center gap-2 text-sm font-extrabold">
-          <span
-            className="grid h-6 min-w-[2.5rem] place-items-center rounded border px-1.5 text-xs tabular-nums"
-            style={{ borderColor: 'var(--rifero-primary, hsl(var(--primary)))' }}
-          >
-            {filtered.length}
+        <div className="mb-2 flex items-center gap-4 text-xs font-bold text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-3.5 w-5 rounded border bg-white" style={{ borderColor: brand }} />
+            Disponibles
           </span>
-          <span>Blancos · Disponibles</span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-3.5 w-5 rounded" style={{ backgroundColor: '#111827' }} />
+            No disponibles
+          </span>
         </div>
       )}
 
@@ -396,13 +424,57 @@ export function TicketGrid({
         ref={parentRef}
         className="relative h-[min(60dvh,540px)] overflow-y-auto overscroll-contain rounded-xl border bg-background p-1.5"
       >
-        {filtered.length === 0 ? (
+        {viewLength === 0 ? (
           <div className="grid h-full place-items-center text-sm text-muted-foreground">Sin boletos para mostrar</div>
         ) : (
           <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
             {rowVirtualizer.getVirtualItems().map((vRow) => {
-              const start = vRow.index * columns;
-              const rowTickets = filtered.slice(start, start + columns);
+              const rowStart = vRow.index * columns;
+              const rowEnd = Math.min(rowStart + columns, viewLength);
+              const cells: React.ReactNode[] = [];
+              for (let pos = rowStart; pos < rowEnd; pos++) {
+                const idx = idxAt(pos);
+                const number = map.start + idx;
+                const status = statusAt(map, idx);
+                const displayNumber = displayAt(map, idx);
+                const isSelected = selectedSet.has(number);
+                const selectableNow = selectable && status === 'AVAILABLE';
+                const isAvailable = status === 'AVAILABLE';
+                // En la vista pública, cualquier boleto no disponible se ve negro
+                // (uniforme); en el panel del admin se conservan los colores por
+                // estado (apartado/pagado/…) para poder distinguirlos.
+                const color = minimal ? '#111827' : TICKET_STATUS_COLORS[status];
+                cells.push(
+                  <button
+                    key={number}
+                    onClick={() => toggle({ number, displayNumber, status })}
+                    disabled={!onTicketClick && selectable && !selectableNow}
+                    className={cn(
+                      'relative flex items-center justify-center rounded-[4px] border text-[11px] tabular-nums transition-all sm:text-xs',
+                      isSelected ? 'z-[1] font-extrabold shadow-md' : 'font-bold',
+                      justPicked.has(number) ? 'lucky-pop' : '',
+                      selectableNow || onTicketClick ? 'cursor-pointer active:scale-95' : 'cursor-default',
+                    )}
+                    style={
+                      isSelected
+                        ? {
+                            backgroundColor: brand,
+                            borderColor: brand,
+                            color: '#fff',
+                            boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.85)',
+                          }
+                        : isAvailable
+                          ? { backgroundColor: '#fff', borderColor: brand, color: '#111827' }
+                          : { backgroundColor: color, borderColor: color, color: '#fff' }
+                    }
+                    title={`${displayNumber} · ${TICKET_STATUS_LABELS[status]}`}
+                  >
+                    {/* El número desaparece al seleccionar (bloque del rifero) y en
+                        los no disponibles de la vista pública (bloque negro). */}
+                    {isSelected || (minimal && !isAvailable) ? null : displayNumber}
+                  </button>,
+                );
+              }
               return (
                 <div
                   key={vRow.key}
@@ -415,41 +487,7 @@ export function TicketGrid({
                     padding: '0 2px',
                   }}
                 >
-                  {rowTickets.map((t) => {
-                    const isSelected = selectedSet.has(t.number);
-                    const selectableNow = selectable && SELECTABLE_STATUSES.includes(t.status);
-                    const isAvailable = t.status === 'AVAILABLE';
-                    const color = TICKET_STATUS_COLORS[t.status];
-                    return (
-                      <button
-                        key={t.number}
-                        onClick={() => toggle(t)}
-                        disabled={!onTicketClick && selectable && !selectableNow}
-                        className={cn(
-                          'relative flex items-center justify-center rounded-[4px] border text-[11px] tabular-nums transition-all sm:text-xs',
-                          isSelected ? 'z-[1] font-extrabold shadow-md' : 'font-bold',
-                          justPicked.has(t.number) ? 'lucky-pop' : '',
-                          selectableNow || onTicketClick ? 'cursor-pointer active:scale-95' : 'cursor-default',
-                        )}
-                        style={
-                          isSelected
-                            ? {
-                                backgroundColor: brand,
-                                borderColor: brand,
-                                color: '#fff',
-                                boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.85)',
-                              }
-                            : isAvailable
-                              ? { backgroundColor: '#fff', borderColor: brand, color: '#111827' }
-                              : { backgroundColor: color, borderColor: color, color: '#fff' }
-                        }
-                        title={`${t.displayNumber} · ${TICKET_STATUS_LABELS[t.status]}`}
-                      >
-                        {/* Al seleccionar, el número desaparece y queda el bloque de color. */}
-                        {isSelected ? null : t.displayNumber}
-                      </button>
-                    );
-                  })}
+                  {cells}
                 </div>
               );
             })}
@@ -477,7 +515,7 @@ export function TicketGrid({
             </div>
           </div>
           <p className="mt-2 line-clamp-1 text-[11px] text-muted-foreground">
-            {selected.map((n) => tickets.find((t) => t.number === n)?.displayNumber ?? n).join(', ')}
+            {selected.map((n) => displayOfNumber(map, n)).join(', ')}
           </p>
         </div>
       )}

@@ -1,9 +1,9 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate, Link } from 'react-router-dom';
-import { Mail, Lock, ArrowRight } from 'lucide-react';
-import { loginSchema, type LoginInput, type AuthUserDTO } from '@bismark/shared';
+import { useNavigate } from 'react-router-dom';
+import { User, Lock, ArrowRight } from 'lucide-react';
+import { loginSchema, type LoginInput } from '@bismark/shared';
 import { authService } from '@/services/auth';
 import { useAuthStore } from '@/store/auth';
 import { ApiError } from '@/lib/api';
@@ -16,16 +16,8 @@ import { TicketField, ticketInputClass } from '@/components/ui/ticket-field';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
-function destinationFor(user: AuthUserDTO): string {
-  if (user.role === 'SUPER_ADMIN') return '/admin';
-  if (!user.hasProfile) return '/onboarding';
-  // Directo al administrador: en móvil es la pantalla de trabajo; la vista
-  // previa de la página queda a un toque ("Mi página").
-  return '/panel/admin/inicio';
-}
-
 export default function Login() {
-  useDocumentTitle('Inicia sesión — Bismark');
+  useDocumentTitle('Inicia sesión');
   const navigate = useNavigate();
   const setUser = useAuthStore((s) => s.setUser);
 
@@ -35,7 +27,7 @@ export default function Login() {
     formState: { errors },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { usuario: '', password: '' },
   });
 
   const loginMutation = useMutation({
@@ -45,7 +37,7 @@ export default function Login() {
       identify(user.id, { role: user.role });
       track('login_completed');
       toast.success(`¡Bienvenido de nuevo, ${user.name.split(' ')[0]}!`);
-      navigate(destinationFor(user), { replace: true });
+      navigate('/admin/inicio', { replace: true });
     },
     onError: (err) => {
       toast.error(err instanceof ApiError ? err.message : 'No pudimos iniciar sesión. Inténtalo de nuevo.');
@@ -55,7 +47,7 @@ export default function Login() {
   return (
     <AuthLayout
       ticketLabel="Boleto de acceso"
-      badge="Bienvenido de nuevo"
+      badge="Administrador"
       sideTitle={
         <>
           Tus rifas, <span className="text-brand-mint">bajo control</span>
@@ -71,33 +63,22 @@ export default function Login() {
     >
       <div className="mb-7">
         <h1 className="font-display text-3xl font-extrabold tracking-tight">Inicia sesión</h1>
-        <p className="mt-1.5 text-muted-foreground">Entra a tu panel para organizar tus rifas.</p>
+        <p className="mt-1.5 text-muted-foreground">Entra al administrador de tu página de rifas.</p>
       </div>
 
       <form onSubmit={handleSubmit((data) => loginMutation.mutate(data))} className="space-y-4" noValidate>
-        <TicketField label="Correo electrónico" htmlFor="email" icon={Mail} error={errors.email?.message}>
+        <TicketField label="Usuario" htmlFor="usuario" icon={User} error={errors.usuario?.message}>
           <Input
-            id="email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            placeholder="tucorreo@ejemplo.com"
+            id="usuario"
+            type="text"
+            autoComplete="username"
+            placeholder="Tu usuario"
             className={ticketInputClass}
-            {...register('email')}
+            {...register('usuario')}
           />
         </TicketField>
 
-        <TicketField
-          label="Contraseña"
-          htmlFor="password"
-          icon={Lock}
-          error={errors.password?.message}
-          right={
-            <Link to="/recuperar" className="text-xs font-semibold text-brand hover:underline">
-              ¿Olvidaste tu contraseña?
-            </Link>
-          }
-        >
+        <TicketField label="Contraseña" htmlFor="password" icon={Lock} error={errors.password?.message}>
           <PasswordInput
             id="password"
             autoComplete="current-password"
@@ -111,13 +92,6 @@ export default function Login() {
           Entrar <ArrowRight className="h-5 w-5" />
         </Button>
       </form>
-
-      <p className="mt-7 text-center text-sm text-muted-foreground">
-        ¿Aún no tienes cuenta?{' '}
-        <Link to="/registro" className="font-semibold text-brand hover:underline">
-          Crea tu cuenta gratis
-        </Link>
-      </p>
     </AuthLayout>
   );
 }

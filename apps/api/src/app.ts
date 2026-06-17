@@ -9,10 +9,11 @@ import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { env } from './config/env.js';
 import { SESSION_COOKIE } from './lib/auth.js';
 import { isAllowedOrigin } from './lib/origins.js';
+import { renderBrandedIndex } from './lib/site-html.js';
 import { authenticate } from './middlewares/auth.js';
 import { csrfGuard } from './middlewares/csrf.js';
 import { registerErrorHandler } from './middlewares/error-handler.js';
@@ -23,11 +24,9 @@ import riferosRoutes from './modules/riferos/riferos.routes.js';
 import rafflesRoutes from './modules/raffles/raffles.routes.js';
 import ticketsRoutes from './modules/tickets/tickets.routes.js';
 import ordersRoutes from './modules/orders/orders.routes.js';
+import usersRoutes from './modules/users/users.routes.js';
 import paymentsRoutes from './modules/payments/payments.routes.js';
 import winnersRoutes from './modules/winners/winners.routes.js';
-import plansRoutes from './modules/plans/plans.routes.js';
-import subscriptionsRoutes from './modules/subscriptions/subscriptions.routes.js';
-import adminRoutes from './modules/admin/admin.routes.js';
 import digitalTicketsRoutes from './modules/digital-tickets/digital-tickets.routes.js';
 import reportsRoutes from './modules/reports/reports.routes.js';
 import publicRoutes from './modules/public/public.routes.js';
@@ -117,25 +116,67 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Healthcheck
   app.get('/health', async () => ({ ok: true, service: 'bismark-api', ts: new Date().toISOString() }));
 
-  // Cada módulo declara rutas absolutas (ver spec de endpoints). Se montan en raíz.
-  await app.register(authRoutes);
-  await app.register(riferosRoutes);
-  await app.register(rafflesRoutes);
-  await app.register(ticketsRoutes);
-  await app.register(ordersRoutes);
-  await app.register(paymentsRoutes);
-  await app.register(winnersRoutes);
-  await app.register(plansRoutes);
-  await app.register(subscriptionsRoutes);
-  await app.register(adminRoutes);
-  await app.register(digitalTicketsRoutes);
-  await app.register(reportsRoutes);
-  await app.register(uploadsRoutes);
-  await app.register(notificationsRoutes);
+  // Módulos de la API bajo /api (mismo origen que el frontend que sirve este
+  // mismo proceso). Las rutas OG (/s/...) quedan en raíz porque son enlaces
+  // públicos que se comparten por WhatsApp.
+  await app.register(
+    async (api) => {
+      await api.register(authRoutes);
+      await api.register(riferosRoutes);
+      await api.register(rafflesRoutes);
+      await api.register(ticketsRoutes);
+      await api.register(ordersRoutes);
+      await api.register(usersRoutes);
+      await api.register(paymentsRoutes);
+      await api.register(winnersRoutes);
+      await api.register(digitalTicketsRoutes);
+      await api.register(reportsRoutes);
+      await api.register(uploadsRoutes);
+      await api.register(notificationsRoutes);
+      await api.register(pushRoutes);
+      await api.register(liveRoutes);
+      await api.register(publicRoutes);
+    },
+    { prefix: '/api' },
+  );
   await app.register(ogRoutes);
-  await app.register(pushRoutes);
-  await app.register(liveRoutes);
-  await app.register(publicRoutes);
+
+  // ── Frontend (SPA) ─────────────────────────────────────────
+  // En producción este mismo servicio sirve el build de apps/web. En desarrollo
+  // la carpeta no existe y Vite sirve el frontend con su propio dev server.
+  const webDist = process.env.WEB_DIST_DIR
+    ? resolve(process.env.WEB_DIST_DIR)
+    : fileURLToPath(new URL('../../web/dist', import.meta.url));
+  const hasWebDist = existsSync(join(webDist, 'index.html'));
+  if (hasWebDist) {
+    await app.register(fastifyStatic, {
+      root: webDist,
+      prefix: '/',
+      decorateReply: false,
+      wildcard: false,
+      // index:false → "/" cae al notFound handler, que sirve el HTML con la marca
+      // del rifero inyectada (favicon, título y Open Graph) en vez del estático.
+      index: false,
+    });
+  }
+
+  const rawIndexHtml = hasWebDist ? readFileSync(join(webDist, 'index.html'), 'utf8') : null;
+  app.setNotFoundHandler(async (request, reply) => {
+    const isApiPath =
+      request.url.startsWith('/api/') ||
+      request.url.startsWith('/uploads/') ||
+      request.url.startsWith('/demo-assets/') ||
+      request.url.startsWith('/s/');
+    if (rawIndexHtml && request.method === 'GET' && !isApiPath) {
+      // Fallback SPA: cualquier ruta del frontend devuelve el index.html con la
+      // marca del rifero del sitio (logo, nombre y vista previa al compartir).
+      const html = await renderBrandedIndex(rawIndexHtml, request);
+      return reply.type('text/html; charset=utf-8').header('Cache-Control', 'no-cache').send(html);
+    }
+    return reply
+      .code(404)
+      .send({ error: 'not_found', message: `Ruta no encontrada: ${request.method} ${request.url}` });
+  });
 
   return app;
 }
