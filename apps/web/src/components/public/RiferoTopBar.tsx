@@ -1,5 +1,7 @@
 import { apiAssetUrl } from '@/lib/api';
 import { VerifiedBadge } from '@/components/brand/VerifiedBadge';
+import { useHideOnScroll } from '@/hooks/useHideOnScroll';
+import { cn } from '@/lib/cn';
 
 // Barra superior con la marca del rifero (fondo oscuro + bordes del color del
 // rifero, logo centrado) y los dos accesos: "Métodos de pago" y "Sube tu pago
@@ -21,12 +23,19 @@ export function RiferoTopBar({
   rightHref?: string;
 }) {
   const LOGO = 48;
+  const hidden = useHideOnScroll();
   const linkClass =
     'flex-1 px-1 text-center text-xs font-extrabold uppercase leading-tight tracking-wide text-white transition-opacity hover:opacity-90 sm:text-sm';
   const glow = { textShadow: '0 0 5px var(--rifero-primary), 0 0 11px var(--rifero-primary)' };
 
   return (
-    <div className="sticky top-0 z-50 border-y-[8px] border-[var(--rifero-primary,#1A4DFF)] bg-zinc-950/95 text-white backdrop-blur safe-top">
+    <div
+      className={cn(
+        'sticky top-0 z-50 border-y-[8px] border-[var(--rifero-primary,#1A4DFF)] bg-zinc-950/95 text-white backdrop-blur safe-top',
+        'transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform',
+        hidden ? '-translate-y-full' : 'translate-y-0',
+      )}
+    >
       <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-3" style={{ height: 56 }}>
         <a href={leftHref} className={linkClass} style={glow}>
           Métodos
