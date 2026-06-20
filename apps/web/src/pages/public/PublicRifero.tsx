@@ -13,6 +13,7 @@ import {
 import { apiAssetUrl } from '@/lib/api';
 import { publicService, type PublicRiferoWinner } from '@/services/publicSite';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { useImagesReady } from '@/hooks/useImagesReady';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/misc';
@@ -250,6 +251,16 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
 
   useDocumentTitle(data?.rifero?.publicName ?? data?.publicName);
 
+  // Sostener la pantalla de carga hasta que el banner (portada), el logo y la
+  // imagen de la primera rifa estén listos, para que no se vean "apareciendo".
+  const firstRaffleCover = data?.rifero?.raffles?.find((r) => r.coverUrl)?.coverUrl;
+  const heroImageUrls = [
+    data?.rifero?.coverUrl ? apiAssetUrl(data.rifero.coverUrl) : null,
+    data?.rifero?.logoUrl ? apiAssetUrl(data.rifero.logoUrl) : null,
+    firstRaffleCover ? apiAssetUrl(firstRaffleCover) : null,
+  ];
+  const imagesReady = useImagesReady(heroImageUrls);
+
   if (!previewData && query.isLoading) {
     return <BrandLoader />;
   }
@@ -272,6 +283,12 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
         </div>
       </div>
     );
+  }
+
+  // Datos listos pero faltan las imágenes clave: seguimos en la pantalla de carga
+  // (salvo en la vista previa del panel, que debe sentirse instantánea).
+  if (!previewData && !imagesReady) {
+    return <BrandLoader />;
   }
 
   const rifero = data.rifero;

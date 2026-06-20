@@ -39,6 +39,7 @@ import { publicService } from '@/services/publicSite';
 import { ticketService } from '@/services/tickets';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useHideOnScroll } from '@/hooks/useHideOnScroll';
+import { useImagesReady } from '@/hooks/useImagesReady';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -220,6 +221,14 @@ export default function PublicRaffle({ subdomain }: Props) {
   // Cintillo + promo + panel se ocultan/reaparecen en sincronía al hacer scroll.
   const barHidden = useHideOnScroll();
 
+  // Sostener la pantalla de carga hasta que el logo y la imagen del premio estén
+  // listos, para que la página no se vea "armándose" con las imágenes apareciendo.
+  const criticalImageUrls = [
+    raffle?.rifero?.logoUrl ? apiAssetUrl(raffle.rifero.logoUrl) : null,
+    raffle?.images?.[0]?.url ? apiAssetUrl(raffle.images[0].url) : null,
+  ];
+  const imagesReady = useImagesReady(criticalImageUrls);
+
   if (isLoading) {
     return <BrandLoader />;
   }
@@ -241,6 +250,11 @@ export default function PublicRaffle({ subdomain }: Props) {
         </div>
       </div>
     );
+  }
+
+  // Datos listos pero faltan las imágenes clave: seguimos en la pantalla de carga.
+  if (!imagesReady) {
+    return <BrandLoader />;
   }
 
   const rifero = raffle.rifero;
