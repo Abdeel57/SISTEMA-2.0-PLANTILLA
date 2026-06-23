@@ -27,13 +27,35 @@ await png('apple-touch-icon.svg', 180, 'apple-touch-icon.png');
 await png('favicon.svg', 32, 'favicon-32.png');
 
 // Imagen por defecto para vista previa de enlaces (Open Graph) 1200×630:
-// fondo de marca con el logotipo B centrado. Es el fallback cuando una rifa
-// no tiene imagen propia (la edge function usa la de la rifa cuando existe).
+// fondo oscuro de marca con destellos azul/magenta y el ícono de Sortea
+// centrado. Es el fallback cuando una rifa no tiene imagen propia (la edge
+// function usa la de la rifa cuando existe).
+const W = 1200, H = 630;
+const ogBg = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="40%" r="70%">
+      <stop offset="0%" stop-color="#16225a"/>
+      <stop offset="55%" stop-color="#0b1230"/>
+      <stop offset="100%" stop-color="#070b18"/>
+    </radialGradient>
+    <radialGradient id="b" cx="22%" cy="24%" r="48%">
+      <stop offset="0%" stop-color="#2235f9" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#2235f9" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="m" cx="80%" cy="82%" r="48%">
+      <stop offset="0%" stop-color="#ca16c4" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#ca16c4" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="${W}" height="${H}" fill="url(#g)"/>
+  <rect width="${W}" height="${H}" fill="url(#b)"/>
+  <rect width="${W}" height="${H}" fill="url(#m)"/>
+</svg>`);
 const logo = await sharp(await readFile(join(PUBLIC, 'icon.svg')), { density: 384 })
-  .resize(340, 340)
+  .resize(360, 360, { fit: 'inside' })
   .png()
   .toBuffer();
-await sharp({ create: { width: 1200, height: 630, channels: 4, background: '#070b18' } })
+await sharp(ogBg)
   .composite([{ input: logo, gravity: 'center' }])
   .png()
   .toFile(join(PUBLIC, 'og-default.png'));

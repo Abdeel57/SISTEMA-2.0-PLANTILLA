@@ -44,16 +44,20 @@ export default {
           DEFAULT: 'hsl(var(--popover))',
           foreground: 'hsl(var(--popover-foreground))',
         },
-        // Paleta oficial Bismark (bismarkdigital.com): azul eléctrico sobre
-        // blanco/tinta, menta como acento de "suerte" y cielo para detalles.
+        // Paleta Sortea: degradado azul eléctrico → magenta/rosa (tomado del
+        // ícono de la "S" de boletos), sobre tinta. El azul lidera la UI; el
+        // magenta y el rosa son los acentos del degradado de marca.
         brand: {
-          DEFAULT: '#1A4DFF',
+          DEFAULT: '#2235F9', // azul eléctrico (color líder)
           electric: '#4178FF',
-          deep: '#0E37D6',
+          deep: '#0E2BD6',
           ink: '#0A0A0A',
           sky: '#6FA0FF',
-          mint: '#4DFFA3',
-          gold: '#F5A623', // ámbar puntual (premios); ya no es color de identidad
+          magenta: '#CA16C4', // magenta del degradado
+          pink: '#FD1E5A', // rosa/rojo del extremo del degradado
+          star: '#AF13BD', // morado de la estrella central
+          mint: '#4DFFA3', // acento "suerte" (verde) — secundario
+          gold: '#F5A623', // ámbar puntual (premios)
           dark: '#0F1116',
         },
         // Estados de boleto (TicketGrid)

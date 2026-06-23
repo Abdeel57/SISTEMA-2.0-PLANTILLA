@@ -7,7 +7,7 @@ interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
 }
 
-const DISMISS_KEY = 'bismark:a2hs-dismissed';
+const DISMISS_KEY = 'sortea:a2hs-dismissed';
 
 function alreadyDismissed(): boolean {
   try {

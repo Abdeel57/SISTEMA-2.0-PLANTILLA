@@ -39,6 +39,7 @@ export function OwnerShell() {
         logoScale: profile.logoScale,
         logoGlow: profile.logoGlow,
         verified: profile.verified,
+        publicDarkMode: profile.publicDarkMode,
         faqs: profile.faqs,
         raffles: raffles.map((r) => ({
           id: r.id,

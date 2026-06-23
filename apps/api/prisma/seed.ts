@@ -16,7 +16,7 @@ const prisma = new PrismaClient();
 
 const env = {
   // Credenciales iniciales del administrador (puede cambiarlas después).
-  adminUser: (process.env.ADMIN_USER ?? 'Bismark').trim(),
+  adminUser: (process.env.ADMIN_USER ?? 'Sortea').trim(),
   adminPassword: process.env.ADMIN_PASSWORD ?? 'admin123',
   // Nombre público inicial de la página (se edita desde /admin → Perfil).
   siteName: process.env.SITE_NAME ?? 'Mi Página de Rifas',

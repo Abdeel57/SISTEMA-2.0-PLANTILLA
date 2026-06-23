@@ -21,7 +21,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: unknown): void {
     // eslint-disable-next-line no-console
-    console.error('[Bismark] Error de render:', error);
+    console.error('[Sortea] Error de render:', error);
     captureError(error); // reporta a Sentry (no-op sin DSN)
   }
 

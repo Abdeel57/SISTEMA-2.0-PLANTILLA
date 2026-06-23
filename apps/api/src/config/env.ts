@@ -94,7 +94,7 @@ export const env = {
     driver: (process.env.EMAIL_DRIVER || (process.env.RESEND_API_KEY ? 'resend' : 'log')) as
       | 'log'
       | 'resend',
-    from: str('EMAIL_FROM', 'Bismark <onboarding@resend.dev>'),
+    from: str('EMAIL_FROM', 'Sortea <onboarding@resend.dev>'),
     replyTo: process.env.EMAIL_REPLY_TO || undefined,
     resendApiKey: process.env.RESEND_API_KEY ?? '',
     // Minutos de validez del enlace de recuperación de contraseña.

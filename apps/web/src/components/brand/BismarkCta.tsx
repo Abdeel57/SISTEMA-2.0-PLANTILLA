@@ -5,11 +5,11 @@ import { LogoMark } from './LogoMark';
 import { cn } from '@/lib/cn';
 
 // Cierre de marca a todo el ancho para el final de las páginas públicas:
-// "Desarrollado por Bismark". El botón abre el WhatsApp de Bismark (configurable
+// "Desarrollado por Sortea". El botón abre el WhatsApp de Sortea (configurable
 // con VITE_BISMARK_WHATSAPP) para quien quiera su propia página de rifas.
 export function BismarkCta({ className }: { className?: string }) {
   const whatsappHref = webEnv.bismarkWhatsapp
-    ? buildWhatsappLink(webEnv.bismarkWhatsapp, 'Hola Bismark, quiero mi propia página de rifas.')
+    ? buildWhatsappLink(webEnv.bismarkWhatsapp, 'Hola Sortea, quiero mi propia página de rifas.')
     : null;
 
   return (
@@ -19,22 +19,25 @@ export function BismarkCta({ className }: { className?: string }) {
         className,
       )}
     >
-      {/* Brillo azul muy tenue, centrado en la base */}
+      {/* Degradado de marca Sortea: brillo azul a la izquierda, magenta a la derecha */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-1/2 opacity-40"
-        style={{ background: 'radial-gradient(55% 100% at 50% 100%, rgba(26,77,255,0.3), transparent 75%)' }}
+        className="pointer-events-none absolute inset-0 -z-10 opacity-50"
+        style={{
+          background:
+            'radial-gradient(50% 80% at 22% 100%, rgba(34,53,249,0.40), transparent 70%), radial-gradient(50% 80% at 80% 100%, rgba(202,22,196,0.34), transparent 72%)',
+        }}
       />
 
       <div className="mx-auto max-w-md">
         {/* Logo + nombre de marca */}
         <div className="mb-3 inline-flex items-center gap-2">
           <LogoMark variant="white" className="h-7 w-7" />
-          <span className="font-display text-lg font-bold uppercase tracking-[0.22em] text-white">BISMARK</span>
+          <span className="font-display text-lg font-bold uppercase tracking-[0.22em] text-white">SORTEA</span>
         </div>
 
         <h2 className="font-display text-xl font-bold tracking-tight text-white sm:text-2xl">
-          Sitio desarrollado por Bismark
+          Sitio desarrollado por Sortea
         </h2>
         <p className="mx-auto mt-1.5 max-w-sm text-sm leading-relaxed text-white/55">
           ¿Quieres tu propia página de rifas como esta? Escríbenos.

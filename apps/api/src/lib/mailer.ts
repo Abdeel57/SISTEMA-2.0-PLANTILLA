@@ -18,7 +18,7 @@ export interface EmailMessage {
   replyTo?: string;
 }
 
-const BRAND = 'Bismark';
+const BRAND = 'Sortea';
 
 // ── Utilidades ──────────────────────────────────────────────
 // Escapa texto para insertarlo de forma segura en HTML (evita inyección).

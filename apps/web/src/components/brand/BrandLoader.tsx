@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { cn } from '@/lib/cn';
-import logoUrl from '@/assets/bismark-logo.png';
+import logoUrl from '@/assets/sortea-logo.png';
 
 // Recorta la capa del destello a la silueta del monograma (PNG transparente).
 const logoMask: CSSProperties = {
@@ -14,7 +14,7 @@ const logoMask: CSSProperties = {
   WebkitMaskPosition: 'center',
 };
 
-// Pantalla de carga de marca: el monograma de Bismark quieto, barrido por un
+// Pantalla de carga de marca: el ícono de Sortea quieto, barrido por un
 // destello diagonal. Sin texto.
 //   fullScreen (default): overlay fijo con fondo tinta — cargas de página.
 //   fullScreen=false: versión compacta para secciones internas (ej. boletera).
@@ -46,10 +46,7 @@ export function BrandLoader({
           src={logoUrl}
           alt=""
           draggable={false}
-          className={cn(
-            'h-full w-full select-none object-contain',
-            fullScreen ? 'invert opacity-80' : 'opacity-80 dark:invert',
-          )}
+          className="h-full w-full select-none object-contain opacity-90"
         />
         <div aria-hidden className="brand-loader-shine absolute inset-0" style={logoMask} />
       </div>

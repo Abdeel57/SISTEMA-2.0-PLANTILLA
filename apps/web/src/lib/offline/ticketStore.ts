@@ -12,7 +12,7 @@
  */
 import type { DigitalTicketDTO } from '@bismark/shared';
 
-const DB_NAME = 'bismark-offline';
+const DB_NAME = 'sortea-offline';
 const DB_VERSION = 1;
 const STORE = 'tickets';
 

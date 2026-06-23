@@ -23,7 +23,7 @@ async function main(): Promise<void> {
 
   try {
     await app.listen({ port: env.port, host: env.host });
-    app.log.info(`Bismark API escuchando en http://${env.host}:${env.port}`);
+    app.log.info(`Sortea API escuchando en http://${env.host}:${env.port}`);
   } catch (err) {
     app.log.error(err);
     process.exit(1);

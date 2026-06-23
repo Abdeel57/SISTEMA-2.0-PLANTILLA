@@ -261,7 +261,7 @@ export default function Settings() {
                 <ToggleRow
                   icon={Sparkles}
                   title="Usar sorteo digital"
-                  description="Realiza el sorteo dentro de Bismark de forma transparente."
+                  description="Realiza el sorteo dentro de Sortea de forma transparente."
                   checked={!!field.value}
                   onChange={field.onChange}
                 />

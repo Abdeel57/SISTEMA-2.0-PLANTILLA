@@ -1,14 +1,12 @@
 import { cn } from '@/lib/cn';
-import logoUrl from '@/assets/bismark-logo.png';
+import logoUrl from '@/assets/sortea-logo.png';
 
-// Monograma oficial de Bismark ("BISMARK LOGO PERFECTO"). El archivo es negro
-// sobre transparente, así que:
-//   variant="black" → tal cual (para superficies claras).
-//   variant="white" → invertido a blanco (para superficies oscuras).
-//   variant="auto"  → negro en tema claro, blanco en tema oscuro (dark:invert).
+// Ícono oficial de Sortea (la "S" de boletos a color). Es un PNG a todo color
+// sobre transparente, así que se usa tal cual sobre fondos claros y oscuros
+// (sin invertir). La prop `variant` se conserva por compatibilidad con los
+// llamados existentes, pero ya no altera el color del ícono.
 export function LogoMark({
   className,
-  variant = 'auto',
 }: {
   className?: string;
   variant?: 'black' | 'white' | 'auto';
@@ -16,14 +14,9 @@ export function LogoMark({
   return (
     <img
       src={logoUrl}
-      alt="Bismark"
+      alt="Sortea"
       draggable={false}
-      className={cn(
-        'block h-8 w-8 select-none object-contain',
-        variant === 'white' && 'invert',
-        variant === 'auto' && 'dark:invert',
-        className,
-      )}
+      className={cn('block h-8 w-8 select-none object-contain', className)}
     />
   );
 }

@@ -1,6 +1,6 @@
 export const webEnv = {
   apiUrl: (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || '/api',
-  brandName: (import.meta.env.VITE_BRAND_NAME as string | undefined) || 'Bismark',
+  brandName: (import.meta.env.VITE_BRAND_NAME as string | undefined) || 'Sortea - Digital',
   // WhatsApp de Bismark (el desarrollador del sitio). Lo enlaza el pie de
   // página "Desarrollado por Bismark". Número con código de país, sin "+".
   bismarkWhatsapp: (import.meta.env.VITE_BISMARK_WHATSAPP as string | undefined) || '',

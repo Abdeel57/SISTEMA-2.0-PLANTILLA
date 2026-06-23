@@ -15,7 +15,7 @@ interface Props {
 
 // Layout de autenticación — concepto "Boleto Bismark": panel de marca en tinta
 // (izq, desktop) y el formulario dentro de un boleto troquelado sobre papel azul suave.
-export function AuthLayout({ children, badge, sideTitle, sideSubtitle, bullets, ticketLabel = 'Acceso Bismark' }: Props) {
+export function AuthLayout({ children, badge, sideTitle, sideSubtitle, bullets, ticketLabel = 'Acceso Sortea' }: Props) {
   return (
     <div className="min-h-screen font-body lg:grid lg:grid-cols-[1.05fr_1fr]">
       {/* ── Panel de marca ── */}
@@ -42,7 +42,7 @@ export function AuthLayout({ children, badge, sideTitle, sideSubtitle, bullets, 
         {/* Logo */}
         <Link to="/" className="relative z-10 flex w-fit items-center gap-2 font-display text-xl font-extrabold text-white">
           <LogoMark variant="white" className="h-8 w-8" />
-          Bismark
+          Sortea
         </Link>
 
         {/* Mensaje */}
@@ -91,7 +91,7 @@ export function AuthLayout({ children, badge, sideTitle, sideSubtitle, bullets, 
         <div className="flex items-center justify-between p-4 lg:p-5">
           <Link to="/" className="flex items-center gap-2 font-display text-lg font-extrabold lg:hidden">
             <LogoMark className="h-7 w-7" />
-            Bismark
+            Sortea
           </Link>
           <div className="flex items-center gap-1">
             <Link

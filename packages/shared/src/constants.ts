@@ -1,10 +1,10 @@
 // Constantes compartidas de la plataforma.
 
 export const BRAND = {
-  name: 'Bismark',
-  poweredBy: 'Impulsado por Bismark',
-  generatedBy: 'Generado por Bismark',
-  rootDomain: 'bismark.com',
+  name: 'Sortea - Digital',
+  poweredBy: 'Impulsado por Sortea',
+  generatedBy: 'Generado por Sortea',
+  rootDomain: 'sortea-digital.com', // placeholder; se define al configurar el dominio del deploy
 } as const;
 
 // Palabras reservadas que NO pueden usarse como slug/subdominio de rifero.
@@ -17,7 +17,8 @@ export const RESERVED_SLUGS = [
   'login',
   'register',
   'registro',
-  'bismark',
+  'sortea',
+  'sorteadigital',
   'soporte',
   'support',
   'help',

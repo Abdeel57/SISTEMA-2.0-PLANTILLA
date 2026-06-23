@@ -30,7 +30,7 @@ export function VerifiedBadge({
       className={cn('inline-block shrink-0 drop-shadow-[0_1px_2px_rgba(29,78,216,0.35)]', className)}
       style={style}
     >
-      <title>Rifero verificado por Bismark</title>
+      <title>Rifero verificado por Sortea</title>
       <defs>
         <linearGradient id={`vb-${uid}`} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stopColor="#60a5fa" />

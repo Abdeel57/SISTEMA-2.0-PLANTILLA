@@ -86,7 +86,7 @@ export function MoreMenu({ onPick }: { onPick: (to: string) => void }) {
         </section>
       ))}
 
-      <p className="px-1 pb-2 text-center text-[11px] text-muted-foreground/70">Bismark · Panel del rifero</p>
+      <p className="px-1 pb-2 text-center text-[11px] text-muted-foreground/70">Sortea · Panel del rifero</p>
     </div>
   );
 }

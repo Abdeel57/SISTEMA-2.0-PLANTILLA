@@ -76,7 +76,7 @@ function MethodEditor({
             <Input
               id={`bank-${method.id}`}
               placeholder="BBVA, Banorte, OXXO, Nu…"
-              list="bismark-banks"
+              list="sortea-banks"
               value={method.bank}
               onChange={set('bank')}
             />
@@ -199,7 +199,7 @@ export default function Payments() {
       <PanelIntro description="Configura cómo te van a pagar tus compradores." />
 
       {/* Sugerencias de bancos para el autocompletado */}
-      <datalist id="bismark-banks">
+      <datalist id="sortea-banks">
         {BANKS.map((b) => (
           <option key={b.id} value={b.name} />
         ))}
@@ -211,7 +211,7 @@ export default function Payments() {
           <div className="text-sm">
             <p className="font-semibold text-blue-900 dark:text-blue-200">El pago es directo a ti</p>
             <p className="text-blue-800/90 dark:text-blue-300/90">
-              El comprador te paga directamente con estos datos. Bismark no cobra ni procesa el dinero en esta
+              El comprador te paga directamente con estos datos. Sortea no cobra ni procesa el dinero en esta
               versión: tú recibes el pago y confirmas la orden.
             </p>
           </div>

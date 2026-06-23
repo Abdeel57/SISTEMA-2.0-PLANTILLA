@@ -15,10 +15,10 @@ export function InstallBanner() {
     <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-3 safe-bottom">
       <div className="flex w-full max-w-md items-center gap-3 rounded-2xl border bg-card p-3 shadow-2xl">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand text-lg font-black text-white">
-          B
+          S
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold leading-tight">Instala Bismark</p>
+          <p className="text-sm font-bold leading-tight">Instala Sortea</p>
           <p className="truncate text-xs text-muted-foreground">
             Ábrela como app, sin navegador y más rápida.
           </p>
