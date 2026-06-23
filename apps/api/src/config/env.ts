@@ -1,5 +1,6 @@
 import { config as loadEnv } from 'dotenv';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 // Carga de variables de entorno. Prioridad (de mayor a menor):
 //   1. Variables ya presentes en el proceso (las que inyecta Railway / el SO).
@@ -8,8 +9,30 @@ import { fileURLToPath } from 'node:url';
 // dotenv nunca sobreescribe una variable ya definida, así que el dashboard de
 // Railway siempre gana y los secretos viven únicamente ahí.
 loadEnv();
+
+// Detección ROBUSTA de producción. Railway SIEMPRE inyecta RAILWAY_ENVIRONMENT (y
+// RAILWAY_PROJECT_ID), así que no dependemos de que alguien recuerde poner
+// NODE_ENV=production a mano. Si detectamos Railway, normalizamos NODE_ENV para
+// que TODO el proceso (logger, cookies seguras, almacenamiento en BD) se comporte
+// como producción. Esto evita el caso peligroso de caer a almacenamiento local
+// (disco efímero) y perder las imágenes en cada redeploy.
+const onRailway = Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID);
+if (onRailway && process.env.NODE_ENV !== 'production') {
+  process.env.NODE_ENV = 'production';
+}
 if (process.env.NODE_ENV === 'production') {
   loadEnv({ path: fileURLToPath(new URL('../../.env.production', import.meta.url)) });
+}
+
+// Respaldo ESTABLE para los secretos de sesión cuando no se definieron como
+// variables en Railway. Se derivan de DATABASE_URL —que Railway mantiene fijo
+// entre redeploys— así que las sesiones NO se invalidan al volver a desplegar y
+// el deploy funciona con CERO configuración extra (solo DATABASE_URL).
+// Recomendado para mayor seguridad: definir JWT_SECRET y COOKIE_SECRET propios en
+// Railway (tienen prioridad sobre este respaldo).
+function derivedSecret(purpose: string): string {
+  const base = process.env.DATABASE_URL ?? 'bismark-local-dev';
+  return createHash('sha256').update(`bismark:${purpose}:${base}`).digest('hex');
 }
 
 function str(key: string, fallback?: string): string {
@@ -44,8 +67,8 @@ export const env = {
 
   databaseUrl: str('DATABASE_URL'),
 
-  jwtSecret: str('JWT_SECRET', isProd ? undefined : 'dev-insecure-jwt-secret-change-me-please-32'),
-  cookieSecret: str('COOKIE_SECRET', isProd ? undefined : 'dev-insecure-cookie-secret-change-me-32chars'),
+  jwtSecret: str('JWT_SECRET', isProd ? derivedSecret('jwt') : 'dev-insecure-jwt-secret-change-me-please-32'),
+  cookieSecret: str('COOKIE_SECRET', isProd ? derivedSecret('cookie') : 'dev-insecure-cookie-secret-change-me-32chars'),
   jwtExpiresIn: str('JWT_EXPIRES_IN', '7d'),
   cookieSecure: bool('COOKIE_SECURE', isProd),
   cookieSameSite: (process.env.COOKIE_SAME_SITE ?? 'lax') as 'lax' | 'strict' | 'none',
@@ -91,7 +114,10 @@ export const env = {
   },
 
   storage: {
-    driver: (process.env.STORAGE_DRIVER ?? 'local') as 'local' | 'db' | 'cloudinary' | 's3',
+    // En producción el default es `db`: las imágenes viven en Postgres y
+    // SOBREVIVEN a los redeploys de Railway sin depender de un Volume. En local el
+    // default es `local` (disco). Se puede forzar con STORAGE_DRIVER.
+    driver: (process.env.STORAGE_DRIVER ?? (isProd ? 'db' : 'local')) as 'local' | 'db' | 'cloudinary' | 's3',
     localDir: str('LOCAL_UPLOAD_DIR', './uploads'),
     cloudinary: {
       cloudName: process.env.CLOUDINARY_CLOUD_NAME ?? '',
