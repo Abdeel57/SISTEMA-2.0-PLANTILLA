@@ -153,53 +153,52 @@ async function ensureBaseRaffle(riferoId: string): Promise<void> {
 async function main() {
   console.log('🌱 Preparando el sitio (single-tenant)...');
 
+  // Si el sitio YA está configurado (existe un perfil de rifero), NO recreamos el
+  // usuario ni el perfil: respetamos lo que el cliente tenga, incluido un usuario
+  // renombrado (p. ej. cambiar el acceso de "bismark" a "sortea"). Buscar por el
+  // PERFIL —y no por el email de ADMIN_USER— evita crear administradores
+  // DUPLICADOS (un usuario huérfano sin perfil) cuando ADMIN_USER cambia entre
+  // deploys. Solo aseguramos la rifa base.
+  const configuredProfile = await prisma.riferoProfile.findFirst({ orderBy: { createdAt: 'asc' } });
+  if (configuredProfile) {
+    console.log(`✓ Sitio ya configurado: "${configuredProfile.publicName}". No se recrea usuario/perfil.`);
+    await ensureBaseRaffle(configuredProfile.id);
+    console.log('🌱 Listo.');
+    return;
+  }
+
+  // Primer arranque (BD sin perfil): crea el usuario administrador y su perfil.
   // El "usuario" de acceso se guarda en la columna email, en minúsculas.
   const usuario = env.adminUser.toLowerCase();
+  const passwordHash = await bcrypt.hash(env.adminPassword, 12);
+  const user = await prisma.user.create({
+    data: {
+      name: env.adminUser,
+      email: usuario,
+      phone: '0000000000',
+      passwordHash,
+      role: 'RIFERO',
+      status: 'ACTIVE',
+    },
+  });
+  console.log(`✅ Usuario administrador creado: ${env.adminUser}`);
 
-  let user = await prisma.user.findUnique({ where: { email: usuario }, include: { riferoProfile: true } });
-  if (!user) {
-    const passwordHash = await bcrypt.hash(env.adminPassword, 12);
-    user = {
-      ...(await prisma.user.create({
-        data: {
-          name: env.adminUser,
-          email: usuario,
-          phone: '0000000000',
-          passwordHash,
-          role: 'RIFERO',
-          status: 'ACTIVE',
-        },
-      })),
-      riferoProfile: null,
-    };
-    console.log(`✅ Usuario administrador creado: ${env.adminUser}`);
-  } else {
-    console.log(`✓ Usuario administrador ya existe: ${env.adminUser}`);
-  }
-
-  const existingProfile =
-    user.riferoProfile ?? (await prisma.riferoProfile.findUnique({ where: { userId: user.id } }));
-  let profile = existingProfile;
-  if (!profile) {
-    profile = await prisma.riferoProfile.create({
-      data: {
-        userId: user.id,
-        publicName: env.siteName,
-        slug: env.siteSlug,
-        subdomain: env.siteSlug,
-        whatsapp: '',
-        primaryColor: '#1d4ed8',
-        secondaryColor: '#0f172a',
-        templateKey: 'classic',
-        allowProofUpload: true, // recibir comprobantes en la plataforma desde el inicio
-        status: 'ACTIVE',
-        verified: true,
-      },
-    });
-    console.log(`✅ Perfil del sitio creado: ${env.siteName}`);
-  } else {
-    console.log(`✓ Perfil del sitio ya existe: ${profile.publicName}`);
-  }
+  const profile = await prisma.riferoProfile.create({
+    data: {
+      userId: user.id,
+      publicName: env.siteName,
+      slug: env.siteSlug,
+      subdomain: env.siteSlug,
+      whatsapp: '',
+      primaryColor: '#1d4ed8',
+      secondaryColor: '#0f172a',
+      templateKey: 'classic',
+      allowProofUpload: true, // recibir comprobantes en la plataforma desde el inicio
+      status: 'ACTIVE',
+      verified: true,
+    },
+  });
+  console.log(`✅ Perfil del sitio creado: ${env.siteName}`);
 
   // Rifa base del proyecto (idempotente: solo si la página aún no tiene rifas).
   await ensureBaseRaffle(profile.id);

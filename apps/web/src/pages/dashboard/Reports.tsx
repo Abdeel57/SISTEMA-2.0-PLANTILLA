@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { FileSpreadsheet, FileText, FileBarChart, Receipt, Ticket, Users, Lock } from 'lucide-react';
+import { FileSpreadsheet, FileText, FileBarChart, Receipt, Ticket, Users } from 'lucide-react';
 import { RAFFLE_STATUS_LABELS } from '@bismark/shared';
 import type { RaffleDTO } from '@bismark/shared';
 import { raffleService } from '@/services/raffles';
-import { riferoService } from '@/services/riferos';
 import { reportService, type ReportType, type ReportFormat } from '@/services/payments';
 import { ApiError } from '@/lib/api';
 import { PanelIntro } from '@/components/owner/PanelKit';
@@ -20,15 +19,7 @@ const REPORT_TYPES: { type: ReportType; label: string; icon: typeof Receipt }[] 
   { type: 'buyers', label: 'Compradores', icon: Users },
 ];
 
-function RaffleReportCard({
-  raffle,
-  allowExcel,
-  allowPdf,
-}: {
-  raffle: RaffleDTO;
-  allowExcel: boolean;
-  allowPdf: boolean;
-}) {
+function RaffleReportCard({ raffle }: { raffle: RaffleDTO }) {
   const [downloading, setDownloading] = useState<string | null>(null);
 
   const download = async (type: ReportType, format: ReportFormat) => {
@@ -72,21 +63,21 @@ function RaffleReportCard({
             <Button
               variant="outline"
               size="sm"
-              disabled={!allowExcel || downloading !== null}
+              disabled={downloading !== null}
               loading={downloading === `${type}-excel`}
               onClick={() => download(type, 'excel')}
             >
-              {allowExcel ? <FileSpreadsheet className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              <FileSpreadsheet className="h-4 w-4" />
               Excel
             </Button>
             <Button
               variant="outline"
               size="sm"
-              disabled={!allowPdf || downloading !== null}
+              disabled={downloading !== null}
               loading={downloading === `${type}-pdf`}
               onClick={() => download(type, 'pdf')}
             >
-              {allowPdf ? <FileText className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              <FileText className="h-4 w-4" />
               PDF
             </Button>
           </div>
@@ -97,13 +88,6 @@ function RaffleReportCard({
 }
 
 export default function Reports() {
-  const { data: rifero } = useQuery({
-    queryKey: ['rifero', 'me'],
-    queryFn: () => riferoService.me(),
-  });
-  const allowExcel = rifero?.profile.activePlan?.allowReportsExcel ?? false;
-  const allowPdf = rifero?.profile.activePlan?.allowReportsPdf ?? false;
-
   const { data, isLoading } = useQuery({
     queryKey: ['raffles', 'list'],
     queryFn: () => raffleService.list(),
@@ -116,24 +100,6 @@ export default function Reports() {
     <div>
       <PanelIntro description="Descarga la información de tus rifas en Excel o PDF." />
 
-      {/* Qué incluye tu plan */}
-      <Card className="mb-5">
-        <CardHeader>
-          <CardTitle className="text-base">Formatos de tu plan</CardTitle>
-          <CardDescription>Estos son los formatos disponibles según tu plan actual.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          <Badge variant={allowExcel ? 'success' : 'muted'} className="gap-1">
-            <FileSpreadsheet className="h-3.5 w-3.5" />
-            Excel {allowExcel ? 'incluido' : 'no disponible'}
-          </Badge>
-          <Badge variant={allowPdf ? 'success' : 'muted'} className="gap-1">
-            <FileText className="h-3.5 w-3.5" />
-            PDF {allowPdf ? 'incluido' : 'no disponible'}
-          </Badge>
-        </CardContent>
-      </Card>
-
       {raffles.length === 0 ? (
         <EmptyState
           icon={<FileBarChart className="h-10 w-10" />}
@@ -143,12 +109,7 @@ export default function Reports() {
       ) : (
         <div className="space-y-4">
           {raffles.map((raffle) => (
-            <RaffleReportCard
-              key={raffle.id}
-              raffle={raffle}
-              allowExcel={allowExcel}
-              allowPdf={allowPdf}
-            />
+            <RaffleReportCard key={raffle.id} raffle={raffle} />
           ))}
         </div>
       )}
