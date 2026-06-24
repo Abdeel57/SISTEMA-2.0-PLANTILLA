@@ -2,6 +2,7 @@ import type { FastifyRequest } from 'fastify';
 import { prisma } from './prisma.js';
 import { env } from '../config/env.js';
 import { escapeHtml } from './mailer.js';
+import { shareCardRelUrl } from '../modules/og/share-card.js';
 
 // Inyecta la marca del rifero del sitio (favicon, título y meta tags Open Graph)
 // en el index.html que sirve el backend. Así, ANTES de que cargue el JS:
@@ -66,7 +67,9 @@ export async function renderBrandedIndex(rawHtml: string, request: FastifyReques
     profile.description?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200) ||
     'Aparta tus boletos, paga fácil y recibe tu boleto digital con QR.';
   const logo = absolute(profile.logoUrl, request);
-  const ogImage = absolute(profile.coverUrl || profile.logoUrl, request);
+  // Vista previa al compartir: tarjeta 1:1 con el logo sobre fondo blanco (ver
+  // modules/og/share-card.ts). El `?v=` invalida la caché de las redes al cambiar el logo.
+  const ogImage = absolute(shareCardRelUrl(profile), request);
 
   let html = rawHtml;
 

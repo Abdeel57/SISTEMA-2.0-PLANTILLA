@@ -10,7 +10,9 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { env } from '../../config/env.js';
 import { escapeHtml } from '../../lib/mailer.js';
+import { prisma } from '../../lib/prisma.js';
 import { findSiteProfile } from '../public/public.routes.js';
+import { composeShareCard, shareCardRelUrl, shareCardSource } from './share-card.js';
 
 // Base pública del sitio: PUBLIC_WEB_URL si está definida; si no, el host de la
 // petición (frontend y API comparten origen en producción).
@@ -45,7 +47,7 @@ function renderOgHtml(d: OgData): string {
   const image = d.image || d.fallbackImage;
   const img = `<meta property="og:image" content="${escapeHtml(image)}" />
     <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
+    <meta property="og:image:height" content="1200" />
     <meta property="og:image:alt" content="${escapeHtml(d.title)}" />
     <meta name="twitter:image" content="${escapeHtml(image)}" />`;
   const redirect = escapeHtml(d.redirectUrl);
@@ -118,7 +120,7 @@ export default async function ogRoutes(app: FastifyInstance): Promise<void> {
       description:
         profile.description?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200) ||
         `Participa en las rifas de ${profile.publicName}. Aparta tus boletos y paga fácil.`,
-      image: toAbsoluteApiUrl(profile.coverUrl || profile.logoUrl, request),
+      image: toAbsoluteApiUrl(shareCardRelUrl(profile), request),
       fallbackImage,
       siteName: profile.publicName,
       url: shareUrl,
@@ -152,8 +154,8 @@ export default async function ogRoutes(app: FastifyInstance): Promise<void> {
       );
     }
 
-    // Identidad de la PÁGINA del rifero (nombre + logo/portada), no del evento:
-    // al compartir cualquier rifa se ve siempre la marca de la página de rifas.
+    // Identidad de la PÁGINA del rifero (nombre + logo), no del evento:
+    // al compartir cualquier rifa se ve siempre el logo de la página de rifas.
     // El humano sí aterriza en la rifa concreta (/eN).
     return sendOg(
       reply,
@@ -162,12 +164,31 @@ export default async function ogRoutes(app: FastifyInstance): Promise<void> {
         description:
           profile.description?.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200) ||
           `Participa en las rifas de ${profile.publicName}. Aparta tus boletos y paga fácil.`,
-        image: toAbsoluteApiUrl(profile.coverUrl || profile.logoUrl, request),
+        image: toAbsoluteApiUrl(shareCardRelUrl(profile), request),
         fallbackImage,
         siteName: profile.publicName,
         url: shareUrl,
         redirectUrl: `${base}/e${n}`,
       }),
     );
+  });
+
+  // GET /s/card.png — tarjeta 1:1 (logo del rifero centrado sobre blanco) que se
+  // usa como og:image al compartir. El `?v=` lo añade quien genera el enlace para
+  // invalidar la caché de las redes cuando cambia el logo.
+  app.get('/s/card.png', async (request, reply) => {
+    const profile = await prisma.riferoProfile.findFirst({
+      orderBy: { createdAt: 'asc' },
+      select: { logoUrl: true, coverUrl: true },
+    });
+    const png = await composeShareCard(shareCardSource(profile));
+    if (!png) {
+      // Sin logo utilizable: cae a la imagen por defecto del sitio.
+      return reply.redirect(`${siteBase(request)}/og-default.png`);
+    }
+    return reply
+      .header('Content-Type', 'image/png')
+      .header('Cache-Control', 'public, max-age=300')
+      .send(png);
   });
 }
