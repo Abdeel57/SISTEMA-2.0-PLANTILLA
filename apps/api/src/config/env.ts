@@ -47,8 +47,35 @@ function databaseIsLocal(): boolean {
 // se detectara producción (NODE_ENV/RAILWAY_ENVIRONMENT ausentes o un Start
 // Command personalizado en el panel que ignore railway.json). Solo con base
 // local (desarrollo) el default es disco.
-function defaultStorageDriver(): 'db' | 'local' {
-  if (process.env.NODE_ENV === 'production') return 'db';
+type StorageDriver = 'local' | 'db' | 'cloudinary' | 's3';
+
+// Resuelve el driver de almacenamiento de forma A PRUEBA DE FALLOS.
+//
+// En PRODUCCIÓN el disco del contenedor es EFÍMERO (Railway lo borra en cada
+// redeploy), así que `local` NUNCA es seguro: las imágenes se verían "presentes
+// pero transparentes" tras redesplegar porque su /uploads/<key> da 404. Por eso,
+// aunque por error haya quedado STORAGE_DRIVER=local en el panel, lo IGNORAMOS y
+// guardamos en Postgres (`db`), que sobrevive a los deploys. Solo los drivers
+// DURABLES (cloudinary/s3) pueden anular este comportamiento en producción.
+//
+// En desarrollo se respeta lo que se pida; sin variable, `db` salvo base local.
+function resolveStorageDriver(): StorageDriver {
+  const explicit = (process.env.STORAGE_DRIVER ?? '').trim().toLowerCase() as StorageDriver | '';
+
+  if (process.env.NODE_ENV === 'production') {
+    if (explicit === 'cloudinary' || explicit === 's3' || explicit === 'db') return explicit;
+    if (explicit === 'local') {
+      // Aviso temprano (env.ts corre antes del logger): el disco efímero pierde
+      // las imágenes en cada redeploy; forzamos Postgres para evitarlo.
+      console.warn(
+        '⚠️  STORAGE_DRIVER=local en producción: el disco es efímero y las imágenes se PIERDEN en cada redeploy. ' +
+          'Se fuerza STORAGE_DRIVER=db (Postgres). Quita esa variable en Railway para silenciar este aviso.',
+      );
+    }
+    return 'db';
+  }
+
+  if (explicit) return explicit;
   return databaseIsLocal() ? 'local' : 'db';
 }
 
@@ -134,7 +161,7 @@ export const env = {
     // Default a prueba de fallos (ver defaultStorageDriver): `db` salvo en
     // desarrollo con base local. Las imágenes viven en Postgres y SOBREVIVEN a los
     // redeploys de Railway sin Volume. Se puede forzar con STORAGE_DRIVER.
-    driver: (process.env.STORAGE_DRIVER ?? defaultStorageDriver()) as 'local' | 'db' | 'cloudinary' | 's3',
+    driver: resolveStorageDriver(),
     localDir: str('LOCAL_UPLOAD_DIR', './uploads'),
     cloudinary: {
       cloudName: process.env.CLOUDINARY_CLOUD_NAME ?? '',
