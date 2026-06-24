@@ -295,22 +295,13 @@ export default function PublicRaffle({ subdomain }: Props) {
   const riferoHref = '/';
   const verificarHref = '/verificar';
   const pay = raffle.paymentProfile;
-  // Cuando el sitio NO recibe comprobantes, el acceso "Sube tu pago aquí" del
-  // cintillo se vuelve "Envía tu pago" y abre WhatsApp del rifero para coordinar
-  // el pago fuera de la plataforma (si no hay WhatsApp, se queda en "Verificar").
-  const payWhatsapp = pay.whatsapp || rifero.whatsapp || '';
-  const sendPayByWhatsapp = !raffle.allowProofUpload && !!payWhatsapp;
-  const uploadAction = sendPayByWhatsapp
-    ? {
-        line1: 'Envía tu',
-        line2: 'pago',
-        href: buildWhatsappLink(
-          payWhatsapp,
-          `Hola 👋, quiero coordinar el pago de mis boletos de la rifa *${raffle.title}*.`,
-        ),
-        pulse: true,
-      }
-    : { line1: 'Sube tu', line2: 'pago aquí', href: verificarHref, pulse: true };
+  // El acceso derecho del cintillo SIEMPRE lleva a "Verificar boletos": ahí el
+  // comprador ve el estado de su orden, abre su boleto digital cuando ya está
+  // pagada y, si el sitio NO recibe comprobantes, envía su pago por WhatsApp
+  // desde cada orden. Solo cambia la etiqueta según se suban comprobantes o no.
+  const uploadAction = raffle.allowProofUpload
+    ? { line1: 'Sube tu', line2: 'pago aquí', href: verificarHref, pulse: true }
+    : { line1: 'Verifica tu', line2: 'boleto', href: verificarHref, pulse: true };
   const hasPayInfo = !!(pay.holderName || pay.bank || pay.clabe || pay.cardNumber || pay.concept || pay.instructions);
   // El cintillo (RaffleBrandBar) tiene altura fija; el panel de selección va justo debajo.
   const panelTopPx = BAR_TOTAL + 6;
