@@ -221,11 +221,16 @@ export default function PublicRaffle({ subdomain }: Props) {
   // Cintillo + promo + panel se ocultan/reaparecen en sincronía al hacer scroll.
   const barHidden = useHideOnScroll();
 
-  // Sostener la pantalla de carga hasta que el logo y la imagen del premio estén
-  // listos, para que la página no se vea "armándose" con las imágenes apareciendo.
+  // Sostener la pantalla de carga hasta que el logo y TODAS las imágenes del
+  // premio (galería) estén listas, para que la página no se vea "armándose" con
+  // las imágenes apareciendo. El hook tiene tope de seguridad para imágenes
+  // rotas o lentas.
+  const prizeImages = (raffle?.images ?? []).map((im) =>
+    im?.url ? apiAssetUrl(im.url) : null,
+  );
   const criticalImageUrls = [
     raffle?.rifero?.logoUrl ? apiAssetUrl(raffle.rifero.logoUrl) : null,
-    raffle?.images?.[0]?.url ? apiAssetUrl(raffle.images[0].url) : null,
+    ...prizeImages,
   ];
   const imagesReady = useImagesReady(criticalImageUrls);
 

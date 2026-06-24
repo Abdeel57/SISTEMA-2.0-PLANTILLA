@@ -162,7 +162,9 @@
     mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
   }
   /* Destello que barre el monograma (BrandLoader). La capa va recortada a la
-     silueta del logo (mask en el componente); aquí solo viaja el brillo. */
+     silueta del logo (mask en el componente); aquí solo viaja el brillo. El
+     núcleo lleva los colores del degradado Sortea (azul → blanco → magenta)
+     para que la luz que cruza la "S" se sienta de marca, no un brillo neutro. */
   @keyframes brand-shine {
     from {
       background-position: 200% 0;
@@ -174,15 +176,77 @@
   .brand-loader-shine {
     background-image: linear-gradient(
       115deg,
-      transparent 40%,
-      rgba(135, 166, 255, 0.5) 46%,
-      rgba(255, 255, 255, 0.95) 50%,
-      rgba(135, 166, 255, 0.5) 54%,
-      transparent 60%
+      transparent 38%,
+      rgba(65, 120, 255, 0.55) 45%,
+      rgba(255, 255, 255, 0.98) 50%,
+      rgba(202, 22, 196, 0.55) 55%,
+      transparent 62%
     );
     background-size: 200% 100%;
     background-repeat: no-repeat;
-    animation: brand-shine 1.9s ease-in-out infinite;
+    animation: brand-shine 2.1s ease-in-out infinite;
+  }
+  /* Aura: halo azul→magenta que respira detrás del ícono en la carga a pantalla
+     completa. Da profundidad y "vida" sin distraer del monograma. */
+  @keyframes brand-aura {
+    0%,
+    100% {
+      opacity: 0.4;
+      transform: scale(0.9);
+    }
+    50% {
+      opacity: 0.75;
+      transform: scale(1.08);
+    }
+  }
+  .brand-loader-aura {
+    background-image: radial-gradient(
+      closest-side,
+      rgba(34, 53, 249, 0.6),
+      rgba(202, 22, 196, 0.28) 58%,
+      transparent 74%
+    );
+    filter: blur(16px);
+    animation: brand-aura 2.6s ease-in-out infinite;
+  }
+  /* Respiración sutil del ícono: escala apenas perceptible, sincronizada con el
+     aura, para que el monograma "lata" en lugar de quedar congelado. */
+  @keyframes brand-breathe {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.05);
+    }
+  }
+  .brand-loader-breathe {
+    animation: brand-breathe 2.6s ease-in-out infinite;
+  }
+  /* Entrada suave del overlay (evita el "parpadeo" duro al montar). */
+  @keyframes brand-loader-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  .brand-loader-in {
+    animation: brand-loader-in 0.35s ease-out both;
+  }
+  /* Accesibilidad: respeta a quien pide menos movimiento — sin barrido, aura
+     fija ni respiración; el ícono queda visible y quieto. */
+  @media (prefers-reduced-motion: reduce) {
+    .brand-loader-shine,
+    .brand-loader-aura,
+    .brand-loader-breathe,
+    .brand-loader-in {
+      animation: none;
+    }
+    .brand-loader-shine {
+      opacity: 0;
+    }
   }
   /* Destello del sello "Estos sorteos son seguros": efecto de "pulido" — una
      línea de brillo delgada que cruza la píldora despacio (como al pulir un

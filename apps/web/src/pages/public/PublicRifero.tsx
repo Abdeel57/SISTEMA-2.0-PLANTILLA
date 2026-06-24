@@ -251,13 +251,17 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
 
   useDocumentTitle(data?.rifero?.publicName ?? data?.publicName);
 
-  // Sostener la pantalla de carga hasta que el banner (portada), el logo y la
-  // imagen de la primera rifa estén listos, para que no se vean "apareciendo".
-  const firstRaffleCover = data?.rifero?.raffles?.find((r) => r.coverUrl)?.coverUrl;
+  // Sostener la pantalla de carga hasta que el banner (portada), el logo y las
+  // portadas de TODAS las rifas estén listos, para que la página no se vea
+  // "armándose" con las imágenes apareciendo de a poco. El hook tiene tope de
+  // seguridad para no quedarse esperando por una imagen rota o lenta.
+  const raffleCovers = (data?.rifero?.raffles ?? []).map((r) =>
+    r.coverUrl ? apiAssetUrl(r.coverUrl) : null,
+  );
   const heroImageUrls = [
     data?.rifero?.coverUrl ? apiAssetUrl(data.rifero.coverUrl) : null,
     data?.rifero?.logoUrl ? apiAssetUrl(data.rifero.logoUrl) : null,
-    firstRaffleCover ? apiAssetUrl(firstRaffleCover) : null,
+    ...raffleCovers,
   ];
   const imagesReady = useImagesReady(heroImageUrls);
 
