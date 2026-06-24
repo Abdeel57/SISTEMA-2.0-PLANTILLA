@@ -191,6 +191,7 @@ async function main() {
         primaryColor: '#1d4ed8',
         secondaryColor: '#0f172a',
         templateKey: 'classic',
+        allowProofUpload: true, // recibir comprobantes en la plataforma desde el inicio
         status: 'ACTIVE',
         verified: true,
       },

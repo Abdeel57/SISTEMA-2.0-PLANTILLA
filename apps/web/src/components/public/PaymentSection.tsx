@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Upload, Copy, Clock, CheckCircle2, Loader2, WifiOff } from 'lucide-react';
-import { formatMXN, timeRemaining, waReserveMessage, type DigitalTicketDTO } from '@bismark/shared';
+import { formatMXN, timeRemaining, waReserveMessage, waProofMessage, type DigitalTicketDTO } from '@bismark/shared';
 import { ApiError } from '@/lib/api';
 import { publicService } from '@/services/publicSite';
 import { WhatsAppButton } from '@/components/brand/WhatsAppButton';
@@ -120,7 +120,7 @@ export function PaymentSection({
               <span>Conéctate a internet para subir tu comprobante.</span>
             </div>
           ) : (
-            <ProofUpload orderCode={ticket.orderCode} />
+            <ProofUpload ticket={ticket} />
           ))}
       </div>
     </section>
@@ -128,10 +128,10 @@ export function PaymentSection({
 }
 
 // Subida del comprobante de pago por el comprador (foto, máx. 5 MB).
-function ProofUpload({ orderCode }: { orderCode: string }) {
+function ProofUpload({ ticket }: { ticket: DigitalTicketDTO }) {
   const [done, setDone] = useState(false);
   const mutation = useMutation({
-    mutationFn: (file: File) => publicService.uploadProof(orderCode, file),
+    mutationFn: (file: File) => publicService.uploadProof(ticket.orderCode, file),
     onSuccess: () => {
       setDone(true);
       toast.success('¡Comprobante enviado! El rifero lo revisará para confirmar tu pago.');
@@ -142,12 +142,29 @@ function ProofUpload({ orderCode }: { orderCode: string }) {
 
   if (done) {
     return (
-      <div className="flex items-center gap-3 rounded-3xl border-2 border-emerald-300 bg-emerald-50 p-5 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
-        <CheckCircle2 className="h-9 w-9 shrink-0" />
-        <div>
-          <p className="text-lg font-extrabold leading-tight">¡Comprobante recibido!</p>
-          <p className="text-base">El rifero lo revisará para confirmar tu pago.</p>
+      <div className="space-y-3">
+        <div className="flex items-center gap-3 rounded-3xl border-2 border-emerald-300 bg-emerald-50 p-5 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
+          <CheckCircle2 className="h-9 w-9 shrink-0" />
+          <div>
+            <p className="text-lg font-extrabold leading-tight">¡Comprobante recibido!</p>
+            <p className="text-base">El rifero lo revisará para confirmar tu pago.</p>
+          </div>
         </div>
+        {/* Avisa al organizador por WhatsApp que ya se realizó el pago. */}
+        {ticket.riferoWhatsapp && (
+          <WhatsAppButton
+            phone={ticket.riferoWhatsapp}
+            size="lg"
+            className="w-full"
+            label="Avisar al organizador por WhatsApp"
+            message={waProofMessage({
+              raffleName: ticket.raffleTitle,
+              ticketNumbers: ticket.ticketNumbers.join(', '),
+              total: formatMXN(ticket.totalAmount),
+              orderCode: ticket.orderCode,
+            })}
+          />
+        )}
       </div>
     );
   }
