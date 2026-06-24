@@ -95,7 +95,18 @@ export async function buildApp(): Promise<FastifyInstance> {
       prefix: '/uploads/',
       decorateReply: false,
     });
+    if (env.isProd) {
+      // Disco efímero en producción: las imágenes se PERDERÍAN en cada redeploy.
+      // No debería pasar (en prod el default es `db`); avisamos fuerte por si acaso.
+      app.log.warn(
+        '⚠️  ALMACENAMIENTO LOCAL EN PRODUCCIÓN: las imágenes se guardan en disco efímero y se PERDERÁN en cada redeploy. ' +
+          'Quita STORAGE_DRIVER (o ponlo en "db") para guardarlas en Postgres.',
+      );
+    } else {
+      app.log.info('Almacenamiento de imágenes: disco local (desarrollo) en ' + uploadsRoot);
+    }
   } else if (env.storage.driver === 'db') {
+    app.log.info('Almacenamiento de imágenes: Postgres (StoredAsset). Sobreviven a los redeploys. ✅');
     // Modo BD (Railway): las imágenes viven en Postgres y sobreviven a los deploys.
     // Caché agresivo: la `key` es aleatoria, así que el contenido es inmutable.
     app.get('/uploads/*', async (request, reply) => {
