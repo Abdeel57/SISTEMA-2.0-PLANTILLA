@@ -71,10 +71,10 @@ export function RaffleCountdown({ drawDate, status }: Props) {
   if (live && target) {
     const { d, h, m, s } = breakdown(target, now);
     return (
-      <section className="px-4 pb-6 pt-6 text-foreground">
+      <section className="px-4 pb-4 pt-4 text-foreground">
         <div className="mx-auto max-w-2xl text-center">
           {/* Encabezado con punto "en vivo" */}
-          <div className="mb-4 flex items-center justify-center gap-2">
+          <div className="mb-3 flex items-center justify-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--rifero-primary)] opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--rifero-primary)]" />

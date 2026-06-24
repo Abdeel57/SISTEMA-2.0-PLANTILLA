@@ -201,9 +201,29 @@ export default function PublicRaffle({ subdomain }: Props) {
       setSelected([]);
       form.reset({ country: 'MX', whatsapp: '', nombres: '', apellidos: '', state: '' });
       void queryClient.invalidateQueries({ queryKey: ['public-ticket-map', raffle?.id] });
-      // Al apartar va a "Verificar boletos" (con su teléfono): ahí ve su orden, puede
-      // subir el comprobante, ver los números de cuenta y, una vez que el organizador
-      // confirme el pago, abrir su boleto digital.
+
+      // Si el sitio NO recibe comprobantes en la plataforma, al apartar mandamos al
+      // comprador directo a WhatsApp del rifero con el resumen de su apartado y la
+      // liga a los "Métodos de pago" de esta página (?pago=1 abre el modal de datos
+      // bancarios) para que sepa a dónde transferir.
+      const waNumber = res.receipt.riferoWhatsapp || raffle?.rifero.whatsapp || '';
+      if (raffle && !raffle.allowProofUpload && waNumber) {
+        const paymentUrl = `${window.location.origin}${window.location.pathname}?pago=1`;
+        const message = waReserveMessage({
+          raffleName: raffle.title,
+          ticketNumbers: res.receipt.ticketNumbers.join(', '),
+          total: formatMXN(res.receipt.totalAmount),
+          orderCode: res.receipt.code,
+          buyerName: variables.fullName,
+          paymentUrl,
+        });
+        window.location.href = buildWhatsappLink(waNumber, message);
+        return;
+      }
+
+      // Comportamiento normal: ir a "Verificar boletos" (con su teléfono): ahí ve su
+      // orden, sube el comprobante, ve los números de cuenta y, una vez que el
+      // organizador confirme el pago, abre su boleto digital.
       const tel = encodeURIComponent(variables.phone);
       navigate(`/verificar?tel=${tel}`);
     },
@@ -220,6 +240,14 @@ export default function PublicRaffle({ subdomain }: Props) {
 
   // Cintillo + promo + panel se ocultan/reaparecen en sincronía al hacer scroll.
   const barHidden = useHideOnScroll();
+
+  // Liga "Métodos de pago" (?pago=1): abre el modal de datos de pago al cargar.
+  // Es la liga que recibe el comprador en su mensaje de WhatsApp tras apartar.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('pago') === '1') {
+      setPayOpen(true);
+    }
+  }, []);
 
   // Sostener la pantalla de carga hasta que el logo y TODAS las imágenes del
   // premio (galería) estén listas, para que la página no se vea "armándose" con
@@ -438,7 +466,7 @@ export default function PublicRaffle({ subdomain }: Props) {
             className="bg-gradient-to-b from-zinc-800 to-zinc-950 text-center shadow-md"
             style={{ paddingTop: heroPadTopPx }}
           >
-            <div className="mx-auto max-w-2xl px-4 pb-6">
+            <div className="mx-auto max-w-2xl px-4 pb-4">
               <h1 className="text-3xl font-black uppercase leading-[1.05] tracking-tight text-white sm:text-4xl">
                 {raffle.title}
               </h1>
@@ -448,7 +476,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                 </p>
               )}
               {raffle.drawDate && (
-                <p className="mt-3 text-base font-extrabold uppercase tracking-wide text-white sm:text-lg">
+                <p className="mt-2 text-base font-extrabold uppercase tracking-wide text-white sm:text-lg">
                   {formatDateMX(raffle.drawDate)}
                 </p>
               )}
@@ -456,14 +484,14 @@ export default function PublicRaffle({ subdomain }: Props) {
           </div>
 
           {/* Llamado a la lista de boletos — flechas y texto grandes (según referencia) */}
-          <div className="mt-5 flex items-center justify-center gap-3">
+          <div className="mt-3 flex items-center justify-center gap-3">
             <Triangle className="h-7 w-7 rotate-180 fill-[var(--rifero-primary)] text-[var(--rifero-primary)] sm:h-9 sm:w-9" />
             <span className="text-xl font-black uppercase tracking-wide sm:text-2xl">Lista de boletos abajo</span>
             <Triangle className="h-7 w-7 rotate-180 fill-[var(--rifero-primary)] text-[var(--rifero-primary)] sm:h-9 sm:w-9" />
           </div>
 
           {/* Imagen del premio con marco de marca */}
-          <div className="mx-auto max-w-2xl px-4 pb-6 pt-4">
+          <div className="mx-auto max-w-2xl px-4 pb-4 pt-3">
             <div className="overflow-hidden rounded-2xl border-4 border-[var(--rifero-primary)] shadow-[0_14px_32px_-10px_rgba(0,0,0,0.5)]">
               <PrizeGallery images={raffle.images} title={raffle.title} />
             </div>
@@ -814,7 +842,9 @@ export default function PublicRaffle({ subdomain }: Props) {
               </Button>
 
               <p className="pt-1 text-center text-sm font-bold text-emerald-600">
-                ¡Al apartar podrás subir el comprobante de pago de tu boleto!
+                {raffle.allowProofUpload
+                  ? '¡Al apartar podrás subir el comprobante de pago de tu boleto!'
+                  : '¡Al apartar te enviaremos a WhatsApp para coordinar tu pago!'}
               </p>
             </form>
           </div>

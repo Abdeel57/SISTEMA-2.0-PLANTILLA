@@ -103,6 +103,10 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
     const stats = await getRaffleStats(raffle.id, raffle.totalTickets);
     const base = toRaffleDTO(raffle, raffle.images, stats);
 
+    // ¿El sitio recibe comprobantes en la plataforma? (el plan lo permite + el
+    // perfil lo tiene activo). Si no, la página redirige a WhatsApp al apartar.
+    const allowProofUpload = ctx.hasActivePlan && !!ctx.plan?.allowProofUpload && profile.allowProofUpload;
+
     // Ganadores: sólo si el perfil lo permite, la rifa lo permite y están publicados. Sin datos de comprador.
     let winners: ReturnType<typeof toWinnerDTO>[] = [];
     if (profile.showWinners && raffle.allowWinnerPublication) {
@@ -120,6 +124,7 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
         ...base,
         rifero: toPublicRiferoDTO(profile, []),
         winners,
+        allowProofUpload,
         paymentProfile: {
           holderName: profile.payHolderName,
           bank: profile.payBank,
