@@ -13,7 +13,7 @@ import {
   Wallet,
   XCircle,
 } from 'lucide-react';
-import { formatMXN, formatDateMX, waProofMessage } from '@bismark/shared';
+import { formatMXN, formatDateMX, waProofMessage, waReserveMessage } from '@bismark/shared';
 import { ApiError } from '@/lib/api';
 import {
   publicService,
@@ -128,11 +128,14 @@ function OrderCard({
   order,
   index,
   whatsapp,
+  allowProofUpload,
   onChanged,
 }: {
   order: PublicOrderLookupItem;
   index: number;
   whatsapp: string | null;
+  // ¿El sitio recibe comprobantes? Si no, el pago se coordina por WhatsApp.
+  allowProofUpload: boolean;
   onChanged: () => void;
 }) {
   const pending = isPending(order.status);
@@ -199,7 +202,24 @@ function OrderCard({
               Ver boleto digital <ArrowRight className="h-4 w-4" />
             </Link>
           ) : pending ? (
-            <UploadProof orderCode={order.code} onUploaded={onChanged} />
+            // Si el sitio recibe comprobantes, se sube aquí; si no, se envía el
+            // pago por WhatsApp al rifero (el backend rechaza la subida igual).
+            allowProofUpload ? (
+              <UploadProof orderCode={order.code} onUploaded={onChanged} />
+            ) : whatsapp ? (
+              <WhatsAppButton
+                phone={whatsapp}
+                size="sm"
+                className="attn-pulse rounded-xl font-display text-xs font-extrabold uppercase tracking-wide"
+                label="Envía tu pago"
+                message={waReserveMessage({
+                  raffleName: order.raffleTitle,
+                  ticketNumbers: order.ticketNumbers.join(', '),
+                  total: formatMXN(order.totalAmount),
+                  orderCode: order.code,
+                })}
+              />
+            ) : null
           ) : null}
         </div>
 
@@ -284,6 +304,8 @@ export default function VerifyTickets({ subdomain }: Props) {
   };
 
   const orders = result?.orders ?? [];
+  // El sitio recibe comprobantes en la plataforma sólo si el backend lo indica.
+  const allowProofUpload = result?.allowProofUpload ?? false;
   const hasSearched = lookup.isSuccess || !!result;
   const hasPending = orders.some((o) => isPending(o.status));
   const backToBuyHref = orders[0] ? `/e${orders[0].eventNumber}` : riferoHref;
@@ -395,6 +417,7 @@ export default function VerifyTickets({ subdomain }: Props) {
                     order={o}
                     index={i}
                     whatsapp={result?.paymentProfile?.whatsapp ?? rifero?.whatsapp ?? null}
+                    allowProofUpload={allowProofUpload}
                     onChanged={() => search()}
                   />
                 ))}

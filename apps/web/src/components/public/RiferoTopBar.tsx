@@ -14,6 +14,10 @@ export function RiferoTopBar({
   logoGlow = false,
   leftHref = '#metodos-de-pago',
   rightHref = '#sube-tu-pago',
+  // Etiqueta del acceso derecho. Cuando el sitio NO recibe comprobantes, la página
+  // pasa "Envía tu / pago" + un enlace de WhatsApp (rightHref http externo).
+  rightLine1 = 'Sube tu',
+  rightLine2 = 'pago aquí',
 }: {
   logoUrl: string | null;
   publicName: string;
@@ -21,7 +25,10 @@ export function RiferoTopBar({
   logoGlow?: boolean;
   leftHref?: string;
   rightHref?: string;
+  rightLine1?: string;
+  rightLine2?: string;
 }) {
+  const rightExternal = rightHref.startsWith('http');
   const LOGO = 48;
   const hidden = useHideOnScroll();
   const linkClass =
@@ -65,10 +72,15 @@ export function RiferoTopBar({
           )}
         </div>
 
-        <a href={rightHref} className={linkClass} style={glow}>
-          Sube tu
+        <a
+          href={rightHref}
+          {...(rightExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+          className={linkClass}
+          style={glow}
+        >
+          {rightLine1}
           <br />
-          pago aquí
+          {rightLine2}
         </a>
       </div>
     </div>

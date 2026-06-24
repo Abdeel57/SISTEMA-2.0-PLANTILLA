@@ -295,6 +295,22 @@ export default function PublicRaffle({ subdomain }: Props) {
   const riferoHref = '/';
   const verificarHref = '/verificar';
   const pay = raffle.paymentProfile;
+  // Cuando el sitio NO recibe comprobantes, el acceso "Sube tu pago aquí" del
+  // cintillo se vuelve "Envía tu pago" y abre WhatsApp del rifero para coordinar
+  // el pago fuera de la plataforma (si no hay WhatsApp, se queda en "Verificar").
+  const payWhatsapp = pay.whatsapp || rifero.whatsapp || '';
+  const sendPayByWhatsapp = !raffle.allowProofUpload && !!payWhatsapp;
+  const uploadAction = sendPayByWhatsapp
+    ? {
+        line1: 'Envía tu',
+        line2: 'pago',
+        href: buildWhatsappLink(
+          payWhatsapp,
+          `Hola 👋, quiero coordinar el pago de mis boletos de la rifa *${raffle.title}*.`,
+        ),
+        pulse: true,
+      }
+    : { line1: 'Sube tu', line2: 'pago aquí', href: verificarHref, pulse: true };
   const hasPayInfo = !!(pay.holderName || pay.bank || pay.clabe || pay.cardNumber || pay.concept || pay.instructions);
   // El cintillo (RaffleBrandBar) tiene altura fija; el panel de selección va justo debajo.
   const panelTopPx = BAR_TOTAL + 6;
@@ -381,7 +397,7 @@ export default function PublicRaffle({ subdomain }: Props) {
           logoGlow={rifero.logoGlow}
           riferoHref={riferoHref}
           left={{ line1: 'Métodos', line2: 'de pago', onClick: () => setPayOpen(true) }}
-          right={{ line1: 'Sube tu', line2: 'pago aquí', href: verificarHref, pulse: true }}
+          right={uploadAction}
           hidden={barHidden}
         />
 
@@ -666,7 +682,7 @@ export default function PublicRaffle({ subdomain }: Props) {
           <a
             href={buildWhatsappLink(
               rifero.whatsapp,
-              `Hola ${rifero.publicName}, tengo una pregunta sobre la rifa "${raffle.title}".`,
+              `¡Hola *${rifero.publicName}*! 👋\n\nTengo una pregunta sobre la rifa:\n🎟️ *${raffle.title}*`,
             )}
             target="_blank"
             rel="noopener noreferrer"
@@ -705,7 +721,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                 phone={(pay.whatsapp || rifero.whatsapp)!}
                 size="lg"
                 label="Preguntar por WhatsApp"
-                message={`Hola ${rifero.publicName}, tengo una pregunta sobre los métodos de pago de "${raffle.title}".`}
+                message={`¡Hola *${rifero.publicName}*! 👋\n\nTengo una pregunta sobre los *métodos de pago* de la rifa:\n🎟️ *${raffle.title}*`}
               />
             </DialogFooter>
           )}

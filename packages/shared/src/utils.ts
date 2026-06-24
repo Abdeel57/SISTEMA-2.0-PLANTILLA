@@ -113,22 +113,41 @@ export interface WaTemplateVars {
   paymentUrl?: string; // liga a "Métodos de pago" de la página (opcional)
 }
 
-// Mensaje que el comprador envía al rifero tras apartar. Si se pasa `paymentUrl`,
-// se agrega al final la liga directa a los métodos de pago de la página.
+// Mensaje que el comprador envía al rifero tras apartar. Usa formato de WhatsApp
+// (*negritas*) y saltos de línea para que la información quede ordenada. Si se
+// pasa `paymentUrl`, agrega la liga directa a los métodos de pago de la página.
 export function waReserveMessage(v: WaTemplateVars): string {
   const lines = [
-    `¡Hola! Aparté mis boletos de la rifa "${v.raffleName}".`,
-    `🎟️ Boletos: ${v.ticketNumbers}`,
-    v.buyerName ? `👤 A nombre de: ${v.buyerName}` : null,
-    `💵 Total a pagar: ${v.total}`,
-    `🧾 Folio: ${v.orderCode}`,
-    v.paymentUrl ? `\n👉 Aquí veo los métodos de pago: ${v.paymentUrl}` : null,
-  ].filter(Boolean);
+    '🎟️ *¡APARTÉ MIS BOLETOS!*',
+    `📌 *Rifa:* ${v.raffleName}`,
+    '',
+    v.buyerName ? `👤 *Nombre:* ${v.buyerName}` : null,
+    `🔢 *Boletos:* ${v.ticketNumbers}`,
+    `💵 *Total a pagar:* ${v.total}`,
+    `🧾 *Folio:* ${v.orderCode}`,
+    v.paymentUrl ? '' : null,
+    v.paymentUrl ? '💳 *Métodos de pago:*' : null,
+    v.paymentUrl ? v.paymentUrl : null,
+    '',
+    '🙌 Quedo al pendiente para completar mi pago. ¡Gracias!',
+  ].filter((line) => line !== null);
   return lines.join('\n');
 }
 
+// Mensaje que el comprador envía al rifero cuando ya pagó (aviso + comprobante).
 export function waProofMessage(v: WaTemplateVars): string {
-  return `Hola, ya realicé el pago de la rifa ${v.raffleName}. Mis boletos son: ${v.ticketNumbers}. Mi folio es: ${v.orderCode}. Te envío mi comprobante.`;
+  const lines = [
+    '✅ *¡YA REALICÉ MI PAGO!*',
+    `📌 *Rifa:* ${v.raffleName}`,
+    '',
+    v.buyerName ? `👤 *Nombre:* ${v.buyerName}` : null,
+    `🔢 *Boletos:* ${v.ticketNumbers}`,
+    `💵 *Total:* ${v.total}`,
+    `🧾 *Folio:* ${v.orderCode}`,
+    '',
+    '📎 Te envío mi comprobante para que confirmes mi pago. ¡Gracias! 🙌',
+  ].filter((line) => line !== null);
+  return lines.join('\n');
 }
 
 export interface WaTicketReadyVars {
@@ -144,15 +163,20 @@ export interface WaTicketReadyVars {
 // necesita descargar nada). Pensado para pegarse en WhatsApp tal cual.
 export function waTicketReadyMessage(v: WaTicketReadyVars): string {
   const firstName = (v.buyerName ?? '').trim().split(/\s+/)[0];
-  const greeting = firstName ? `¡Hola ${firstName}! 🎉` : '¡Hola! 🎉';
+  const greeting = firstName ? `🎉 *¡Hola ${firstName}!*` : '🎉 *¡Hola!*';
   const lines = [
-    `${greeting} Tu pago quedó confirmado.`,
-    `🎟️ Tus boletos de "${v.raffleName}": ${v.ticketNumbers}`,
-    `Aquí está tu boleto digital (ábrelo, no necesitas descargar nada):`,
-    `👉 ${v.ticketUrl}`,
-    v.riferoName ? `\n— ${v.riferoName}` : null,
-    `¡Mucha suerte! 🍀`,
-  ].filter(Boolean);
+    greeting,
+    '*¡Tu pago quedó confirmado!* ✅',
+    '',
+    `📌 *Rifa:* ${v.raffleName}`,
+    `🔢 *Tus boletos:* ${v.ticketNumbers}`,
+    '',
+    '🎟️ *Tu boleto digital* (ábrelo, no necesitas descargar nada):',
+    v.ticketUrl,
+    '',
+    '🍀 ¡Mucha suerte!',
+    v.riferoName ? `— *${v.riferoName}*` : null,
+  ].filter((line) => line !== null);
   return lines.join('\n');
 }
 

@@ -51,7 +51,27 @@ function setName(html: string, name: string, value: string): string {
   return html.replace(re, (_m, a: string, b: string) => `${a}${escapeHtml(value)}${b}`);
 }
 
+const ADMIN_TITLE = 'Sortea | ADMIN';
+
+// El administrador (/admin, /login) es SIEMPRE la marca Sortea, nunca la del
+// rifero: el panel es del producto. Por eso NO le inyectamos el logo/nombre del
+// organizador. Le dejamos los íconos estáticos de Sortea, el título "Sortea |
+// ADMIN" y un manifest dedicado (abre directo en /admin con el ícono de Sortea),
+// para que al "Agregar a inicio" o compartir se vea Sortea, no el rifero.
+function renderAdminIndex(rawHtml: string): string {
+  let html = rawHtml;
+  html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${ADMIN_TITLE}</title>`);
+  html = setName(html, 'apple-mobile-web-app-title', ADMIN_TITLE);
+  html = html.replace('href="/manifest.webmanifest"', 'href="/admin.webmanifest"');
+  return html;
+}
+
 export async function renderBrandedIndex(rawHtml: string, request: FastifyRequest): Promise<string> {
+  const path = (request.url || '/').split('?')[0];
+  if (path === '/login' || path === '/admin' || path.startsWith('/admin/')) {
+    return renderAdminIndex(rawHtml);
+  }
+
   let profile: BrandProfile | null = null;
   try {
     profile = await getSiteProfile();
@@ -75,10 +95,8 @@ export async function renderBrandedIndex(rawHtml: string, request: FastifyReques
 
   // Tema oscuro de la página pública (lo elige el rifero). Se inyecta la clase
   // `dark` en <html> ANTES de que cargue el JS para no parpadear (claro→oscuro).
-  // El administrador (/admin, /login) siempre va en claro: ahí no se inyecta.
-  const path = (request.url || '/').split('?')[0];
-  const isAdminRoute = path === '/login' || path === '/admin' || path.startsWith('/admin/');
-  if (profile.publicDarkMode && !isAdminRoute) {
+  // (Las rutas del administrador ya salieron arriba por renderAdminIndex.)
+  if (profile.publicDarkMode) {
     html = html.replace(/<html(\s[^>]*)?>/i, (m, attrs: string | undefined) => {
       const a = attrs ?? '';
       return /class\s*=/.test(a)

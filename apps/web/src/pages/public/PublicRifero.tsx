@@ -446,7 +446,7 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
                     <a
                       href={buildWhatsappLink(
                         rifero.whatsapp,
-                        `Hola ${rifero.publicName}, vi tu página de rifas y tengo una pregunta.`,
+                        `¡Hola *${rifero.publicName}*! 👋\n\nVi tu página de rifas y tengo una pregunta. 🎟️`,
                       )}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -477,7 +477,7 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
                   <a
                     href={buildWhatsappLink(
                       rifero.whatsapp,
-                      `Hola ${rifero.publicName}, vi tu página de rifas y tengo una pregunta.`,
+                      `¡Hola *${rifero.publicName}*! 👋\n\nVi tu página de rifas y tengo una pregunta. 🎟️`,
                     )}
                     target="_blank"
                     rel="noopener noreferrer"

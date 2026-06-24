@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
-import { useSiteFavicon } from '@/hooks/useSiteFavicon';
+import { usePwaBranding } from '@/hooks/usePwaBranding';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { OwnerShell } from '@/components/owner/OwnerShell';
 import { AdminDrawer } from '@/components/owner/AdminDrawer';
@@ -48,8 +48,8 @@ export function App() {
   useEffect(() => {
     void fetchMe();
   }, [fetchMe]);
-  // Favicon de la pestaña = logo del rifero del sitio.
-  useSiteFavicon();
+  // Marca de la PWA según la sección: admin = Sortea (siempre), público = rifero.
+  usePwaBranding();
 
   return (
     <>

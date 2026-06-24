@@ -22,7 +22,7 @@ export function PoweredBy({ className }: { className?: string }) {
   }
   return (
     <a
-      href={buildWhatsappLink(webEnv.bismarkWhatsapp, 'Hola Sortea, quiero mi propia página de rifas.')}
+      href={buildWhatsappLink(webEnv.bismarkWhatsapp, '¡Hola *Sortea*! 👋 Quiero mi propia página de rifas como esta. 🎟️')}
       target="_blank"
       rel="noopener noreferrer"
       className={classes}

@@ -36,6 +36,9 @@ export interface PublicPaymentProfile {
   methods?: PaymentMethodDTO[];
 }
 export interface PublicOrderLookupResult {
+  // ¿El sitio recibe comprobantes en la plataforma? Si es false, en lugar de
+  // "Subir comprobante" se ofrece enviar el pago por WhatsApp al rifero.
+  allowProofUpload: boolean;
   orders: PublicOrderLookupItem[];
   paymentProfile: PublicPaymentProfile | null;
 }

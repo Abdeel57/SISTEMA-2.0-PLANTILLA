@@ -161,11 +161,16 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
       const slug = (body.slug ?? '').toLowerCase().trim();
       const phone = (body.phone ?? '').replace(/\D/g, '');
       if (phone.length < 10) {
-        return { orders: [], paymentProfile: null };
+        return { allowProofUpload: false, orders: [], paymentProfile: null };
       }
 
       const profile = await findSiteProfile(slug);
       if (!profile) throw notFound('Esta página no existe');
+
+      // ¿El sitio recibe comprobantes en la plataforma? (plan lo permite + perfil
+      // activo). Si no, el frontend oculta el botón de subir y manda a WhatsApp.
+      const ctx = await getPlanContext(profile.id);
+      const allowProofUpload = ctx.hasActivePlan && !!ctx.plan?.allowProofUpload && profile.allowProofUpload;
 
       const orders = await prisma.order.findMany({
         where: {
@@ -186,6 +191,7 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
       });
 
       return {
+        allowProofUpload,
         paymentProfile: {
           holderName: profile.payHolderName,
           bank: profile.payBank,

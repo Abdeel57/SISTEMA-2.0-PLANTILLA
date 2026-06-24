@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import { Ticket as TicketIcon, AlertCircle, ShieldCheck, WifiOff, Home } from 'lucide-react';
-import { formatDateTimeMX } from '@bismark/shared';
+import { formatDateTimeMX, formatMXN, buildWhatsappLink, waReserveMessage } from '@bismark/shared';
 import { publicService } from '@/services/publicSite';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { Button } from '@/components/ui/button';
@@ -61,6 +61,25 @@ export default function RiferoPayment() {
     );
   }
 
+  // Si el sitio NO recibe comprobantes, el acceso "Sube tu pago aquí" se vuelve
+  // "Envía tu pago" y abre WhatsApp del rifero para coordinar el pago.
+  const sendPayByWhatsapp = !ticket.allowProofUpload && !!ticket.riferoWhatsapp;
+  const topBarRight = sendPayByWhatsapp
+    ? {
+        rightLine1: 'Envía tu',
+        rightLine2: 'pago',
+        rightHref: buildWhatsappLink(
+          ticket.riferoWhatsapp as string,
+          waReserveMessage({
+            raffleName: ticket.raffleTitle,
+            ticketNumbers: ticket.ticketNumbers.join(', '),
+            total: formatMXN(ticket.totalAmount),
+            orderCode: ticket.orderCode,
+          }),
+        ),
+      }
+    : {};
+
   return (
     <RiferoTheme primaryColor={ticket.primaryColor} secondaryColor={ticket.secondaryColor}>
       <div className="min-h-screen bg-background pb-12">
@@ -69,6 +88,7 @@ export default function RiferoPayment() {
           publicName={ticket.riferoPublicName}
           verified={ticket.riferoVerified}
           logoGlow={ticket.logoGlow}
+          {...topBarRight}
         />
 
         <main className="mx-auto w-full max-w-md px-4 py-6">

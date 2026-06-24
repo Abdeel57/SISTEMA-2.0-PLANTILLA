@@ -9,7 +9,7 @@ import { cn } from '@/lib/cn';
 // con VITE_BISMARK_WHATSAPP) para quien quiera su propia página de rifas.
 export function BismarkCta({ className }: { className?: string }) {
   const whatsappHref = webEnv.bismarkWhatsapp
-    ? buildWhatsappLink(webEnv.bismarkWhatsapp, 'Hola Sortea, quiero mi propia página de rifas.')
+    ? buildWhatsappLink(webEnv.bismarkWhatsapp, '¡Hola *Sortea*! 👋 Quiero mi propia página de rifas como esta. 🎟️')
     : null;
 
   return (

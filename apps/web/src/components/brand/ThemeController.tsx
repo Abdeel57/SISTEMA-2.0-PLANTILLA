@@ -11,7 +11,7 @@ const SITE = '_'; // alias single-tenant: "el rifero de este sitio"
 //   - Páginas públicas → lo elige el rifero (publicDarkMode), por defecto claro.
 // En producción el backend ya inyecta la clase `dark` en el HTML inicial de las
 // páginas públicas, así que aquí solo reafirmamos al navegar (y en desarrollo,
-// donde no hay HTML inyectado). Comparte la query con useSiteFavicon (mismo key).
+// donde no hay HTML inyectado). Comparte la query con usePwaBranding (mismo key).
 export function ThemeController(): null {
   const { pathname } = useLocation();
   const isAdmin = pathname === '/login' || pathname === '/admin' || pathname.startsWith('/admin/');
