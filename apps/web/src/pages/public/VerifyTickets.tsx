@@ -13,7 +13,7 @@ import {
   Wallet,
   XCircle,
 } from 'lucide-react';
-import { formatMXN, formatDateMX } from '@bismark/shared';
+import { formatMXN, formatDateMX, waProofMessage } from '@bismark/shared';
 import { ApiError } from '@/lib/api';
 import {
   publicService,
@@ -26,6 +26,7 @@ import { RiferoTheme } from '@/components/brand/RiferoTheme';
 import { RaffleBrandBar } from '@/components/public/RaffleBrandBar';
 import { PaymentCard, paymentHasData } from '@/components/public/PaymentCard';
 import { PoweredBy } from '@/components/brand/PoweredBy';
+import { WhatsAppButton } from '@/components/brand/WhatsAppButton';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -126,10 +127,12 @@ function UploadProof({ orderCode, onUploaded }: { orderCode: string; onUploaded:
 function OrderCard({
   order,
   index,
+  whatsapp,
   onChanged,
 }: {
   order: PublicOrderLookupItem;
   index: number;
+  whatsapp: string | null;
   onChanged: () => void;
 }) {
   const pending = isPending(order.status);
@@ -201,9 +204,25 @@ function OrderCard({
         </div>
 
         {pending && order.hasProof && (
-          <p className="mt-3 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-            <Clock className="h-3.5 w-3.5 shrink-0" /> Comprobante enviado · esperando que el organizador confirme tu pago.
-          </p>
+          <div className="mt-3 space-y-2">
+            <p className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+              <Clock className="h-3.5 w-3.5 shrink-0" /> Comprobante enviado · esperando que el organizador confirme tu pago.
+            </p>
+            {/* Aviso directo al organizador por WhatsApp de que ya se pagó. */}
+            {whatsapp && (
+              <WhatsAppButton
+                phone={whatsapp}
+                className="w-full"
+                label="Avisar al organizador por WhatsApp"
+                message={waProofMessage({
+                  raffleName: order.raffleTitle,
+                  ticketNumbers: order.ticketNumbers.join(', '),
+                  total: formatMXN(order.totalAmount),
+                  orderCode: order.code,
+                })}
+              />
+            )}
+          </div>
         )}
 
         {(order.status === 'EXPIRED' || order.status === 'REJECTED' || order.status === 'CANCELLED') && (
@@ -371,7 +390,13 @@ export default function VerifyTickets({ subdomain }: Props) {
               </p>
               <div className="grid gap-3.5">
                 {orders.map((o, i) => (
-                  <OrderCard key={o.code} order={o} index={i} onChanged={() => search()} />
+                  <OrderCard
+                    key={o.code}
+                    order={o}
+                    index={i}
+                    whatsapp={result?.paymentProfile?.whatsapp ?? rifero?.whatsapp ?? null}
+                    onChanged={() => search()}
+                  />
                 ))}
               </div>
 
