@@ -1,9 +1,11 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import sharp from 'sharp';
 import { prisma } from '../../lib/prisma.js';
 import { notFound } from '../../lib/errors.js';
 import { requireRifero } from '../../middlewares/auth.js';
 import { loadOwnedOrder } from '../../lib/ownership.js';
 import { renderDigitalTicketPdf } from '../../lib/pdf.js';
+import { readAssetBytes } from '../../lib/storage.js';
 import { getPlanContext } from '../../lib/plan.js';
 import { riferoPaymentMethods } from '../../lib/serializers.js';
 import { env } from '../../config/env.js';
@@ -55,6 +57,8 @@ export default async function digitalTicketsRoutes(app: FastifyInstance): Promis
         // existen una vez pagada (cuando se genera el boleto digital).
         code: dt?.code ?? o.code,
         raffleTitle: o.raffle.title,
+        rafflePrize: o.raffle.prize ?? null,
+        drawDate: o.raffle.drawDate?.toISOString() ?? null,
         riferoPublicName: profile.publicName,
         eventLabel: `E${o.raffle.eventNumber}`,
         ticketNumbers: o.tickets.map((t) => t.displayNumber),
@@ -99,8 +103,21 @@ export default async function digitalTicketsRoutes(app: FastifyInstance): Promis
     const dt = o?.digitalTicket;
     if (!o || !dt) throw notFound('Boleto no encontrado');
 
+    // Logo del rifero para incrustar en el PDF. Se normaliza a PNG con sharp
+    // (pdfkit solo admite PNG/JPG; los logos suelen ser webp). Best-effort: si
+    // falla, se pasa el buffer tal cual y el PDF cae a la inicial del nombre.
+    let logo = await readAssetBytes(o.raffle.rifero.logoUrl);
+    if (logo) {
+      try {
+        logo = await sharp(logo).resize(180, 180, { fit: 'inside', withoutEnlargement: true }).png().toBuffer();
+      } catch {
+        /* se usa el buffer original; pdfkit lo valida y degrada si no puede */
+      }
+    }
     const pdf = await renderDigitalTicketPdf({
       raffleTitle: o.raffle.title,
+      rafflePrize: o.raffle.prize,
+      drawDate: o.raffle.drawDate,
       riferoPublicName: o.raffle.rifero.publicName,
       eventLabel: `E${o.raffle.eventNumber}`,
       ticketNumbers: o.tickets.map((t) => t.displayNumber),
@@ -111,6 +128,9 @@ export default async function digitalTicketsRoutes(app: FastifyInstance): Promis
       verifyUrl: verifyUrl(dt.code, request),
       createdAt: o.createdAt,
       primaryColor: o.raffle.rifero.primaryColor,
+      secondaryColor: o.raffle.rifero.secondaryColor,
+      riferoVerified: o.raffle.rifero.verified,
+      logo,
     });
 
     return reply

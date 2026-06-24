@@ -251,6 +251,10 @@ export interface PublicRaffleSummaryDTO {
 export interface PublicRaffleDTO extends RaffleDTO {
   rifero: PublicRiferoDTO;
   winners: WinnerDTO[];
+  // ¿El sitio recibe comprobantes dentro de la plataforma? (plan lo permite + el
+  // perfil lo tiene activo). Si es false, al apartar la página redirige al
+  // comprador a WhatsApp para coordinar el pago en vez de pedir el comprobante.
+  allowProofUpload: boolean;
   // instrucciones de pago públicas (del perfil del rifero)
   paymentProfile: {
     holderName: string | null;
@@ -362,6 +366,8 @@ export interface WinnerDTO {
 export interface DigitalTicketDTO {
   code: string;
   raffleTitle: string;
+  rafflePrize: string | null;
+  drawDate: string | null;
   riferoPublicName: string;
   eventLabel: string;
   ticketNumbers: string[];

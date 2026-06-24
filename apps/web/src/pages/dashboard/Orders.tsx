@@ -7,6 +7,8 @@ import {
   formatDateTimeMX,
   timeRemaining,
   waReserveMessage,
+  waTicketReadyMessage,
+  buildWhatsappLink,
   dialCodeForCountry,
   type OrderDTO,
 } from '@bismark/shared';
@@ -158,10 +160,42 @@ function OrderCard({ order }: { order: OrderDTO }) {
     onSettled: invalidate,
   });
 
+  // Acciones de cobro: aplican a apartadas (RESERVED) y a las que ya subieron
+  // comprobante (PENDING). Antes sólo PENDING → no se podía confirmar un apartado.
+  const isPending = order.status === 'PENDING' || order.status === 'RESERVED';
+  const remaining = timeRemaining(order.expiresAt);
+  const waPhone = order.buyer.whatsapp ?? order.buyer.phone;
+  // Lada del comprador (+52 México / +1 USA) para que el WhatsApp abra correcto.
+  const buyerDial = dialCodeForCountry(order.buyer.country);
+  const waMessage = waReserveMessage({
+    raffleName: `${order.raffleTitle} (${order.eventLabel})`,
+    ticketNumbers: order.ticketNumbers.join(', '),
+    total: formatMXN(order.totalAmount),
+    orderCode: order.code,
+  });
+
+  // Liga al BOLETO DIGITAL del cliente (página, no descarga). Funciona con el folio
+  // de la orden o con el código del boleto: ambos resuelven en /boleto/:code.
+  const ticketCode = order.digitalTicketCode ?? order.code;
+  const ticketUrl = `${window.location.origin}/boleto/${ticketCode}`;
+  const ticketWaMessage = waTicketReadyMessage({
+    raffleName: `${order.raffleTitle} (${order.eventLabel})`,
+    ticketNumbers: order.ticketNumbers.join(', '),
+    buyerName: order.buyer.fullName,
+    ticketUrl,
+  });
+  // Abre el chat del cliente en WhatsApp con el mensaje + liga del boleto ya escritos.
+  // Se llama dentro del gesto del clic para que el navegador no bloquee la pestaña.
+  const sendTicketWa = () => {
+    if (!waPhone) return;
+    window.open(buildWhatsappLink(waPhone, ticketWaMessage, buyerDial), '_blank', 'noopener,noreferrer');
+  };
+
   const markPaid = useMutation({
     mutationFn: () => orderService.markPaid(order.id),
     ...optimisticStatus('PAID'),
-    onSuccess: () => toast.success('Orden marcada como pagada'),
+    onSuccess: () =>
+      toast.success(waPhone ? 'Pagado. Boleto enviado al cliente por WhatsApp' : 'Orden marcada como pagada'),
   });
 
   const reject = useMutation({
@@ -180,20 +214,6 @@ function OrderCard({ order }: { order: OrderDTO }) {
       setConfirming(null);
       toast.success('Orden cancelada');
     },
-  });
-
-  // Acciones de cobro: aplican a apartadas (RESERVED) y a las que ya subieron
-  // comprobante (PENDING). Antes sólo PENDING → no se podía confirmar un apartado.
-  const isPending = order.status === 'PENDING' || order.status === 'RESERVED';
-  const remaining = timeRemaining(order.expiresAt);
-  const waPhone = order.buyer.whatsapp ?? order.buyer.phone;
-  // Lada del comprador (+52 México / +1 USA) para que el WhatsApp abra correcto.
-  const buyerDial = dialCodeForCountry(order.buyer.country);
-  const waMessage = waReserveMessage({
-    raffleName: `${order.raffleTitle} (${order.eventLabel})`,
-    ticketNumbers: order.ticketNumbers.join(', '),
-    total: formatMXN(order.totalAmount),
-    orderCode: order.code,
   });
 
   return (
@@ -268,7 +288,12 @@ function OrderCard({ order }: { order: OrderDTO }) {
             variant="success"
             className="h-11 flex-[1.4]"
             loading={markPaid.isPending}
-            onClick={() => markPaid.mutate()}
+            // Confirma el pago Y abre el chat del cliente con su boleto (mismo gesto
+            // del clic → el navegador no bloquea la pestaña de WhatsApp).
+            onClick={() => {
+              sendTicketWa();
+              markPaid.mutate();
+            }}
           >
             Marcar pagado
           </Button>
@@ -276,17 +301,24 @@ function OrderCard({ order }: { order: OrderDTO }) {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <WhatsAppButton phone={waPhone} dialCode={buyerDial} message={waMessage} size="sm" />
-        {order.digitalTicketCode && (
-          <Button asChild variant="outline" size="sm">
-            <a
-              href={apiAssetUrl(`/tickets/digital/${order.digitalTicketCode}/pdf`)}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Boleto digital
-            </a>
-          </Button>
+        {order.digitalTicketCode ? (
+          <>
+            {/* Pagada: reenviar el boleto al cliente y abrirlo como link. */}
+            <WhatsAppButton
+              phone={waPhone}
+              dialCode={buyerDial}
+              message={ticketWaMessage}
+              size="sm"
+              label="Enviar boleto"
+            />
+            <Button asChild variant="outline" size="sm">
+              <a href={`/boleto/${order.digitalTicketCode}`} target="_blank" rel="noopener noreferrer">
+                Ver boleto
+              </a>
+            </Button>
+          </>
+        ) : (
+          <WhatsAppButton phone={waPhone} dialCode={buyerDial} message={waMessage} size="sm" />
         )}
         {!isPending && order.hasProof && <ProofDialog orderId={order.id} />}
         {isPending && (

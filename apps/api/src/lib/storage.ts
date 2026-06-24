@@ -1,5 +1,6 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join, extname } from 'node:path';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { join, extname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { randomBytes } from 'node:crypto';
 import { env } from '../config/env.js';
 import { prisma } from './prisma.js';
@@ -95,3 +96,37 @@ function buildStorage(): StorageAdapter {
 }
 
 export const storage: StorageAdapter = buildStorage();
+
+// Lee los BYTES de un asset ya almacenado a partir de su URL pública. Sirve para
+// incrustar imágenes (ej. el logo del rifero) en archivos generados en el backend
+// como el PDF del boleto. Maneja los tres orígenes posibles del sitio:
+//   • /uploads/<key>   → disco local (dev) o tabla StoredAsset (Postgres/Railway)
+//   • /demo-assets/... → imágenes de ejemplo empaquetadas en el repo
+//   • http(s)://...    → recurso externo (se descarga)
+// Nunca lanza: devuelve null si no se puede resolver (el llamador degrada con gracia).
+export async function readAssetBytes(url: string | null | undefined): Promise<Buffer | null> {
+  if (!url) return null;
+  try {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      return Buffer.from(await res.arrayBuffer());
+    }
+    if (url.startsWith('/demo-assets/')) {
+      const rel = url.slice('/demo-assets/'.length).replace(/^\/+/, '');
+      const path = fileURLToPath(new URL(`../../prisma/demo-assets/${rel}`, import.meta.url));
+      return await readFile(path);
+    }
+    if (url.startsWith('/uploads/')) {
+      const key = url.slice('/uploads/'.length).replace(/^\/+/, '');
+      if (env.storage.driver === 'local') {
+        return await readFile(resolve(env.storage.localDir, key));
+      }
+      const asset = await prisma.storedAsset.findUnique({ where: { key } });
+      return asset ? Buffer.from(asset.bytes) : null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}

@@ -109,14 +109,51 @@ export interface WaTemplateVars {
   ticketNumbers: string; // ya formateados separados por coma
   total: string; // ya formateado MXN
   orderCode: string;
+  buyerName?: string; // nombre del comprador (opcional)
+  paymentUrl?: string; // liga a "Métodos de pago" de la página (opcional)
 }
 
+// Mensaje que el comprador envía al rifero tras apartar. Si se pasa `paymentUrl`,
+// se agrega al final la liga directa a los métodos de pago de la página.
 export function waReserveMessage(v: WaTemplateVars): string {
-  return `Hola, quiero confirmar mi apartado para la rifa ${v.raffleName}. Mis boletos son: ${v.ticketNumbers}. Mi total es: ${v.total}. Mi folio de orden es: ${v.orderCode}.`;
+  const lines = [
+    `¡Hola! Aparté mis boletos de la rifa "${v.raffleName}".`,
+    `🎟️ Boletos: ${v.ticketNumbers}`,
+    v.buyerName ? `👤 A nombre de: ${v.buyerName}` : null,
+    `💵 Total a pagar: ${v.total}`,
+    `🧾 Folio: ${v.orderCode}`,
+    v.paymentUrl ? `\n👉 Aquí veo los métodos de pago: ${v.paymentUrl}` : null,
+  ].filter(Boolean);
+  return lines.join('\n');
 }
 
 export function waProofMessage(v: WaTemplateVars): string {
   return `Hola, ya realicé el pago de la rifa ${v.raffleName}. Mis boletos son: ${v.ticketNumbers}. Mi folio es: ${v.orderCode}. Te envío mi comprobante.`;
+}
+
+export interface WaTicketReadyVars {
+  raffleName: string;
+  ticketNumbers: string; // ya formateados separados por coma
+  ticketUrl: string; // liga al boleto digital (página, sin descargar)
+  buyerName?: string; // nombre del comprador (se usa solo el primer nombre)
+  riferoName?: string; // nombre público del organizador (firma del mensaje)
+}
+
+// Mensaje que el ORGANIZADOR envía al comprador al confirmar su pago: avisa que
+// el boleto ya está listo y le comparte la liga a su boleto digital (lo abre, no
+// necesita descargar nada). Pensado para pegarse en WhatsApp tal cual.
+export function waTicketReadyMessage(v: WaTicketReadyVars): string {
+  const firstName = (v.buyerName ?? '').trim().split(/\s+/)[0];
+  const greeting = firstName ? `¡Hola ${firstName}! 🎉` : '¡Hola! 🎉';
+  const lines = [
+    `${greeting} Tu pago quedó confirmado.`,
+    `🎟️ Tus boletos de "${v.raffleName}": ${v.ticketNumbers}`,
+    `Aquí está tu boleto digital (ábrelo, no necesitas descargar nada):`,
+    `👉 ${v.ticketUrl}`,
+    v.riferoName ? `\n— ${v.riferoName}` : null,
+    `¡Mucha suerte! 🍀`,
+  ].filter(Boolean);
+  return lines.join('\n');
 }
 
 // ── URLs / subdominios ──────────────────────────────────────
