@@ -206,6 +206,8 @@ export interface RaffleDTO {
   endDate: string | null;
   drawDate: string | null;
   status: RaffleStatus;
+  // Visibilidad en la página pública (PUBLISHED + hidden=false = visible).
+  hidden: boolean;
   terms: string | null;
   paymentInstructions: string | null;
   reserveMinutes: number;

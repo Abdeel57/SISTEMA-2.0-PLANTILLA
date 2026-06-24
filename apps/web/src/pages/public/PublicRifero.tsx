@@ -352,7 +352,7 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
                       height: photoPx,
                       width: photoPx,
                       boxShadow: rifero.logoGlow
-                        ? '0 0 0 4px hsl(var(--background)), 0 0 14px color-mix(in srgb, var(--rifero-primary) 35%, transparent), 0 12px 28px rgba(0,0,0,0.2)'
+                        ? '0 0 0 4px hsl(var(--background)), 0 0 0 7px color-mix(in srgb, var(--rifero-primary) 70%, transparent), 0 0 30px 8px color-mix(in srgb, var(--rifero-primary) 60%, transparent), 0 12px 28px rgba(0,0,0,0.25)'
                         : undefined,
                     }}
                   >

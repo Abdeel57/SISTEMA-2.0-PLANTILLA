@@ -217,6 +217,7 @@ export default async function rafflesRoutes(app: FastifyInstance): Promise<void>
         ...(rest.allowWinnerPublication !== undefined ? { allowWinnerPublication: rest.allowWinnerPublication as boolean } : {}),
         ...(rest.useDigitalDraw !== undefined ? { useDigitalDraw: rest.useDigitalDraw as boolean } : {}),
         ...(rest.showCountdown !== undefined ? { showCountdown: rest.showCountdown as boolean } : {}),
+        ...(rest.hidden !== undefined ? { hidden: rest.hidden as boolean } : {}),
         ...(rest.priceListRows !== undefined ? { priceListRows: rest.priceListRows as number } : {}),
         ...(rest.pricingTiers !== undefined ? { pricingTiers: rest.pricingTiers as Prisma.InputJsonValue } : {}),
         ...(rest.pricingBundles !== undefined ? { pricingBundles: rest.pricingBundles as Prisma.InputJsonValue } : {}),
@@ -261,23 +262,18 @@ export default async function rafflesRoutes(app: FastifyInstance): Promise<void>
     return { raffle: await raffleDTO(id) };
   });
 
-  // DELETE /raffles/:id — eliminar una rifa por completo (boletos, órdenes,
-  // imágenes y promociones se borran en cascada). Protegido: una rifa con pagos
-  // confirmados NO se borra (conserva el historial de dinero real); para esos
-  // casos el rifero debe usar "Cancelar".
+  // DELETE /raffles/:id — eliminar una rifa por completo. Borra TODO lo asociado:
+  // boletos, órdenes (con sus comprobantes y boletos digitales), imágenes,
+  // promociones y ganadores. Se permite aunque ya haya pagos o un ganador
+  // declarado (el rifero pidió poder limpiar rifas terminadas). Para conservar el
+  // historial sin borrar, existe "Cancelar".
   app.delete('/raffles/:id', { preHandler: requireRifero }, async (request) => {
     const { id } = request.params as { id: string };
     await loadOwnedRaffle(id, request.auth!);
 
-    const paidCount = await prisma.order.count({ where: { raffleId: id, status: 'PAID' } });
-    if (paidCount > 0) {
-      throw conflict(
-        'No puedes eliminar una rifa con pagos confirmados. Cancélala para conservar el historial de ventas.',
-      );
-    }
-
     // Borra ganadores primero (su FK hacia el boleto es restrictiva); el resto
-    // (boletos, órdenes, imágenes, promociones) cae por cascada al borrar la rifa.
+    // (boletos, órdenes, comprobantes, boletos digitales, imágenes, promociones)
+    // cae por cascada al borrar la rifa.
     await prisma.$transaction([
       prisma.winner.deleteMany({ where: { raffleId: id } }),
       prisma.raffle.delete({ where: { id } }),

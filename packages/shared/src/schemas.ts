@@ -163,6 +163,8 @@ export type CreateRaffleInput = z.infer<typeof createRaffleSchema>;
 export const updateRaffleSchema = raffleBaseSchema
   .partial()
   .extend({
+    // Visibilidad en la página pública (toggle "activa / oculta").
+    hidden: z.boolean().optional(),
     // Promoción/aviso de la rifa (se configura en "Promociones" del panel).
     promoEnabled: z.boolean().optional(),
     promoTitle: z.string().max(80).optional().or(z.literal('')),

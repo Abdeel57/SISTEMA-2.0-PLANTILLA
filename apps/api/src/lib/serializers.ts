@@ -216,6 +216,7 @@ export function toRaffleDTO(raffle: Raffle, images: RaffleImage[], stats: Raffle
     endDate: iso(raffle.endDate),
     drawDate: iso(raffle.drawDate),
     status: raffle.status,
+    hidden: raffle.hidden,
     terms: raffle.terms ?? null,
     paymentInstructions: raffle.paymentInstructions ?? null,
     reserveMinutes: raffle.reserveMinutes,

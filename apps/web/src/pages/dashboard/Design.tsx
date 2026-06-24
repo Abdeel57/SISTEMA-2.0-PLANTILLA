@@ -279,7 +279,13 @@ export default function Design() {
               <div className="flex items-center gap-3 px-4 py-3" style={{ backgroundColor: 'var(--rifero-primary)', color: '#fff' }}>
                 <div
                   className="flex shrink-0 items-center justify-center"
-                  style={{ width: (48 * state.logoScale) / 100, height: (48 * state.logoScale) / 100 }}
+                  style={{
+                    width: (48 * state.logoScale) / 100,
+                    height: (48 * state.logoScale) / 100,
+                    filter: state.logoGlow
+                      ? 'drop-shadow(0 0 5px rgba(255,255,255,0.9)) drop-shadow(0 0 12px color-mix(in srgb, var(--rifero-primary) 45%, #ffffff))'
+                      : undefined,
+                  }}
                 >
                   {state.logoUrl ? (
                     <img src={apiAssetUrl(state.logoUrl)} alt="Logo" className="h-full w-full object-contain" />

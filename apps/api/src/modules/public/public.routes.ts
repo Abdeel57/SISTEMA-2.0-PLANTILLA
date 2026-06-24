@@ -45,7 +45,7 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
     }
 
     const raffles = await prisma.raffle.findMany({
-      where: { riferoId: profile.id, status: { in: ['PUBLISHED', 'FINISHED'] } },
+      where: { riferoId: profile.id, status: { in: ['PUBLISHED', 'FINISHED'] }, hidden: false },
       orderBy: { eventNumber: 'desc' },
       include: { images: { orderBy: { sortOrder: 'asc' }, take: 1 } },
     });
@@ -95,7 +95,7 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
     }
 
     const raffle = await prisma.raffle.findFirst({
-      where: { riferoId: profile.id, eventNumber: n, status: { in: ['PUBLISHED', 'FINISHED'] } },
+      where: { riferoId: profile.id, eventNumber: n, status: { in: ['PUBLISHED', 'FINISHED'] }, hidden: false },
       include: { images: { orderBy: { sortOrder: 'asc' } } },
     });
     if (!raffle) throw notFound('Rifa no encontrada');
@@ -145,7 +145,7 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
   app.get('/public/raffles/:raffleId/ticket-map', async (request) => {
     const { raffleId } = request.params as { raffleId: string };
     const raffle = await prisma.raffle.findUnique({ where: { id: raffleId } });
-    if (!raffle || raffle.status === 'DRAFT') throw notFound('Rifa no encontrada');
+    if (!raffle || raffle.status === 'DRAFT' || raffle.hidden) throw notFound('Rifa no encontrada');
     return buildTicketMap(raffle);
   });
 

@@ -120,7 +120,7 @@ export function RaffleBrandBar({
                 className="absolute inset-0 h-full w-full object-contain"
                 style={{
                   filter: logoGlow
-                    ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.35)) drop-shadow(0 0 1.5px color-mix(in srgb, var(--rifero-primary) 30%, transparent))'
+                    ? 'drop-shadow(0 1px 2px rgba(0,0,0,0.35)) drop-shadow(0 0 6px color-mix(in srgb, var(--rifero-primary) 80%, transparent)) drop-shadow(0 0 14px color-mix(in srgb, var(--rifero-primary) 55%, transparent))'
                     : 'drop-shadow(0 2px 3px rgba(0,0,0,0.3))',
                 }}
               />

@@ -317,6 +317,9 @@ model Raffle {
   drawDate  DateTime?
 
   status RaffleStatus @default(DRAFT)
+  // Visibilidad en la página pública: una rifa PUBLISHED con hidden=true se oculta
+  // del sitio sin cancelarla (toggle "activa / oculta"). Default visible.
+  hidden Boolean @default(false)
 
   terms               String?
   paymentInstructions String?

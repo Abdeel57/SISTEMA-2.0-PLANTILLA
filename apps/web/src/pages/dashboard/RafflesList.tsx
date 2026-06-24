@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
 import {
   RAFFLE_STATUS_LABELS,
   formatMXN,
@@ -15,6 +15,7 @@ import { ApiError, apiAssetUrl } from '@/lib/api';
 import { buildRaffleUrl, buildRaffleShareUrl } from '@/lib/site';
 import { Button } from '@/components/ui/button';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PageLoader, EmptyState } from '@/components/ui/misc';
 import { PanelIntro, PANEL_CARD, ProgressBar } from '@/components/owner/PanelKit';
@@ -68,6 +69,16 @@ function RaffleCard({ raffle, slug }: { raffle: RaffleDTO; slug?: string }) {
     },
   });
 
+  // Mostrar/ocultar la rifa en la página pública (sin cancelarla).
+  const visibility = useMutation({
+    mutationFn: (hidden: boolean) => raffleService.update(raffle.id, { hidden }),
+    onSuccess: (_res, hidden) => {
+      toast.success(hidden ? 'Rifa oculta de la página pública.' : 'Rifa visible en la página pública.');
+      void queryClient.invalidateQueries({ queryKey: ['raffles'] });
+    },
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'No se pudo cambiar la visibilidad'),
+  });
+
   const remove = useMutation({
     mutationFn: () => raffleService.remove(raffle.id),
     onSuccess: () => {
@@ -106,8 +117,13 @@ function RaffleCard({ raffle, slug }: { raffle: RaffleDTO; slug?: string }) {
         <span className="absolute left-3 top-3 rounded-lg bg-white/90 px-2 py-0.5 text-xs font-extrabold tracking-wide text-primary shadow-sm backdrop-blur">
           {raffle.eventLabel}
         </span>
-        <div className="absolute right-3 top-3">
+        <div className="absolute right-3 top-3 flex flex-col items-end gap-1.5">
           <RaffleStatusBadge status={raffle.status} />
+          {raffle.hidden && raffle.status !== 'DRAFT' && (
+            <Badge variant="muted" className="gap-1">
+              <EyeOff className="h-3 w-3" /> Oculta
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -177,6 +193,28 @@ function RaffleCard({ raffle, slug }: { raffle: RaffleDTO; slug?: string }) {
         </Button>
       )}
 
+      {/* Visibilidad en la página pública (solo aplica a rifas ya publicadas) */}
+      {raffle.status !== 'DRAFT' && raffle.status !== 'CANCELLED' && (
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border bg-muted/30 px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            {raffle.hidden ? (
+              <EyeOff className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <Eye className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            )}
+            <span className="text-sm font-semibold">
+              {raffle.hidden ? 'Oculta en la página' : 'Visible en la página'}
+            </span>
+          </div>
+          <Switch
+            checked={!raffle.hidden}
+            disabled={visibility.isPending}
+            onCheckedChange={(v) => visibility.mutate(!v)}
+            aria-label="Mostrar u ocultar en la página pública"
+          />
+        </div>
+      )}
+
       {/* Eliminar rifa (acción destructiva, con confirmación) */}
       <button
         type="button"
@@ -193,8 +231,9 @@ function RaffleCard({ raffle, slug }: { raffle: RaffleDTO; slug?: string }) {
         title="¿Eliminar esta rifa?"
         description={
           <>
-            Se eliminará <span className="font-semibold">{raffle.title}</span> ({raffle.eventLabel}) junto con sus
-            boletos, apartados, imágenes y promociones. Esta acción no se puede deshacer.
+            Se eliminará <span className="font-semibold">{raffle.title}</span> ({raffle.eventLabel}) junto con{' '}
+            <span className="font-semibold">todas sus órdenes, pagos, boletos, ganador, imágenes y promociones</span>.
+            Esta acción no se puede deshacer.
           </>
         }
         confirmLabel="Sí, eliminar"
