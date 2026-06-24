@@ -35,6 +35,23 @@ function derivedSecret(purpose: string): string {
   return createHash('sha256').update(`bismark:${purpose}:${base}`).digest('hex');
 }
 
+// ¿La base de datos es local (desarrollo) o remota (Railway/producción)?
+function databaseIsLocal(): boolean {
+  const url = (process.env.DATABASE_URL ?? '').toLowerCase();
+  return url.includes('localhost') || url.includes('127.0.0.1') || url.includes('@::1') || url.includes('[::1]');
+}
+
+// Default de almacenamiento A PRUEBA DE FALLOS. Si no se definió STORAGE_DRIVER,
+// usamos `db` (Postgres) siempre que la base sea REMOTA —caso de Railway— para
+// que las imágenes NUNCA se pierdan en un redeploy, aunque por alguna razón no
+// se detectara producción (NODE_ENV/RAILWAY_ENVIRONMENT ausentes o un Start
+// Command personalizado en el panel que ignore railway.json). Solo con base
+// local (desarrollo) el default es disco.
+function defaultStorageDriver(): 'db' | 'local' {
+  if (process.env.NODE_ENV === 'production') return 'db';
+  return databaseIsLocal() ? 'local' : 'db';
+}
+
 function str(key: string, fallback?: string): string {
   const v = process.env[key];
   if (v === undefined || v === '') {
@@ -114,10 +131,10 @@ export const env = {
   },
 
   storage: {
-    // En producción el default es `db`: las imágenes viven en Postgres y
-    // SOBREVIVEN a los redeploys de Railway sin depender de un Volume. En local el
-    // default es `local` (disco). Se puede forzar con STORAGE_DRIVER.
-    driver: (process.env.STORAGE_DRIVER ?? (isProd ? 'db' : 'local')) as 'local' | 'db' | 'cloudinary' | 's3',
+    // Default a prueba de fallos (ver defaultStorageDriver): `db` salvo en
+    // desarrollo con base local. Las imágenes viven en Postgres y SOBREVIVEN a los
+    // redeploys de Railway sin Volume. Se puede forzar con STORAGE_DRIVER.
+    driver: (process.env.STORAGE_DRIVER ?? defaultStorageDriver()) as 'local' | 'db' | 'cloudinary' | 's3',
     localDir: str('LOCAL_UPLOAD_DIR', './uploads'),
     cloudinary: {
       cloudName: process.env.CLOUDINARY_CLOUD_NAME ?? '',

@@ -141,8 +141,26 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   registerErrorHandler(app);
 
-  // Healthcheck
-  app.get('/health', async () => ({ ok: true, service: 'bismark-api', ts: new Date().toISOString() }));
+  // Healthcheck + diagnóstico de almacenamiento. Visita /health para confirmar
+  // qué driver está activo en producción y cuántas imágenes hay guardadas en la
+  // BD. Si storage="db" y storedAssets crece al subir imágenes (y se mantiene
+  // tras un redeploy), las imágenes están a salvo. El conteo va en try/catch para
+  // que el healthcheck nunca falle por la BD.
+  app.get('/health', async () => {
+    let storedAssets: number | null = null;
+    try {
+      storedAssets = await prisma.storedAsset.count();
+    } catch {
+      storedAssets = null;
+    }
+    return {
+      ok: true,
+      service: 'bismark-api',
+      storage: env.storage.driver,
+      storedAssets,
+      ts: new Date().toISOString(),
+    };
+  });
 
   // Módulos de la API bajo /api (mismo origen que el frontend que sirve este
   // mismo proceso). Las rutas OG (/s/...) quedan en raíz porque son enlaces
