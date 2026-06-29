@@ -134,6 +134,54 @@ function PrizeGallery({ images, title }: { images: { id: string; url: string }[]
   );
 }
 
+// Lista de boletos del recibo. Si la rifa dio boletos de regalo, los separa en
+// dos pestañas ("Tus boletos" / "Regalo") para que el comprador vea claramente
+// cuáles eligió y cuáles le tocaron de oportunidad. Sin regalos, una sola lista.
+function ReceiptTickets({ ticketNumbers, giftNumbers }: { ticketNumbers: string[]; giftNumbers: string[] }) {
+  const [tab, setTab] = useState<'mine' | 'gift'>('mine');
+
+  if (giftNumbers.length === 0) {
+    return (
+      <>
+        <p className="mb-1 text-[11px] text-muted-foreground">Tus boletos</p>
+        <p className="text-sm font-semibold tabular-nums">{ticketNumbers.join(', ')}</p>
+      </>
+    );
+  }
+
+  const tabClass = (active: boolean) =>
+    `rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
+      active
+        ? 'bg-[var(--rifero-primary)] text-white'
+        : 'border border-border text-muted-foreground hover:bg-muted'
+    }`;
+
+  return (
+    <>
+      <div className="mb-2 flex gap-1.5">
+        <button type="button" onClick={() => setTab('mine')} className={tabClass(tab === 'mine')}>
+          Tus boletos ({ticketNumbers.length})
+        </button>
+        <button type="button" onClick={() => setTab('gift')} className={tabClass(tab === 'gift')}>
+          🎁 Regalo ({giftNumbers.length})
+        </button>
+      </div>
+
+      {tab === 'mine' ? (
+        <p className="text-sm font-semibold tabular-nums">{ticketNumbers.join(', ')}</p>
+      ) : (
+        <>
+          <p className="text-sm font-semibold tabular-nums">{giftNumbers.join(', ')}</p>
+          <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
+            Por cada boleto que apartaste recibiste oportunidades adicionales de regalo. Participas con{' '}
+            <strong>{ticketNumbers.length + giftNumbers.length}</strong> números en total.
+          </p>
+        </>
+      )}
+    </>
+  );
+}
+
 export default function PublicRaffle({ subdomain }: Props) {
   const params = useParams<{ slug: string; eventParam: string; ref?: string }>();
   const slug = subdomain ?? params.slug ?? '';
@@ -316,6 +364,10 @@ export default function PublicRaffle({ subdomain }: Props) {
   };
   const priceResult = computeOrderPrice(selected.length, pricingCfg);
   const dealHint = nextDealHint(selected.length, pricingCfg);
+  // Oportunidades: cuántos boletos de regalo se incluirán al apartar. Es un
+  // PREVIEW del conteo: los números reales se sortean al azar al reservar
+  // (pool con bloqueo), así que aquí solo anticipamos cuántos serán.
+  const giftPreview = Math.max(0, raffle.opportunities - 1) * selected.length;
   const hasDeals = raffle.pricingTiers.length > 0 || raffle.pricingBundles.length > 0;
 
   const onSubmitBuyer = (values: ReserveFormInput) => {
@@ -448,6 +500,11 @@ export default function PublicRaffle({ subdomain }: Props) {
               {priceResult.savings > 0 && (
                 <p className="text-center text-xs font-extrabold uppercase tracking-wide text-emerald-400">
                   ¡Ahorras {formatMXN(priceResult.savings)}!
+                </p>
+              )}
+              {giftPreview > 0 && (
+                <p className="mt-1 text-center text-sm font-extrabold uppercase tracking-wide text-emerald-300 [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
+                  🎁 +{giftPreview} {giftPreview === 1 ? 'boleto' : 'boletos'} de regalo incluidos
                 </p>
               )}
               {dealHint && (
@@ -890,24 +947,7 @@ export default function PublicRaffle({ subdomain }: Props) {
 
                 {/* Boletos y total */}
                 <div className="rounded-xl border p-3">
-                  <p className="mb-1 text-[11px] text-muted-foreground">
-                    {receipt.giftNumbers.length > 0 ? 'Boletos elegidos' : 'Tus boletos'}
-                  </p>
-                  <p className="text-sm font-semibold tabular-nums">{receipt.ticketNumbers.join(', ')}</p>
-
-                  {/* Oportunidades de regalo */}
-                  {receipt.giftNumbers.length > 0 && (
-                    <div className="mt-3 rounded-lg bg-[var(--rifero-primary)]/8 p-2.5">
-                      <p className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--rifero-primary)]">
-                        <Trophy className="h-3.5 w-3.5" /> Oportunidades de regalo
-                      </p>
-                      <p className="mt-0.5 text-sm font-semibold tabular-nums">{receipt.giftNumbers.join(', ')}</p>
-                      <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
-                        Por cada boleto seleccionado recibiste oportunidades adicionales de regalo. Participas con{' '}
-                        <strong>{receipt.ticketNumbers.length + receipt.giftNumbers.length}</strong> números en total.
-                      </p>
-                    </div>
-                  )}
+                  <ReceiptTickets ticketNumbers={receipt.ticketNumbers} giftNumbers={receipt.giftNumbers} />
 
                   <Separator className="my-3" />
                   <div className="flex items-center justify-between">
