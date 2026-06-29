@@ -29,12 +29,31 @@ export default async function ordersRoutes(app: FastifyInstance): Promise<void> 
   // Administradores ven todas las órdenes del rifero; vendedores solo las suyas.
   app.get('/orders', { preHandler: requireStaff }, async (request) => {
     const riferoId = request.auth!.riferoId!;
-    const q = request.query as { status?: string; raffleId?: string };
+    const q = request.query as { status?: string; raffleId?: string; q?: string };
 
     let statusFilter: OrderStatus[] | undefined;
     if (q.status === 'pending') statusFilter = ['RESERVED', 'PENDING'];
     else if (q.status === 'paid') statusFilter = ['PAID'];
     else statusFilter = undefined; // all
+
+    // Búsqueda libre: folio, nombre/teléfono del comprador, título de la rifa y
+    // NÚMERO DE BOLETO (manual o de regalo). El match por boleto se apoya en el
+    // índice de orderId, así encuentra la orden aunque NO esté entre las recientes.
+    const term = q.q?.trim();
+    const searchWhere = term
+      ? {
+          OR: [
+            { code: { contains: term, mode: 'insensitive' as const } },
+            { buyer: { fullName: { contains: term, mode: 'insensitive' as const } } },
+            { buyer: { phone: { contains: term } } },
+            { raffle: { title: { contains: term, mode: 'insensitive' as const } } },
+            // displayNumber con ceros a la izquierda: "123" encuentra "00123".
+            { tickets: { some: { displayNumber: { contains: term } } } },
+            // Si es puramente numérico, también match exacto por valor del boleto.
+            ...(/^\d+$/.test(term) ? [{ tickets: { some: { number: Number(term) } } }] : []),
+          ],
+        }
+      : {};
 
     const orders = await prisma.order.findMany({
       where: {
@@ -42,6 +61,7 @@ export default async function ordersRoutes(app: FastifyInstance): Promise<void> 
         ...sellerScope(request),
         ...(q.raffleId ? { raffleId: q.raffleId } : {}),
         ...(statusFilter ? { status: { in: statusFilter } } : {}),
+        ...searchWhere,
       },
       orderBy: { createdAt: 'desc' },
       include: ORDER_INCLUDE,

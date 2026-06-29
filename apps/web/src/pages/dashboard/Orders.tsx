@@ -387,6 +387,14 @@ export default function Orders() {
   const isSeller = role === 'SELLER';
   const [scanOpen, setScanOpen] = useState(false);
   const [search, setSearch] = useState('');
+  // La búsqueda viaja al backend con un retraso para no consultar en cada tecla.
+  // El backend busca por folio, nombre, teléfono, rifa y NÚMERO DE BOLETO (así
+  // encuentra la orden aunque sea vieja, no solo entre las recientes cargadas).
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
   // Filtro por vendedor (solo admin): 'all' | 'direct' | <sellerId>.
   const [sellerFilter, setSellerFilter] = useState<string>('all');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -396,8 +404,10 @@ export default function Orders() {
   const apiFilter = URL_TO_API[urlFilter];
 
   const ordersQuery = useQuery({
-    queryKey: ['orders', apiFilter],
-    queryFn: () => orderService.list(apiFilter),
+    queryKey: ['orders', apiFilter, debouncedSearch],
+    queryFn: () => orderService.list(apiFilter, undefined, debouncedSearch || undefined),
+    // Mantiene la lista anterior mientras llega la búsqueda nueva (sin parpadeo).
+    placeholderData: (prev) => prev,
   });
 
   const orders = ordersQuery.data?.items ?? [];
@@ -411,7 +421,9 @@ export default function Orders() {
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   }, [orders]);
 
-  // Búsqueda local (código, nombre, teléfono, rifa) + filtro por vendedor.
+  // Filtro instantáneo del cliente (folio, nombre, teléfono, rifa y número de
+  // boleto manual o de regalo) sobre lo ya cargado, + filtro por vendedor. La
+  // búsqueda completa la hace el backend; esto solo afina al instante mientras se teclea.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return orders.filter((o) => {
@@ -422,7 +434,9 @@ export default function Orders() {
         o.code.toLowerCase().includes(q) ||
         o.buyer.fullName.toLowerCase().includes(q) ||
         o.buyer.phone.toLowerCase().includes(q) ||
-        o.raffleTitle.toLowerCase().includes(q)
+        o.raffleTitle.toLowerCase().includes(q) ||
+        o.ticketNumbers.some((t) => t.includes(q)) ||
+        o.giftNumbers.some((t) => t.includes(q))
       );
     });
   }, [orders, search, sellerFilter]);
@@ -463,7 +477,7 @@ export default function Orders() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por nombre, teléfono, código o rifa"
+          placeholder="Buscar por boleto, nombre, teléfono, folio o rifa"
           className="pl-10 pr-10"
           autoComplete="off"
         />
