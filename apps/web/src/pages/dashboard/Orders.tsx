@@ -170,6 +170,7 @@ function OrderCard({ order }: { order: OrderDTO }) {
   const waMessage = waReserveMessage({
     raffleName: `${order.raffleTitle} (${order.eventLabel})`,
     ticketNumbers: order.ticketNumbers.join(', '),
+    giftNumbers: order.giftNumbers.join(', '),
     total: formatMXN(order.totalAmount),
     orderCode: order.code,
   });

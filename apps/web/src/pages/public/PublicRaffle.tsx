@@ -260,6 +260,7 @@ export default function PublicRaffle({ subdomain }: Props) {
         const message = waReserveMessage({
           raffleName: raffle.title,
           ticketNumbers: res.receipt.ticketNumbers.join(', '),
+          giftNumbers: res.receipt.giftNumbers.join(', '),
           total: formatMXN(res.receipt.totalAmount),
           orderCode: res.receipt.code,
           buyerName: variables.fullName,
@@ -974,6 +975,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                       message={waReserveMessage({
                         raffleName: raffle.title,
                         ticketNumbers: receipt.ticketNumbers.join(', '),
+                        giftNumbers: receipt.giftNumbers.join(', '),
                         total: formatMXN(receipt.totalAmount),
                         orderCode: receipt.code,
                       })}

@@ -111,6 +111,7 @@ export interface WaTemplateVars {
   orderCode: string;
   buyerName?: string; // nombre del comprador (opcional)
   paymentUrl?: string; // liga a "Métodos de pago" de la página (opcional)
+  giftNumbers?: string; // boletos de regalo (oportunidades), ya formateados. Vacío = sin línea.
 }
 
 // Mensaje que el comprador envía al rifero tras apartar. Usa formato de WhatsApp
@@ -123,6 +124,7 @@ export function waReserveMessage(v: WaTemplateVars): string {
     '',
     v.buyerName ? `👤 *Nombre:* ${v.buyerName}` : null,
     `🔢 *Boletos:* ${v.ticketNumbers}`,
+    v.giftNumbers ? `🎁 *Boletos de regalo:* ${v.giftNumbers}` : null,
     `💵 *Total a pagar:* ${v.total}`,
     `🧾 *Folio:* ${v.orderCode}`,
     v.paymentUrl ? '' : null,
@@ -142,6 +144,7 @@ export function waProofMessage(v: WaTemplateVars): string {
     '',
     v.buyerName ? `👤 *Nombre:* ${v.buyerName}` : null,
     `🔢 *Boletos:* ${v.ticketNumbers}`,
+    v.giftNumbers ? `🎁 *Boletos de regalo:* ${v.giftNumbers}` : null,
     `💵 *Total:* ${v.total}`,
     `🧾 *Folio:* ${v.orderCode}`,
     '',
