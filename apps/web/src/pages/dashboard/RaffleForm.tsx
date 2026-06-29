@@ -332,7 +332,18 @@ export default function RaffleForm() {
         </span>
       </div>
 
-      <form onSubmit={onSubmit}>
+      <form
+        onSubmit={onSubmit}
+        // El guardado es MANUAL: solo el botón "Guardar cambios" envía el
+        // formulario. Sin esto, presionar Enter en un campo (p. ej. la fecha del
+        // sorteo) lo enviaba de inmediato y sacaba al usuario antes de terminar.
+        // Se permite Enter dentro de <textarea> para que siga creando saltos de línea.
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
+            e.preventDefault();
+          }
+        }}
+      >
         <FormSection title={STEPS[step].title} description={STEPS[step].desc}>
           {/* Paso 1: Tu rifa */}
           {step === 0 && (
