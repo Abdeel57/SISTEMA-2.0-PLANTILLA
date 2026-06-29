@@ -1,11 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import { prisma } from '../../lib/prisma.js';
 import { badRequest, conflict } from '../../lib/errors.js';
+import { validate } from '../../lib/http.js';
 import { requireStaff } from '../../middlewares/auth.js';
 import { loadAccessibleOrder } from '../../lib/ownership.js';
 import { toOrderDTO, type OrderWithRelations } from '../../lib/serializers.js';
 import { logActivity } from '../../lib/activity.js';
 import { newDigitalTicketCode } from '../../lib/codes.js';
+import { buyerSchema, normalizeCountryCode } from '@bismark/shared';
 import type { OrderStatus } from '@bismark/shared';
 import type { FastifyRequest } from 'fastify';
 
@@ -87,6 +89,30 @@ export default async function ordersRoutes(app: FastifyInstance): Promise<void> 
     await loadAccessibleOrder(id, request.auth!);
     const order = await prisma.order.findUniqueOrThrow({ where: { id }, include: ORDER_INCLUDE });
     return { order: toOrderDTO(order as OrderWithRelations) };
+  });
+
+  // PATCH /orders/:id/buyer — corrige los DATOS del comprador (nombre/teléfono/
+  // WhatsApp/estado) cuando el cliente se equivocó. No toca boletos, montos ni
+  // estado de la orden. Cada orden tiene su propio Buyer, así que no afecta a otras.
+  app.patch('/orders/:id/buyer', { preHandler: requireStaff }, async (request) => {
+    const { id } = request.params as { id: string };
+    const order = await loadAccessibleOrder(id, request.auth!);
+    const data = validate(buyerSchema, request.body);
+
+    await prisma.buyer.update({
+      where: { id: order.buyerId },
+      data: {
+        fullName: data.fullName,
+        phone: data.phone,
+        country: normalizeCountryCode(data.country),
+        whatsapp: data.whatsapp || data.phone,
+        state: data.state || null,
+      },
+    });
+
+    await logActivity({ userId: request.auth!.userId, type: 'ORDER', action: 'edit_buyer', meta: { orderId: id } });
+    const fresh = await prisma.order.findUniqueOrThrow({ where: { id }, include: ORDER_INCLUDE });
+    return { order: toOrderDTO(fresh as OrderWithRelations) };
   });
 
   // PATCH /orders/:id/mark-paid

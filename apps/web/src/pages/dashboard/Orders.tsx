@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { ScanLine, Search, X, Store, Gift } from 'lucide-react';
+import { ScanLine, Search, X, Store, Gift, Pencil } from 'lucide-react';
 import {
   formatMXN,
   formatDateTimeMX,
@@ -126,6 +126,112 @@ function TicketChips({ numbers }: { numbers: string[] }) {
         </button>
       )}
     </div>
+  );
+}
+
+// Edición de los DATOS del comprador (nombre/teléfono/WhatsApp/estado) cuando el
+// cliente se equivocó al capturarlos. No toca boletos ni el estado de la orden.
+function EditBuyerDialog({ order }: { order: OrderDTO }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [fullName, setFullName] = useState(order.buyer.fullName);
+  const [phone, setPhone] = useState(order.buyer.phone);
+  const [whatsapp, setWhatsapp] = useState(order.buyer.whatsapp ?? '');
+  const [country, setCountry] = useState(order.buyer.country || 'MX');
+  const [state, setState] = useState(order.buyer.state ?? '');
+
+  // Al abrir, parte siempre de los datos actuales de la orden.
+  useEffect(() => {
+    if (!open) return;
+    setFullName(order.buyer.fullName);
+    setPhone(order.buyer.phone);
+    setWhatsapp(order.buyer.whatsapp ?? '');
+    setCountry(order.buyer.country || 'MX');
+    setState(order.buyer.state ?? '');
+  }, [open, order]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      orderService.updateBuyer(order.id, {
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        country,
+        whatsapp: whatsapp.trim(),
+        state: state.trim(),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast.success('Datos del cliente actualizados');
+      setOpen(false);
+    },
+    onError: (e: unknown) => toast.error(e instanceof ApiError ? e.message : 'No se pudieron guardar los datos'),
+  });
+
+  const canSave = fullName.trim().length >= 2 && phone.trim().length >= 10;
+
+  return (
+    <>
+      <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setOpen(true)}>
+        <Pencil className="h-4 w-4" /> Editar datos
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar datos del cliente</DialogTitle>
+            <DialogDescription>
+              Corrige el nombre o el contacto si el cliente se equivocó. No cambia los boletos ni el monto.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (canSave && !save.isPending) save.mutate();
+            }}
+            className="space-y-3"
+          >
+            <div>
+              <label className="mb-1 block text-sm font-semibold">Nombre completo</label>
+              <Input value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="off" />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="mb-1 block text-sm font-semibold">País</label>
+                <Select value={country} onChange={(e) => setCountry(e.target.value)}>
+                  <option value="MX">🇲🇽 MX</option>
+                  <option value="US">🇺🇸 US</option>
+                </Select>
+              </div>
+              <div className="col-span-2">
+                <label className="mb-1 block text-sm font-semibold">Teléfono</label>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" autoComplete="off" />
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold">WhatsApp (opcional)</label>
+              <Input
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
+                placeholder="Si lo dejas vacío, se usa el teléfono"
+                inputMode="numeric"
+                autoComplete="off"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold">Estado (opcional)</label>
+              <Input value={state} onChange={(e) => setState(e.target.value)} autoComplete="off" />
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" variant="brand" loading={save.isPending} disabled={!canSave}>
+                Guardar cambios
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -321,6 +427,7 @@ function OrderCard({ order }: { order: OrderDTO }) {
         ) : (
           <WhatsAppButton phone={waPhone} dialCode={buyerDial} message={waMessage} size="sm" />
         )}
+        <EditBuyerDialog order={order} />
         {!isPending && order.hasProof && <ProofDialog orderId={order.id} />}
         {isPending && (
           <div className="ml-auto flex gap-1">
