@@ -1,5 +1,5 @@
 import { apiFetch } from '@/lib/api';
-import type { OrderDTO, PaymentProofDTO, BuyerInput } from '@bismark/shared';
+import type { OrderDTO, PaymentProofDTO, BuyerInput, MarkPaidInput } from '@bismark/shared';
 
 export type OrderFilter = 'pending' | 'paid' | 'all';
 
@@ -10,7 +10,11 @@ export const orderService = {
   // Corrige los datos del comprador de una orden (errores de captura del cliente).
   updateBuyer: (id: string, buyer: BuyerInput) =>
     apiFetch<{ order: OrderDTO }>(`/orders/${id}/buyer`, { method: 'PATCH', body: buyer }),
-  markPaid: (id: string) => apiFetch<{ order: OrderDTO }>(`/orders/${id}/mark-paid`, { method: 'PATCH' }),
+  markPaid: (id: string, body?: MarkPaidInput) =>
+    apiFetch<{ order: OrderDTO }>(`/orders/${id}/mark-paid`, { method: 'PATCH', body: body ?? {} }),
+  // Libera los boletos: 'available' = de vuelta a la venta; 'reserved' = de vuelta a apartado.
+  release: (id: string, target: 'available' | 'reserved') =>
+    apiFetch<{ order: OrderDTO }>(`/orders/${id}/release`, { method: 'PATCH', body: { target } }),
   cancel: (id: string) => apiFetch<{ order: OrderDTO }>(`/orders/${id}/cancel`, { method: 'PATCH' }),
   reject: (id: string) => apiFetch<{ order: OrderDTO }>(`/orders/${id}/reject`, { method: 'PATCH' }),
   proofs: (id: string) => apiFetch<{ items: PaymentProofDTO[] }>(`/orders/${id}/proof`),

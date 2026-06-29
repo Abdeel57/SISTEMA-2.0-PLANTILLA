@@ -7,7 +7,7 @@ import { loadAccessibleOrder } from '../../lib/ownership.js';
 import { toOrderDTO, type OrderWithRelations } from '../../lib/serializers.js';
 import { logActivity } from '../../lib/activity.js';
 import { newDigitalTicketCode } from '../../lib/codes.js';
-import { buyerSchema, normalizeCountryCode } from '@bismark/shared';
+import { buyerSchema, normalizeCountryCode, markPaidSchema } from '@bismark/shared';
 import type { OrderStatus } from '@bismark/shared';
 import type { FastifyRequest } from 'fastify';
 
@@ -115,7 +115,8 @@ export default async function ordersRoutes(app: FastifyInstance): Promise<void> 
     return { order: toOrderDTO(fresh as OrderWithRelations) };
   });
 
-  // PATCH /orders/:id/mark-paid
+  // PATCH /orders/:id/mark-paid — confirma el pago. Acepta (opcional) cómo pagó el
+  // cliente (efectivo/transferencia/…) y una nota, para dejar registro.
   app.patch('/orders/:id/mark-paid', { preHandler: requireStaff }, async (request) => {
     const { id } = request.params as { id: string };
     const order = await loadAccessibleOrder(id, request.auth!);
@@ -123,6 +124,7 @@ export default async function ordersRoutes(app: FastifyInstance): Promise<void> 
     if (order.status === 'CANCELLED' || order.status === 'REJECTED' || order.status === 'EXPIRED') {
       throw badRequest('No puedes marcar como pagada una orden cancelada/rechazada/expirada');
     }
+    const pay = validate(markPaidSchema, request.body ?? {});
 
     const now = new Date();
     await prisma.$transaction([
@@ -130,7 +132,16 @@ export default async function ordersRoutes(app: FastifyInstance): Promise<void> 
         where: { orderId: id },
         data: { status: 'PAID', paidAt: now, reservedUntil: null },
       }),
-      prisma.order.update({ where: { id }, data: { status: 'PAID', paidAt: now, expiresAt: null } }),
+      prisma.order.update({
+        where: { id },
+        data: {
+          status: 'PAID',
+          paidAt: now,
+          expiresAt: null,
+          paymentMethod: pay.paymentMethod ?? null,
+          paymentNote: pay.paymentNote || null,
+        },
+      }),
       prisma.paymentProof.updateMany({ where: { orderId: id, status: 'PENDING' }, data: { status: 'APPROVED', reviewedAt: now } }),
       // El boleto digital se genera AQUÍ (al confirmar el pago), no en la reserva. Idempotente.
       prisma.digitalTicket.upsert({
@@ -162,6 +173,60 @@ export default async function ordersRoutes(app: FastifyInstance): Promise<void> 
     await releaseOrder(id, 'REJECTED');
     await prisma.paymentProof.updateMany({ where: { orderId: id, status: 'PENDING' }, data: { status: 'REJECTED', reviewedAt: new Date() } });
     await logActivity({ userId: request.auth!.userId, type: 'ORDER', action: 'reject', meta: { orderId: id } });
+    const fresh = await prisma.order.findUniqueOrThrow({ where: { id }, include: ORDER_INCLUDE });
+    return { order: toOrderDTO(fresh as OrderWithRelations) };
+  });
+
+  // PATCH /orders/:id/release — libera los boletos de una orden. Dos destinos:
+  //   target=available → vuelven a la VENTA (disponibles); orden CANCELLED.
+  //   target=reserved  → vuelven a APARTADO (el comprador los conserva, sin pago);
+  //                      orden RESERVED con nuevo tiempo de apartado.
+  // En ambos se borra el boleto digital (la orden deja de estar pagada). Útil para
+  // corregir una orden marcada como pagada por error.
+  app.patch('/orders/:id/release', { preHandler: requireStaff }, async (request) => {
+    const { id } = request.params as { id: string };
+    const order = await loadAccessibleOrder(id, request.auth!);
+    if (order.status === 'CANCELLED' || order.status === 'REJECTED' || order.status === 'EXPIRED') {
+      throw badRequest('Esta orden ya está cerrada; sus boletos ya se liberaron.');
+    }
+    const target = (request.body as { target?: string })?.target === 'reserved' ? 'reserved' : 'available';
+
+    if (target === 'available') {
+      await prisma.$transaction([
+        prisma.digitalTicket.deleteMany({ where: { orderId: id } }),
+        prisma.ticketNumber.updateMany({
+          where: { orderId: id, status: { in: ['RESERVED', 'PENDING_PAYMENT', 'PAID'] } },
+          data: { status: 'AVAILABLE', orderId: null, buyerId: null, reservedUntil: null, paidAt: null },
+        }),
+        prisma.order.update({
+          where: { id },
+          data: { status: 'CANCELLED', expiresAt: null, paidAt: null, paymentMethod: null, paymentNote: null },
+        }),
+      ]);
+    } else {
+      const reserveMinutes = order.raffle.reserveMinutes ?? 120;
+      const expiresAt = new Date(Date.now() + reserveMinutes * 60_000);
+      await prisma.$transaction([
+        prisma.digitalTicket.deleteMany({ where: { orderId: id } }),
+        // Los boletos siguen ligados a la orden/comprador, pero vuelven a apartado.
+        prisma.ticketNumber.updateMany({
+          where: { orderId: id, status: { in: ['PENDING_PAYMENT', 'PAID'] } },
+          data: { status: 'RESERVED', reservedUntil: expiresAt, paidAt: null },
+        }),
+        prisma.paymentProof.updateMany({ where: { orderId: id, status: 'APPROVED' }, data: { status: 'PENDING' } }),
+        prisma.order.update({
+          where: { id },
+          data: { status: 'RESERVED', expiresAt, paidAt: null, paymentMethod: null, paymentNote: null },
+        }),
+      ]);
+    }
+
+    await logActivity({
+      userId: request.auth!.userId,
+      type: 'ORDER',
+      action: target === 'available' ? 'release_available' : 'release_reserved',
+      meta: { orderId: id },
+    });
     const fresh = await prisma.order.findUniqueOrThrow({ where: { id }, include: ORDER_INCLUDE });
     return { order: toOrderDTO(fresh as OrderWithRelations) };
   });

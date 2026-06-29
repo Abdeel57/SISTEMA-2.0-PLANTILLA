@@ -311,6 +311,10 @@ export interface OrderDTO {
   status: OrderStatus;
   expiresAt: string | null;
   paidAt: string | null;
+  // Cómo se confirmó el pago (efectivo/transferencia/…) y nota opcional. Null si no
+  // se capturó (órdenes anteriores o aún no pagadas).
+  paymentMethod: string | null;
+  paymentNote: string | null;
   hasProof: boolean;
   proof?: PaymentProofDTO | null;
   digitalTicketCode: string | null;

@@ -337,6 +337,8 @@ export function toOrderDTO(o: OrderWithRelations): OrderDTO {
     status: o.status,
     expiresAt: iso(o.expiresAt),
     paidAt: iso(o.paidAt),
+    paymentMethod: o.paymentMethod ?? null,
+    paymentNote: o.paymentNote ?? null,
     hasProof: !!latestProof,
     proof: latestProof ? toPaymentProofDTO(latestProof) : null,
     digitalTicketCode: o.digitalTicket?.code ?? null,

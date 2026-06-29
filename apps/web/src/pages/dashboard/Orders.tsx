@@ -10,6 +10,8 @@ import {
   waTicketReadyMessage,
   buildWhatsappLink,
   dialCodeForCountry,
+  ORDER_PAYMENT_METHODS,
+  type OrderPaymentMethod,
   type OrderDTO,
 } from '@bismark/shared';
 import { orderService, type OrderFilter } from '@/services/orders';
@@ -51,6 +53,15 @@ const TABS: { value: UrlFilter; label: string }[] = [
 
 const PAGE_SIZE = 15;
 const MAX_CHIPS = 10;
+
+// Etiqueta legible del método de pago capturado al confirmar.
+const PAYMENT_METHOD_LABEL: Record<OrderPaymentMethod, string> = {
+  efectivo: 'Efectivo',
+  transferencia: 'Transferencia',
+  deposito: 'Depósito',
+  tarjeta: 'Tarjeta',
+  otro: 'Otro',
+};
 
 function ProofDialog({ orderId, className }: { orderId: string; className?: string }) {
   const [open, setOpen] = useState(false);
@@ -238,6 +249,11 @@ function EditBuyerDialog({ order }: { order: OrderDTO }) {
 function OrderCard({ order }: { order: OrderDTO }) {
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState<'reject' | 'cancel' | null>(null);
+  // Confirmación de pago (método + nota) y liberación de boletos.
+  const [payOpen, setPayOpen] = useState(false);
+  const [payMethod, setPayMethod] = useState<OrderPaymentMethod>('efectivo');
+  const [payNote, setPayNote] = useState('');
+  const [releaseOpen, setReleaseOpen] = useState(false);
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['orders'] });
@@ -248,7 +264,7 @@ function OrderCard({ order }: { order: OrderDTO }) {
 
   // Cambia el estado de la orden en caché al instante (optimista) y revierte
   // si el servidor falla: en redes lentas el panel se siente inmediato.
-  const optimisticStatus = (status: OrderDTO['status']) => ({
+  const optimisticStatus = <V = void,>(status: OrderDTO['status']) => ({
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['orders'] });
       const previous = queryClient.getQueriesData<{ items: OrderDTO[] }>({ queryKey: ['orders'] });
@@ -259,7 +275,7 @@ function OrderCard({ order }: { order: OrderDTO }) {
       );
       return { previous };
     },
-    onError: (e: unknown, _vars: void, ctx?: { previous: [QueryKey, { items: OrderDTO[] } | undefined][] }) => {
+    onError: (e: unknown, _vars: V, ctx?: { previous: [QueryKey, { items: OrderDTO[] } | undefined][] }) => {
       ctx?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
       onError(e);
     },
@@ -299,10 +315,25 @@ function OrderCard({ order }: { order: OrderDTO }) {
   };
 
   const markPaid = useMutation({
-    mutationFn: () => orderService.markPaid(order.id),
-    ...optimisticStatus('PAID'),
-    onSuccess: () =>
-      toast.success(waPhone ? 'Pagado. Boleto enviado al cliente por WhatsApp' : 'Orden marcada como pagada'),
+    mutationFn: (pay: { paymentMethod: OrderPaymentMethod; paymentNote: string }) =>
+      orderService.markPaid(order.id, pay),
+    ...optimisticStatus<{ paymentMethod: OrderPaymentMethod; paymentNote: string }>('PAID'),
+    onSuccess: () => {
+      setPayOpen(false);
+      toast.success(waPhone ? 'Pagado. Boleto enviado al cliente por WhatsApp' : 'Orden marcada como pagada');
+    },
+  });
+
+  // Liberar boletos (de vuelta a la venta o a apartado). Sin optimismo: cambia
+  // estado + boletos, así que basta con invalidar la lista al terminar.
+  const release = useMutation({
+    mutationFn: (target: 'available' | 'reserved') => orderService.release(order.id, target),
+    onSuccess: (_res, target) => {
+      invalidate();
+      setReleaseOpen(false);
+      toast.success(target === 'available' ? 'Boletos liberados a la venta' : 'Orden devuelta a apartado');
+    },
+    onError,
   });
 
   const reject = useMutation({
@@ -383,6 +414,16 @@ function OrderCard({ order }: { order: OrderDTO }) {
         <p className="text-right text-xs text-muted-foreground">{formatDateTimeMX(order.createdAt)}</p>
       </div>
 
+      {order.paymentMethod && (
+        <p className="text-xs text-muted-foreground">
+          💵 Pagado en{' '}
+          <span className="font-semibold text-foreground">
+            {PAYMENT_METHOD_LABEL[order.paymentMethod as OrderPaymentMethod] ?? order.paymentMethod}
+          </span>
+          {order.paymentNote ? ` · ${order.paymentNote}` : ''}
+        </p>
+      )}
+
       {isPending && remaining && (
         <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">Vence en {remaining}</p>
       )}
@@ -395,12 +436,9 @@ function OrderCard({ order }: { order: OrderDTO }) {
             variant="success"
             className="h-11 flex-[1.4]"
             loading={markPaid.isPending}
-            // Confirma el pago Y abre el chat del cliente con su boleto (mismo gesto
-            // del clic → el navegador no bloquea la pestaña de WhatsApp).
-            onClick={() => {
-              sendTicketWa();
-              markPaid.mutate();
-            }}
+            // Doble confirmación: abre el diálogo para capturar cómo se pagó antes
+            // de confirmar (evita marcar pagado por accidente).
+            onClick={() => setPayOpen(true)}
           >
             Marcar pagado
           </Button>
@@ -428,6 +466,16 @@ function OrderCard({ order }: { order: OrderDTO }) {
           <WhatsAppButton phone={waPhone} dialCode={buyerDial} message={waMessage} size="sm" />
         )}
         <EditBuyerDialog order={order} />
+        {order.status === 'PAID' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive hover:text-destructive"
+            onClick={() => setReleaseOpen(true)}
+          >
+            Liberar boletos
+          </Button>
+        )}
         {!isPending && order.hasProof && <ProofDialog orderId={order.id} />}
         {isPending && (
           <div className="ml-auto flex gap-1">
@@ -483,6 +531,96 @@ function OrderCard({ order }: { order: OrderDTO }) {
         loading={cancel.isPending}
         onConfirm={() => cancel.mutate()}
       />
+
+      {/* Doble confirmación de pago: captura cómo pagó el cliente antes de marcar. */}
+      <Dialog open={payOpen} onOpenChange={setPayOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar pago</DialogTitle>
+            <DialogDescription>
+              ¿Confirmas que <span className="font-semibold">{order.buyer.fullName}</span> ya pagó{' '}
+              <span className="font-semibold">{formatMXN(order.totalAmount)}</span>? Indica cómo pagó.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-sm font-semibold">¿Cómo pagó?</label>
+              <Select value={payMethod} onChange={(e) => setPayMethod(e.target.value as OrderPaymentMethod)}>
+                {ORDER_PAYMENT_METHODS.map((m) => (
+                  <option key={m} value={m}>
+                    {PAYMENT_METHOD_LABEL[m]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-semibold">Detalles (opcional)</label>
+              <Input
+                value={payNote}
+                onChange={(e) => setPayNote(e.target.value)}
+                placeholder="Referencia, banco, quién recibió…"
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="ghost" onClick={() => setPayOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="success"
+                loading={markPaid.isPending}
+                // El WhatsApp se abre dentro del gesto del clic (no lo bloquea el navegador).
+                onClick={() => {
+                  sendTicketWa();
+                  markPaid.mutate({ paymentMethod: payMethod, paymentNote: payNote.trim() });
+                }}
+              >
+                Sí, confirmar pago
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Liberar boletos: de vuelta a la venta o a apartado. */}
+      <Dialog open={releaseOpen} onOpenChange={setReleaseOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Liberar boletos</DialogTitle>
+            <DialogDescription>
+              Elige qué hacer con los {order.ticketNumbers.length + order.giftNumbers.length} números de la orden{' '}
+              <span className="font-mono font-semibold">{order.code}</span>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              className="h-auto w-full flex-col items-start gap-0.5 whitespace-normal py-3 text-left"
+              loading={release.isPending && release.variables === 'reserved'}
+              onClick={() => release.mutate('reserved')}
+            >
+              <span className="font-bold">Volver a apartado</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                El cliente conserva sus boletos, pero la orden queda pendiente de pago.
+              </span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-auto w-full flex-col items-start gap-0.5 whitespace-normal py-3 text-left"
+              loading={release.isPending && release.variables === 'available'}
+              onClick={() => release.mutate('available')}
+            >
+              <span className="font-bold text-destructive">Liberar a la venta</span>
+              <span className="text-xs font-normal text-muted-foreground">
+                Los boletos vuelven a estar disponibles para cualquiera. La orden se cancela.
+              </span>
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={() => setReleaseOpen(false)}>
+              Cancelar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

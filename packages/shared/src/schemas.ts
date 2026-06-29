@@ -209,6 +209,17 @@ export const reserveManualSchema = z.object({
   note: z.string().max(200).optional(),
 });
 
+// Confirmación de pago: cómo pagó el cliente (efectivo, transferencia, etc.) y una
+// nota opcional con detalles. Se captura al marcar la orden como pagada.
+// (OrderPaymentMethod para no chocar con el enum PaymentMethod de los datos de pago del rifero.)
+export const ORDER_PAYMENT_METHODS = ['efectivo', 'transferencia', 'deposito', 'tarjeta', 'otro'] as const;
+export type OrderPaymentMethod = (typeof ORDER_PAYMENT_METHODS)[number];
+export const markPaidSchema = z.object({
+  paymentMethod: z.enum(ORDER_PAYMENT_METHODS).optional(),
+  paymentNote: z.string().max(200).optional().or(z.literal('')),
+});
+export type MarkPaidInput = z.infer<typeof markPaidSchema>;
+
 // ── Usuarios y Roles (staff del rifero) ─────────────────────
 // Código de vendedor: mayúsculas alfanuméricas, 2-12 chars. Vacío = autogenerar.
 export const sellerCodeSchema = z

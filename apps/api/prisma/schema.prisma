@@ -453,6 +453,11 @@ model Order {
   expiresAt DateTime?
   paidAt    DateTime?
 
+  // Cómo se confirmó el pago (efectivo / transferencia / etc.) y una nota opcional
+  // con detalles. Se capturan al marcar pagado; null en órdenes antiguas o no pagadas.
+  paymentMethod String?
+  paymentNote   String?
+
   orderTickets  OrderTicket[]
   tickets       TicketNumber[]
   paymentProofs PaymentProof[]
