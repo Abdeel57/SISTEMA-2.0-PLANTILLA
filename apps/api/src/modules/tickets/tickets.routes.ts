@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { Prisma } from '@prisma/client';
 import { reserveTicketsSchema, reserveManualSchema, normalizeCountryCode, computeOrderPrice, TicketStatus } from '@bismark/shared';
 import { prisma } from '../../lib/prisma.js';
 import { validate } from '../../lib/http.js';
@@ -59,6 +60,38 @@ export default async function ticketsRoutes(app: FastifyInstance): Promise<void>
       },
     };
   });
+
+  // POST /public/raffles/:id/draw-gifts — sortea (sin reservar) números de regalo
+  // disponibles para MOSTRARLOS al comprador mientras selecciona. No escribe nada:
+  // los regalos se reservan de verdad al apartar (y se rellenan al azar si alguno
+  // ya se tomó). Así los números son 100% aleatorios y visibles antes de pagar.
+  app.post(
+    '/public/raffles/:id/draw-gifts',
+    { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { count?: number };
+      const count = Math.floor(Number(body?.count));
+      if (!Number.isInteger(count) || count <= 0) return { gifts: [] };
+
+      const raffle = await prisma.raffle.findUnique({
+        where: { id },
+        select: { status: true, opportunities: true },
+      });
+      if (!raffle || raffle.status !== 'PUBLISHED' || raffle.opportunities <= 1) return { gifts: [] };
+
+      // Techo defensivo: nunca devolvemos más de lo razonable de mostrar.
+      const limit = Math.min(count, 5000);
+      const gifts = await prisma.$queryRaw<Array<{ number: number; displayNumber: string }>>`
+        SELECT "number", "displayNumber"
+        FROM "TicketNumber"
+        WHERE "raffleId" = ${id} AND "isGift" = true AND "status" = 'AVAILABLE'::"TicketStatus"
+        ORDER BY random()
+        LIMIT ${limit}
+      `;
+      return { gifts };
+    },
+  );
 
   // POST /public/raffles/:id/reserve — apartar boletos (comprador sin cuenta)
   app.post(
@@ -166,14 +199,39 @@ export default async function ticketsRoutes(app: FastifyInstance): Promise<void>
         const giftsPerManual = raffle.opportunities - 1;
         if (giftsPerManual > 0) {
           const totalGiftsNeeded = ticketRows.length * giftsPerManual;
-          const giftRows = await tx.$queryRaw<Array<{ id: string; displayNumber: string }>>`
-            SELECT "id", "displayNumber"
-            FROM "TicketNumber"
-            WHERE "raffleId" = ${id} AND "isGift" = true AND "status" = 'AVAILABLE'::"TicketStatus"
-            ORDER BY random()
-            LIMIT ${totalGiftsNeeded}
-            FOR UPDATE SKIP LOCKED
-          `;
+
+          // 1) Reserva primero los regalos PROPUESTOS (los que el comprador vio
+          //    sorteados al seleccionar) que sigan disponibles. El filtro
+          //    isGift+AVAILABLE en SQL ignora números inválidos o ya tomados, así
+          //    que un proposed manipulado no puede colar boletos manuales.
+          const proposed = [...new Set(data.giftNumbers ?? [])];
+          let giftRows: Array<{ id: string; displayNumber: string }> = [];
+          if (proposed.length > 0) {
+            giftRows = await tx.$queryRaw<Array<{ id: string; displayNumber: string }>>`
+              SELECT "id", "displayNumber"
+              FROM "TicketNumber"
+              WHERE "raffleId" = ${id} AND "isGift" = true AND "status" = 'AVAILABLE'::"TicketStatus"
+                AND "number" IN (${Prisma.join(proposed)})
+              LIMIT ${totalGiftsNeeded}
+              FOR UPDATE SKIP LOCKED
+            `;
+          }
+
+          // 2) Si faltan (no se propusieron, o alguno ya se tomó), rellena al azar.
+          if (giftRows.length < totalGiftsNeeded) {
+            const have = giftRows.map((g) => g.id);
+            const more = await tx.$queryRaw<Array<{ id: string; displayNumber: string }>>`
+              SELECT "id", "displayNumber"
+              FROM "TicketNumber"
+              WHERE "raffleId" = ${id} AND "isGift" = true AND "status" = 'AVAILABLE'::"TicketStatus"
+                ${have.length > 0 ? Prisma.sql`AND "id" NOT IN (${Prisma.join(have)})` : Prisma.empty}
+              ORDER BY random()
+              LIMIT ${totalGiftsNeeded - giftRows.length}
+              FOR UPDATE SKIP LOCKED
+            `;
+            giftRows = giftRows.concat(more);
+          }
+
           if (giftRows.length < totalGiftsNeeded) {
             throw conflict(
               'No hay suficientes oportunidades de regalo disponibles para completar tu compra. Intenta con menos boletos.',

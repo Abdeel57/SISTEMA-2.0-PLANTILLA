@@ -197,6 +197,10 @@ export const reserveTicketsSchema = z.object({
   // Código del vendedor que refirió la compra (de su link). Opcional; si no
   // existe o está inactivo, la orden queda como venta directa.
   sellerCode: z.string().max(20).optional().or(z.literal('')),
+  // Números de regalo (oportunidades) que el cliente vio sorteados al seleccionar.
+  // El backend reserva los que sigan disponibles y rellena el resto al azar; si se
+  // omite, los sortea él. Opcional → compatible con clientes viejos.
+  giftNumbers: z.array(z.number().int().nonnegative()).max(100_000).optional(),
 });
 export type ReserveTicketsInput = z.infer<typeof reserveTicketsSchema>;
 

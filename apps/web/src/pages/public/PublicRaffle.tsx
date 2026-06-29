@@ -206,6 +206,37 @@ export default function PublicRaffle({ subdomain }: Props) {
     setTicketMap((m) => (m ? applyTicketChanges(m, items) : m));
   });
 
+  // ── Vista previa de los NÚMEROS de regalo (oportunidades) ──────────────────
+  // Al seleccionar, el backend sortea al azar números de regalo DISPONIBLES y los
+  // mostramos antes de apartar. No se reservan aquí; al apartar se reservan esos
+  // mismos (y se rellenan al azar si alguno ya se tomó). Random real y visible.
+  const giftsPerManual = Math.max(0, (raffle?.opportunities ?? 1) - 1);
+  const giftCount = giftsPerManual * selected.length;
+  const [giftPreviewNumbers, setGiftPreviewNumbers] = useState<{ number: number; displayNumber: string }[]>([]);
+  useEffect(() => {
+    const rid = raffle?.id;
+    if (!rid || giftCount <= 0) {
+      setGiftPreviewNumbers([]);
+      return;
+    }
+    let cancelled = false;
+    // Debounce: evita un sorteo por cada toque al agregar/quitar boletos rápido.
+    const t = setTimeout(() => {
+      ticketService
+        .drawGifts(rid, giftCount)
+        .then((res) => {
+          if (!cancelled) setGiftPreviewNumbers(res.gifts);
+        })
+        .catch(() => {
+          /* si falla, queda solo el conteo; al apartar el backend los sortea igual */
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [raffle?.id, giftCount]);
+
   const form = useForm<ReserveFormInput>({
     resolver: zodResolver(reserveFormSchema),
     defaultValues: { country: 'MX', whatsapp: '', nombres: '', apellidos: '', state: '' },
@@ -216,6 +247,9 @@ export default function PublicRaffle({ subdomain }: Props) {
       ticketService.reserve(raffle!.id, {
         buyer: { ...buyer, whatsapp: buyer.whatsapp || buyer.phone },
         ticketNumbers: selected,
+        // Regalos que el comprador vio sorteados: el backend reserva estos mismos
+        // (y rellena al azar si alguno ya se tomó). Vacío = los sortea el backend.
+        giftNumbers: giftPreviewNumbers.map((g) => g.number),
         // Atribuye la venta al vendedor cuyo link trajo al comprador (si hay).
         sellerCode: getReferral() ?? '',
       }),
@@ -344,10 +378,6 @@ export default function PublicRaffle({ subdomain }: Props) {
   };
   const priceResult = computeOrderPrice(selected.length, pricingCfg);
   const dealHint = nextDealHint(selected.length, pricingCfg);
-  // Oportunidades: cuántos boletos de regalo se incluirán al apartar. Es un
-  // PREVIEW del conteo: los números reales se sortean al azar al reservar
-  // (pool con bloqueo), así que aquí solo anticipamos cuántos serán.
-  const giftPreview = Math.max(0, raffle.opportunities - 1) * selected.length;
   const hasDeals = raffle.pricingTiers.length > 0 || raffle.pricingBundles.length > 0;
 
   const onSubmitBuyer = (values: ReserveFormInput) => {
@@ -482,10 +512,24 @@ export default function PublicRaffle({ subdomain }: Props) {
                   ¡Ahorras {formatMXN(priceResult.savings)}!
                 </p>
               )}
-              {giftPreview > 0 && (
-                <p className="mt-1 text-center text-sm font-extrabold uppercase tracking-wide text-emerald-300 [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
-                  🎁 +{giftPreview} {giftPreview === 1 ? 'boleto' : 'boletos'} de regalo incluidos
-                </p>
+              {giftCount > 0 && (
+                <div className="mt-1.5">
+                  <p className="text-center text-sm font-extrabold uppercase tracking-wide text-emerald-300 [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
+                    🎁 +{giftCount} {giftCount === 1 ? 'boleto' : 'boletos'} de regalo
+                  </p>
+                  {giftPreviewNumbers.length > 0 && (
+                    <div className="mx-auto mt-1 flex max-h-20 max-w-md flex-wrap justify-center gap-1 overflow-y-auto">
+                      {giftPreviewNumbers.map((g) => (
+                        <span
+                          key={g.number}
+                          className="rounded border border-emerald-400/60 px-1.5 py-0.5 text-xs font-bold tabular-nums text-emerald-200"
+                        >
+                          {g.displayNumber}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
               {dealHint && (
                 <p className="text-center text-xs font-semibold text-white/90">
