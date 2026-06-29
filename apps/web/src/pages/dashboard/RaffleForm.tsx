@@ -202,7 +202,10 @@ export default function RaffleForm() {
       .catch(() => toast.error('No se pudo copiar el link'));
   };
 
-  const onSubmit = handleSubmit((values) => {
+  // Guardado MANUAL: solo se dispara al tocar el botón "Guardar cambios" (ver
+  // abajo). El <form> nunca se autoenvía, así que llegar al último paso (la
+  // fecha) ya no guarda ni saca al usuario antes de tiempo.
+  const submitForm = handleSubmit((values) => {
     // La fecha del sorteo es obligatoria: de ella depende la cuenta regresiva.
     if (!drawLocal) {
       setDrawError('Indica la fecha y hora del sorteo.');
@@ -332,18 +335,10 @@ export default function RaffleForm() {
         </span>
       </div>
 
-      <form
-        onSubmit={onSubmit}
-        // El guardado es MANUAL: solo el botón "Guardar cambios" envía el
-        // formulario. Sin esto, presionar Enter en un campo (p. ej. la fecha del
-        // sorteo) lo enviaba de inmediato y sacaba al usuario antes de terminar.
-        // Se permite Enter dentro de <textarea> para que siga creando saltos de línea.
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'TEXTAREA') {
-            e.preventDefault();
-          }
-        }}
-      >
+      {/* El formulario NUNCA se envía solo: el guardado es 100% manual y solo
+          ocurre al tocar "Guardar cambios". Así, avanzar al paso de la fecha no
+          guarda ni redirige por accidente (ni con Enter ni con el cambio de botón). */}
+      <form onSubmit={(e) => e.preventDefault()}>
         <FormSection title={STEPS[step].title} description={STEPS[step].desc}>
           {/* Paso 1: Tu rifa */}
           {step === 0 && (
@@ -598,11 +593,23 @@ export default function RaffleForm() {
           </Button>
           <div className="flex-1" />
           {step < STEPS.length - 1 ? (
-            <Button type="button" variant="brand" size="lg" className="min-w-[40%]" onClick={() => void next()}>
+            <Button key="nav-next" type="button" variant="brand" size="lg" className="min-w-[40%]" onClick={() => void next()}>
               Siguiente
             </Button>
           ) : (
-            <Button type="submit" variant="brand" size="lg" className="min-w-[40%]" loading={save.isPending} disabled={uploading}>
+            // type="button" + onClick (no submit): guarda solo con un toque
+            // deliberado. La key distinta fuerza a React a montar un botón nuevo,
+            // así el toque de "Siguiente" no se hereda en "Guardar".
+            <Button
+              key="nav-save"
+              type="button"
+              variant="brand"
+              size="lg"
+              className="min-w-[40%]"
+              loading={save.isPending}
+              disabled={uploading}
+              onClick={() => void submitForm()}
+            >
               {isEdit ? 'Guardar cambios' : 'Crear rifa'}
             </Button>
           )}
