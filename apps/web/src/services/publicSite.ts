@@ -71,7 +71,8 @@ export const publicService = {
   // El comprador sube su comprobante de pago (por folio de la orden).
   uploadProof: (orderCode: string, file: File) =>
     apiUpload<{ proof: PaymentProofDTO }>(`/public/orders/${encodeURIComponent(orderCode)}/proof`, file),
-  // El comprador busca SUS órdenes (apartadas/pagadas) por teléfono dentro del rifero.
-  lookupOrders: (slug: string, phone: string) =>
-    apiFetch<PublicOrderLookupResult>('/public/orders/lookup', { method: 'POST', body: { slug, phone } }),
+  // El comprador busca SUS órdenes (apartadas/pagadas) dentro del rifero, por
+  // teléfono O por nombre + número de boleto.
+  lookupOrders: (slug: string, params: { phone?: string; name?: string; ticket?: string }) =>
+    apiFetch<PublicOrderLookupResult>('/public/orders/lookup', { method: 'POST', body: { slug, ...params } }),
 };

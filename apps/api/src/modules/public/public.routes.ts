@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { notFound } from '../../lib/errors.js';
 import { getPlanContext } from '../../lib/plan.js';
@@ -157,12 +158,11 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
     '/public/orders/lookup',
     { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
     async (request) => {
-      const body = (request.body ?? {}) as { slug?: string; phone?: string };
+      const body = (request.body ?? {}) as { slug?: string; phone?: string; name?: string; ticket?: string };
       const slug = (body.slug ?? '').toLowerCase().trim();
       const phone = (body.phone ?? '').replace(/\D/g, '');
-      if (phone.length < 10) {
-        return { allowProofUpload: false, orders: [], paymentProfile: null };
-      }
+      const name = (body.name ?? '').trim();
+      const ticket = (body.ticket ?? '').replace(/\s+/g, '');
 
       const profile = await findSiteProfile(slug);
       if (!profile) throw notFound('Esta página no existe');
@@ -171,6 +171,48 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
       // activo). Si no, el frontend oculta el botón de subir y manda a WhatsApp.
       const ctx = await getPlanContext(profile.id);
       const allowProofUpload = ctx.hasActivePlan && !!ctx.plan?.allowProofUpload && profile.allowProofUpload;
+      const paymentProfile = {
+        holderName: profile.payHolderName,
+        bank: profile.payBank,
+        clabe: profile.payClabe,
+        cardNumber: profile.payCardNumber,
+        concept: profile.payConcept,
+        instructions: profile.payInstructions,
+        whatsapp: profile.payWhatsapp ?? profile.whatsapp,
+        methods: riferoPaymentMethods(profile),
+      };
+
+      // Dos maneras de buscar: (1) por teléfono; (2) por nombre + número de boleto.
+      // Teléfono: normaliza a SOLO dígitos en ambos lados (ignora espacios, guiones
+      // y prefijo +52), porque hay teléfonos guardados con formato y el contains
+      // simple fallaba con ellos.
+      let buyerWhere: Prisma.OrderWhereInput | null = null;
+      if (phone.length >= 10) {
+        const like = `%${phone}%`;
+        const rows = await prisma.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM "Buyer"
+          WHERE regexp_replace(coalesce(phone, ''), '[^0-9]', '', 'g') LIKE ${like}
+             OR regexp_replace(coalesce(whatsapp, ''), '[^0-9]', '', 'g') LIKE ${like}
+        `;
+        const buyerIds = rows.map((r) => r.id);
+        if (buyerIds.length === 0) return { allowProofUpload, orders: [], paymentProfile };
+        buyerWhere = { buyerId: { in: buyerIds } };
+      } else if (name.length >= 2 && ticket.length >= 1) {
+        const numeric = /^\d+$/.test(ticket) ? Number(ticket) : null;
+        buyerWhere = {
+          buyer: { fullName: { contains: name, mode: 'insensitive' } },
+          tickets: {
+            some: {
+              OR: [
+                { displayNumber: { contains: ticket } },
+                ...(numeric !== null ? [{ number: numeric }] : []),
+              ],
+            },
+          },
+        };
+      } else {
+        return { allowProofUpload, orders: [], paymentProfile };
+      }
 
       const orders = await prisma.order.findMany({
         where: {
@@ -178,7 +220,7 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
           // Incluye vencidas/rechazadas para que el comprador vea qué pasó con su
           // apartado (antes desaparecían sin explicación).
           status: { in: ['RESERVED', 'PENDING', 'PAID', 'EXPIRED', 'REJECTED'] },
-          buyer: { OR: [{ phone: { contains: phone } }, { whatsapp: { contains: phone } }] },
+          ...buyerWhere,
         },
         orderBy: { createdAt: 'desc' },
         include: {
@@ -192,16 +234,7 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
 
       return {
         allowProofUpload,
-        paymentProfile: {
-          holderName: profile.payHolderName,
-          bank: profile.payBank,
-          clabe: profile.payClabe,
-          cardNumber: profile.payCardNumber,
-          concept: profile.payConcept,
-          instructions: profile.payInstructions,
-          whatsapp: profile.payWhatsapp ?? profile.whatsapp,
-          methods: riferoPaymentMethods(profile),
-        },
+        paymentProfile,
         orders: orders.map((o) => ({
           code: o.code,
           raffleTitle: o.raffle.title,

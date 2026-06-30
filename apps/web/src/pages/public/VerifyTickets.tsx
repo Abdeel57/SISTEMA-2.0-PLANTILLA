@@ -273,7 +273,10 @@ export default function VerifyTickets({ subdomain }: Props) {
   const riferoHref = '/';
   useDocumentTitle('Verificar mis boletos');
 
+  const [mode, setMode] = useState<'phone' | 'name'>('phone');
   const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
+  const [ticket, setTicket] = useState('');
   const [result, setResult] = useState<PublicOrderLookupResult | null>(null);
   const [payOpen, setPayOpen] = useState(false);
 
@@ -285,7 +288,8 @@ export default function VerifyTickets({ subdomain }: Props) {
   const rifero = riferoQuery.data?.rifero ?? null;
 
   const lookup = useMutation({
-    mutationFn: (tel: string) => publicService.lookupOrders(slug, tel),
+    mutationFn: (params: { phone?: string; name?: string; ticket?: string }) =>
+      publicService.lookupOrders(slug, params),
     onSuccess: (res) => setResult(res),
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'No se pudo buscar'),
   });
@@ -295,18 +299,28 @@ export default function VerifyTickets({ subdomain }: Props) {
     const tel = (fromUrl || recallBuyer()?.phone || '').trim();
     if (tel) {
       setPhone(tel);
-      lookup.mutate(tel.replace(/\D/g, ''));
+      lookup.mutate({ phone: tel.replace(/\D/g, '') });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   const search = () => {
-    const tel = phone.replace(/\D/g, '');
-    if (tel.length < 10) {
-      toast.error('Escribe tu teléfono a 10 dígitos');
-      return;
+    if (mode === 'phone') {
+      const tel = phone.replace(/\D/g, '');
+      if (tel.length < 10) {
+        toast.error('Escribe tu teléfono a 10 dígitos');
+        return;
+      }
+      lookup.mutate({ phone: tel });
+    } else {
+      const nm = name.trim();
+      const tk = ticket.trim();
+      if (nm.length < 2 || tk.length < 1) {
+        toast.error('Escribe tu nombre y un número de boleto');
+        return;
+      }
+      lookup.mutate({ name: nm, ticket: tk });
     }
-    lookup.mutate(tel);
   };
 
   const orders = result?.orders ?? [];
@@ -348,8 +362,31 @@ export default function VerifyTickets({ subdomain }: Props) {
               Verificar <span style={{ color: BRAND }}>mis boletos</span>
             </h1>
             <p className="mt-2 max-w-md text-sm text-muted-foreground">
-              Escribe tu teléfono para ver tus boletos apartados o pagados.
+              Busca tus boletos por teléfono, o por tu nombre y un número de boleto.
             </p>
+
+            {/* Selector de modo de búsqueda */}
+            <div className="mt-4 inline-flex rounded-xl border bg-card p-1">
+              {(
+                [
+                  { key: 'phone', label: 'Teléfono' },
+                  { key: 'name', label: 'Nombre y boleto' },
+                ] as const
+              ).map((m) => {
+                const active = mode === m.key;
+                return (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => setMode(m.key)}
+                    className="rounded-lg px-3.5 py-1.5 font-display text-xs font-extrabold uppercase tracking-wide transition-colors"
+                    style={active ? { background: BRAND, color: '#fff' } : { color: 'var(--muted-foreground)' }}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
 
             {/* Buscador */}
             <form
@@ -357,18 +394,36 @@ export default function VerifyTickets({ subdomain }: Props) {
                 e.preventDefault();
                 search();
               }}
-              className="mt-5 flex gap-2"
+              className="mt-3 flex flex-col gap-2 sm:flex-row"
             >
-              <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  inputMode="tel"
-                  placeholder="Tu teléfono (10 dígitos)"
-                  className="h-12 w-full rounded-xl border-2 border-input bg-card pl-10 pr-3 font-ticket text-base tracking-tight outline-none transition-colors placeholder:font-sans placeholder:text-muted-foreground focus:border-[var(--rifero-primary)]"
-                />
-              </div>
+              {mode === 'phone' ? (
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    inputMode="tel"
+                    placeholder="Tu teléfono (10 dígitos)"
+                    className="h-12 w-full rounded-xl border-2 border-input bg-card pl-10 pr-3 font-ticket text-base tracking-tight outline-none transition-colors placeholder:font-sans placeholder:text-muted-foreground focus:border-[var(--rifero-primary)]"
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-1 flex-col gap-2 sm:flex-row">
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Tu nombre completo"
+                    className="h-12 w-full flex-1 rounded-xl border-2 border-input bg-card px-3.5 text-base tracking-tight outline-none transition-colors placeholder:text-muted-foreground focus:border-[var(--rifero-primary)]"
+                  />
+                  <input
+                    value={ticket}
+                    onChange={(e) => setTicket(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="N° de boleto"
+                    className="h-12 w-full rounded-xl border-2 border-input bg-card px-3.5 font-ticket text-base tracking-tight outline-none transition-colors placeholder:font-sans placeholder:text-muted-foreground focus:border-[var(--rifero-primary)] sm:w-36"
+                  />
+                </div>
+              )}
               <Button
                 type="submit"
                 loading={lookup.isPending}
@@ -396,9 +451,11 @@ export default function VerifyTickets({ subdomain }: Props) {
               >
                 <Ticket className="h-8 w-8" />
               </div>
-              <p className="font-display text-lg font-extrabold uppercase tracking-tight">Sin boletos con ese número</p>
+              <p className="font-display text-lg font-extrabold uppercase tracking-tight">No encontramos boletos</p>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                Revisa que sea el mismo teléfono con el que apartaste.
+                {mode === 'phone'
+                  ? 'Revisa que sea el mismo teléfono con el que apartaste.'
+                  : 'Revisa que tu nombre y el número de boleto sean correctos.'}
               </p>
               <Button
                 asChild
@@ -423,7 +480,7 @@ export default function VerifyTickets({ subdomain }: Props) {
                     order={o}
                     index={i}
                     whatsapp={result?.paymentProfile?.whatsapp ?? rifero?.whatsapp ?? null}
-                    buyerPhone={lookup.variables ?? ''}
+                    buyerPhone={lookup.variables?.phone ?? ''}
                     allowProofUpload={allowProofUpload}
                     onChanged={() => search()}
                   />
