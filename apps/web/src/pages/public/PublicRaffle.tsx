@@ -277,6 +277,7 @@ export default function PublicRaffle({ subdomain }: Props) {
           total: formatMXN(res.receipt.totalAmount),
           orderCode: res.receipt.code,
           buyerName: variables.fullName,
+          buyerPhone: variables.phone,
           paymentUrl,
         });
         window.location.href = buildWhatsappLink(waNumber, message);

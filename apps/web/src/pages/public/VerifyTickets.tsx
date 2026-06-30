@@ -128,12 +128,16 @@ function OrderCard({
   order,
   index,
   whatsapp,
+  buyerPhone,
   allowProofUpload,
   onChanged,
 }: {
   order: PublicOrderLookupItem;
   index: number;
   whatsapp: string | null;
+  // Teléfono con el que el comprador buscó sus órdenes: va en el mensaje al rifero
+  // para que identifique de quién es el pago.
+  buyerPhone: string;
   // ¿El sitio recibe comprobantes? Si no, el pago se coordina por WhatsApp.
   allowProofUpload: boolean;
   onChanged: () => void;
@@ -217,6 +221,7 @@ function OrderCard({
                   ticketNumbers: order.ticketNumbers.join(', '),
                   total: formatMXN(order.totalAmount),
                   orderCode: order.code,
+                  buyerPhone,
                 })}
               />
             ) : null
@@ -239,6 +244,7 @@ function OrderCard({
                   ticketNumbers: order.ticketNumbers.join(', '),
                   total: formatMXN(order.totalAmount),
                   orderCode: order.code,
+                  buyerPhone,
                 })}
               />
             )}
@@ -417,6 +423,7 @@ export default function VerifyTickets({ subdomain }: Props) {
                     order={o}
                     index={i}
                     whatsapp={result?.paymentProfile?.whatsapp ?? rifero?.whatsapp ?? null}
+                    buyerPhone={lookup.variables ?? ''}
                     allowProofUpload={allowProofUpload}
                     onChanged={() => search()}
                   />
