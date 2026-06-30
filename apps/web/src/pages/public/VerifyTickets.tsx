@@ -222,6 +222,7 @@ function OrderCard({
                   total: formatMXN(order.totalAmount),
                   orderCode: order.code,
                   buyerPhone,
+                  buyerState: order.buyerState,
                 })}
               />
             ) : null
@@ -245,6 +246,7 @@ function OrderCard({
                   total: formatMXN(order.totalAmount),
                   orderCode: order.code,
                   buyerPhone,
+                  buyerState: order.buyerState,
                 })}
               />
             )}

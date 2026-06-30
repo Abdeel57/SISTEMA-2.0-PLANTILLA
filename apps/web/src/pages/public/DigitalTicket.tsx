@@ -213,8 +213,9 @@ export default function DigitalTicket() {
 
                   <dl className="mt-5 space-y-3 text-sm">
                     <Row label="A nombre de" value={ticket.buyerName} />
+                    {ticket.buyerState && <Row label="Estado" value={ticket.buyerState} />}
                     <div className="flex items-center justify-between gap-4">
-                      <dt className="text-muted-foreground">Estado</dt>
+                      <dt className="text-muted-foreground">Estatus</dt>
                       <dd>
                         <OrderStatusBadge status={ticket.status} />
                       </dd>

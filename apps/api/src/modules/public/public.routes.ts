@@ -225,6 +225,7 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
         orderBy: { createdAt: 'desc' },
         include: {
           raffle: { select: { eventNumber: true, title: true } },
+          buyer: { select: { state: true } },
           tickets: { select: { displayNumber: true }, orderBy: { number: 'asc' } },
           digitalTicket: { select: { code: true } },
           paymentProofs: { select: { id: true } },
@@ -240,6 +241,7 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
           raffleTitle: o.raffle.title,
           eventLabel: `E${o.raffle.eventNumber}`,
           eventNumber: o.raffle.eventNumber,
+          buyerState: o.buyer.state ?? null,
           ticketNumbers: o.tickets.map((t) => t.displayNumber),
           totalAmount: o.totalAmount,
           status: o.status,

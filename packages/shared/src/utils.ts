@@ -111,6 +111,7 @@ export interface WaTemplateVars {
   orderCode: string;
   buyerName?: string; // nombre del comprador (opcional)
   buyerPhone?: string; // teléfono del comprador (opcional). Vacío = sin línea.
+  buyerState?: string | null; // estado/origen del comprador (opcional). Vacío/null = sin línea.
   paymentUrl?: string; // liga a "Métodos de pago" de la página (opcional)
   giftNumbers?: string; // boletos de regalo (oportunidades), ya formateados. Vacío = sin línea.
 }
@@ -125,6 +126,7 @@ export function waReserveMessage(v: WaTemplateVars): string {
     '',
     v.buyerName ? `👤 *Nombre:* ${v.buyerName}` : null,
     v.buyerPhone ? `📞 *Teléfono:* ${v.buyerPhone}` : null,
+    v.buyerState ? `📍 *Estado:* ${v.buyerState}` : null,
     `🔢 *Boletos:* ${v.ticketNumbers}`,
     v.giftNumbers ? `🎁 *Boletos de regalo:* ${v.giftNumbers}` : null,
     `💵 *Total a pagar:* ${v.total}`,
@@ -146,6 +148,7 @@ export function waProofMessage(v: WaTemplateVars): string {
     '',
     v.buyerName ? `👤 *Nombre:* ${v.buyerName}` : null,
     v.buyerPhone ? `📞 *Teléfono:* ${v.buyerPhone}` : null,
+    v.buyerState ? `📍 *Estado:* ${v.buyerState}` : null,
     `🔢 *Boletos:* ${v.ticketNumbers}`,
     v.giftNumbers ? `🎁 *Boletos de regalo:* ${v.giftNumbers}` : null,
     `💵 *Total:* ${v.total}`,

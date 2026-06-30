@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { ScanLine, Search, X, Store, Gift, Pencil } from 'lucide-react';
+import { ScanLine, Search, X, Store, Gift, Pencil, MapPin } from 'lucide-react';
 import {
   formatMXN,
   formatDateTimeMX,
@@ -364,6 +364,12 @@ function OrderCard({ order }: { order: OrderDTO }) {
             +{buyerDial} {order.buyer.phone}
             {order.buyer.country === 'US' && <span className="ml-1 font-semibold">🇺🇸 USA</span>}
           </p>
+          {order.buyer.state && (
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span className="truncate">{order.buyer.state}</span>
+            </p>
+          )}
         </div>
         <OrderStatusBadge status={order.status} />
       </div>

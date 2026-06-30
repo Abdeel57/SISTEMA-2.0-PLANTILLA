@@ -379,6 +379,7 @@ export interface DigitalTicketDTO {
   eventLabel: string;
   ticketNumbers: string[];
   buyerName: string;
+  buyerState: string | null; // estado/origen del comprador (puede faltar en órdenes viejas)
   status: OrderStatus;
   createdAt: string;
   totalAmount: number;

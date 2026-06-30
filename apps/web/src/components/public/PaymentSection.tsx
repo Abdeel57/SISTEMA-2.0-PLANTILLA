@@ -109,6 +109,7 @@ export function PaymentSection({
               ticketNumbers: ticket.ticketNumbers.join(', '),
               total: formatMXN(ticket.totalAmount),
               orderCode: ticket.orderCode,
+              buyerState: ticket.buyerState,
             })}
           />
         )}
@@ -162,6 +163,7 @@ function ProofUpload({ ticket }: { ticket: DigitalTicketDTO }) {
               ticketNumbers: ticket.ticketNumbers.join(', '),
               total: formatMXN(ticket.totalAmount),
               orderCode: ticket.orderCode,
+              buyerState: ticket.buyerState,
             })}
           />
         )}

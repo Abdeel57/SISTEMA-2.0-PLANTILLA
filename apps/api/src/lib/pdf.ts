@@ -10,6 +10,7 @@ export interface DigitalTicketPdfData {
   eventLabel: string;
   ticketNumbers: string[];
   buyerName: string;
+  buyerState?: string | null;
   statusLabel: string;
   totalAmount: number;
   orderCode: string;
@@ -211,9 +212,9 @@ export async function renderDigitalTicketPdf(data: DigitalTicketPdfData): Promis
     if (r) cell(colX2, r[0], r[1]);
     y += 30;
   };
-  gridRow(['A NOMBRE DE', data.buyerName], ['ESTADO', data.statusLabel]);
-  gridRow(['FOLIO', data.orderCode], ['FECHA', formatDateMX(data.createdAt)]);
-  if (data.drawDate) gridRow(['SORTEO', formatDateMX(data.drawDate)], null);
+  gridRow(['A NOMBRE DE', data.buyerName], ['ESTADO', data.buyerState || '—']);
+  gridRow(['ESTATUS', data.statusLabel], ['FOLIO', data.orderCode]);
+  gridRow(['FECHA', formatDateMX(data.createdAt)], data.drawDate ? ['SORTEO', formatDateMX(data.drawDate)] : null);
 
   // ── Pie: perforación + QR + verificación ──
   y += 8;

@@ -16,6 +16,7 @@ export interface PublicOrderLookupItem {
   raffleTitle: string;
   eventLabel: string;
   eventNumber: number;
+  buyerState: string | null; // estado/origen del comprador (para el mensaje al rifero)
   ticketNumbers: string[];
   totalAmount: number;
   status: OrderStatus;

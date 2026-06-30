@@ -75,6 +75,7 @@ export default function RiferoPayment() {
             ticketNumbers: ticket.ticketNumbers.join(', '),
             total: formatMXN(ticket.totalAmount),
             orderCode: ticket.orderCode,
+            buyerState: ticket.buyerState,
           }),
         ),
       }
