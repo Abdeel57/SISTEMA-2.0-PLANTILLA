@@ -51,6 +51,27 @@ export default async function riferosRoutes(app: FastifyInstance): Promise<void>
       });
     }
 
+    // Si se DESACTIVA la liberación automática, los apartados existentes dejan de
+    // expirar: limpiamos su expiresAt (y el reservedUntil de sus boletos) para que
+    // no se muestre una cuenta regresiva engañosa en el panel ni en el recibo
+    // público (ambos ocultan el contador cuando es null) y el job nunca los toque.
+    if (data.autoReleaseExpired === false) {
+      const reserved = await prisma.order.findMany({
+        where: { raffle: { riferoId }, status: 'RESERVED', expiresAt: { not: null } },
+        select: { id: true },
+      });
+      if (reserved.length > 0) {
+        const ids = reserved.map((o) => o.id);
+        await prisma.$transaction([
+          prisma.order.updateMany({ where: { id: { in: ids } }, data: { expiresAt: null } }),
+          prisma.ticketNumber.updateMany({
+            where: { orderId: { in: ids }, status: { in: ['RESERVED', 'PENDING_PAYMENT'] } },
+            data: { reservedUntil: null },
+          }),
+        ]);
+      }
+    }
+
     await logActivity({ userId: request.auth!.userId, type: 'RAFFLE', action: 'update_profile' });
     return { profile: await profileResponse(riferoId) };
   });
