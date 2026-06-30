@@ -12,6 +12,7 @@ import {
   type RaffleDTO,
 } from '@bismark/shared';
 import { raffleService } from '@/services/raffles';
+import { riferoService } from '@/services/riferos';
 import { uploadService } from '@/services/uploads';
 import { useAuthStore } from '@/store/auth';
 import { buildRaffleUrl, buildRaffleShareUrl } from '@/lib/site';
@@ -28,6 +29,24 @@ import { toast } from 'sonner';
 
 const MAX_IMAGES = 8;
 
+// Atajos de tiempo de apartado (igual que en Configuración).
+const RESERVE_PRESETS = [
+  { label: '1 hora', minutes: 60 },
+  { label: '6 horas', minutes: 360 },
+  { label: '24 horas', minutes: 1440 },
+  { label: '3 días', minutes: 4320 },
+];
+function humanReserve(min: number): string {
+  if (!min || Number.isNaN(min)) return '';
+  if (min < 60) return `${min} min`;
+  if (min < 1440) {
+    const h = Math.round((min / 60) * 10) / 10;
+    return `${h} hora${h === 1 ? '' : 's'}`;
+  }
+  const d = Math.round((min / 1440) * 10) / 10;
+  return `${d} día${d === 1 ? '' : 's'}`;
+}
+
 const STEPS = [
   { title: 'Tu rifa', desc: 'El nombre, el premio y lo que verán tus compradores.' },
   { title: 'Boletos y precio', desc: 'Cuántos boletos vendes, a qué precio y cómo se numeran.' },
@@ -39,7 +58,7 @@ const STEP_FIELDS: (keyof CreateRaffleInput)[][] = [
   ['title', 'prize', 'description'],
   ['ticketPrice', 'totalTickets', 'ticketFormat', 'ticketStart', 'opportunities', 'maxTicketsPerOrder'],
   [],
-  ['terms', 'paymentInstructions', 'priceListRows'],
+  ['terms', 'paymentInstructions', 'priceListRows', 'reserveMinutes'],
 ];
 
 function localToIso(local: string): string {
@@ -105,6 +124,19 @@ export default function RaffleForm() {
     queryFn: () => raffleService.get(id as string),
     enabled: isEdit,
   });
+
+  // Perfil: para que una rifa NUEVA arranque con el tiempo de apartado por defecto
+  // del rifero (no un valor fijo). Comparte caché con Configuración.
+  const profileQuery = useQuery({ queryKey: ['rifero-me'], queryFn: riferoService.me, staleTime: 60_000 });
+  const reserveInit = useRef(false);
+  useEffect(() => {
+    if (isEdit || reserveInit.current) return;
+    const def = profileQuery.data?.profile.defaultReserveMinutes;
+    if (def != null) {
+      setValue('reserveMinutes', def);
+      reserveInit.current = true;
+    }
+  }, [isEdit, profileQuery.data, setValue]);
 
   useEffect(() => {
     if (!existing?.raffle) return;
@@ -549,6 +581,52 @@ export default function RaffleForm() {
                   checked={watch('showCountdown') ?? true}
                   onCheckedChange={(v) => setValue('showCountdown', v)}
                 />
+              </div>
+              {/* Tiempo de apartado: cuánto tiene el comprador para pagar antes de
+                  que su apartado expire y los boletos se liberen. Editable por rifa. */}
+              <div className="rounded-xl border bg-muted/40 px-4 py-3">
+                <p className="text-sm font-semibold">Tiempo para apartar (pagar)</p>
+                <p className="mb-2 text-xs text-muted-foreground">
+                  Cuánto tiempo tiene el comprador para pagar antes de que su apartado expire y los boletos vuelvan a estar disponibles.
+                </p>
+                <div className="mb-2 flex flex-wrap gap-2">
+                  {RESERVE_PRESETS.map((p) => {
+                    const active = Number(watch('reserveMinutes')) === p.minutes;
+                    return (
+                      <button
+                        key={p.minutes}
+                        type="button"
+                        onClick={() => setValue('reserveMinutes', p.minutes, { shouldDirty: true })}
+                        className={
+                          active
+                            ? 'rounded-full bg-brand px-3.5 py-2 text-sm font-bold text-white'
+                            : 'rounded-full border px-3.5 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-accent'
+                        }
+                      >
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <Input
+                  id="reserveMinutes"
+                  type="number"
+                  inputMode="numeric"
+                  min={5}
+                  max={10080}
+                  {...register('reserveMinutes', { valueAsNumber: true })}
+                />
+                {(() => {
+                  const eq = humanReserve(Number(watch('reserveMinutes')));
+                  return eq ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Ahora: <span className="font-semibold text-foreground">{eq}</span>.
+                    </p>
+                  ) : null;
+                })()}
+                {errors.reserveMinutes && (
+                  <p className="mt-1 text-sm text-destructive">{errors.reserveMinutes.message}</p>
+                )}
               </div>
               <Field
                 label="Filas de la tabla de precios"

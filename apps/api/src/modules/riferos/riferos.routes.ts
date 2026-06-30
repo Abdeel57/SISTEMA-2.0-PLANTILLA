@@ -38,6 +38,19 @@ export default async function riferosRoutes(app: FastifyInstance): Promise<void>
     );
 
     await prisma.riferoProfile.update({ where: { id: riferoId }, data: cleaned });
+
+    // Opcional: aplicar el tiempo de apartado también a las rifas ya creadas
+    // (DRAFT/PUBLISHED). Por defecto el default solo se hereda al CREAR una rifa;
+    // este flag permite sincronizar las existentes desde Configuración. Bandera
+    // de comando: viaja en el body pero NO es campo del perfil (no se persiste).
+    const applyToRaffles = (request.body as { applyReserveToExisting?: boolean })?.applyReserveToExisting === true;
+    if (applyToRaffles && typeof data.defaultReserveMinutes === 'number') {
+      await prisma.raffle.updateMany({
+        where: { riferoId, status: { in: ['DRAFT', 'PUBLISHED'] } },
+        data: { reserveMinutes: data.defaultReserveMinutes },
+      });
+    }
+
     await logActivity({ userId: request.auth!.userId, type: 'RAFFLE', action: 'update_profile' });
     return { profile: await profileResponse(riferoId) };
   });

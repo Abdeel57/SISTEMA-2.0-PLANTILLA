@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -88,6 +88,10 @@ export default function Settings() {
   const profile = profileQuery.data?.profile;
   const planAllowsProof = profile?.activePlan?.allowProofUpload ?? false;
 
+  // Por defecto el tiempo de apartado solo aplica a rifas NUEVAS. Si se activa,
+  // al guardar se sincroniza también con las rifas ya creadas (DRAFT/PUBLISHED).
+  const [applyReserveToExisting, setApplyReserveToExisting] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -118,10 +122,12 @@ export default function Settings() {
   }, [profile, reset]);
 
   const updateMutation = useMutation({
-    mutationFn: (values: SettingsForm) => riferoService.update(values),
+    mutationFn: (values: SettingsForm & { applyReserveToExisting?: boolean }) => riferoService.update(values),
     onSuccess: (res) => {
-      toast.success('Ajustes guardados');
+      toast.success(applyReserveToExisting ? 'Ajustes guardados y aplicados a tus rifas' : 'Ajustes guardados');
       void queryClient.invalidateQueries({ queryKey: ['rifero-me'] });
+      void queryClient.invalidateQueries({ queryKey: ['raffles'] });
+      setApplyReserveToExisting(false);
       reset({
         defaultReserveMinutes: res.profile.defaultReserveMinutes,
         allowProofUpload: res.profile.allowProofUpload,
@@ -136,6 +142,7 @@ export default function Settings() {
     updateMutation.mutate({
       ...values,
       allowProofUpload: planAllowsProof ? values.allowProofUpload : false,
+      applyReserveToExisting,
     });
   };
 
@@ -219,6 +226,17 @@ export default function Settings() {
             {errors.defaultReserveMinutes && (
               <p className="mt-1 text-sm text-destructive">{errors.defaultReserveMinutes.message}</p>
             )}
+            {/* Por defecto el tiempo solo aplica a rifas nuevas. Este toggle lo
+                sincroniza también con las rifas ya creadas (publicadas/borrador). */}
+            <div className="mt-1 flex items-start justify-between gap-3 rounded-xl bg-muted/50 px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold leading-tight">Aplicar también a mis rifas activas</p>
+                <p className="text-xs text-muted-foreground">
+                  Normalmente este tiempo solo aplica a rifas nuevas. Actívalo para actualizar también las que ya tienes publicadas o en borrador.
+                </p>
+              </div>
+              <Switch checked={applyReserveToExisting} onCheckedChange={setApplyReserveToExisting} />
+            </div>
           </CardContent>
         </Card>
 
@@ -272,7 +290,7 @@ export default function Settings() {
 
         {/* Barra de guardar sticky: visible apenas hay cambios, sin perseguirla. */}
         <div className="sticky bottom-0 z-10 -mx-4 -mb-[max(1.25rem,env(safe-area-inset-bottom))] border-t bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:-mx-5 sm:px-5">
-          {isDirty && (
+          {(isDirty || applyReserveToExisting) && (
             <p className="mb-2 text-center text-xs font-semibold text-amber-600 dark:text-amber-400">
               Tienes cambios sin guardar
             </p>
@@ -282,7 +300,7 @@ export default function Settings() {
             size="lg"
             className="w-full"
             loading={updateMutation.isPending}
-            disabled={!isDirty}
+            disabled={!isDirty && !applyReserveToExisting}
           >
             <Save className="h-5 w-5" />
             Guardar cambios
