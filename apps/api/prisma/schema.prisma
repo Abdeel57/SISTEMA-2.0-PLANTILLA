@@ -220,6 +220,10 @@ model RiferoProfile {
   // Configuración operativa
   defaultReserveMinutes Int     @default(120) // tiempo de apartado por defecto
   allowProofUpload      Boolean @default(true) // recibir comprobantes en la plataforma (single-tenant: activo por defecto)
+  // Liberación automática de apartados vencidos. true (default) = el job libera
+  // los boletos al expirar el apartado sin pago. false = nada se libera solo (el
+  // rifero gestiona manualmente) y las reservas nuevas se crean SIN expiración.
+  autoReleaseExpired    Boolean @default(true)
   showWinners           Boolean @default(true)
   useDigitalDraw        Boolean @default(false)
 

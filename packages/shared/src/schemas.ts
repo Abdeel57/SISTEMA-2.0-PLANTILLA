@@ -97,6 +97,7 @@ export const updateRiferoSchema = z.object({
   faqs: z.array(faqItemSchema).max(10).optional(),
   defaultReserveMinutes: z.number().int().min(5).max(10080).optional(),
   allowProofUpload: z.boolean().optional(),
+  autoReleaseExpired: z.boolean().optional(),
   showWinners: z.boolean().optional(),
   useDigitalDraw: z.boolean().optional(),
 });

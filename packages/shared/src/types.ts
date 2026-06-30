@@ -147,6 +147,7 @@ export interface RiferoProfileDTO {
   faqs: FaqItemDTO[];
   defaultReserveMinutes: number;
   allowProofUpload: boolean;
+  autoReleaseExpired: boolean;
   showWinners: boolean;
   useDigitalDraw: boolean;
   status: RiferoStatus;

@@ -9,6 +9,9 @@ export async function releaseExpiredReservations(): Promise<number> {
     where: {
       status: 'RESERVED',
       expiresAt: { lt: now },
+      // Respeta el interruptor del rifero: si desactivó la liberación automática,
+      // sus apartados NO se expiran (los gestiona manualmente).
+      raffle: { rifero: { autoReleaseExpired: true } },
     },
     select: { id: true },
     take: 200,

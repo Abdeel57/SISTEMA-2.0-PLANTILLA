@@ -101,7 +101,10 @@ export default async function ticketsRoutes(app: FastifyInstance): Promise<void>
       const { id } = request.params as { id: string };
       const data = validate(reserveTicketsSchema, request.body);
 
-      const raffle = await prisma.raffle.findUnique({ where: { id } });
+      const raffle = await prisma.raffle.findUnique({
+        where: { id },
+        include: { rifero: { select: { autoReleaseExpired: true } } },
+      });
       if (!raffle) throw notFound('Rifa no encontrada');
       if (raffle.status !== 'PUBLISHED') throw forbidden('Esta rifa no está disponible para apartar');
 
@@ -116,7 +119,11 @@ export default async function ticketsRoutes(app: FastifyInstance): Promise<void>
         throw badRequest(`Máximo ${raffle.maxTicketsPerOrder} boletos por orden`);
       }
 
-      const expiresAt = new Date(Date.now() + raffle.reserveMinutes * 60_000);
+      // Si el rifero desactivó la liberación automática, el apartado NO expira:
+      // expiresAt = null (sin cuenta regresiva y el job nunca lo libera).
+      const expiresAt = raffle.rifero.autoReleaseExpired
+        ? new Date(Date.now() + raffle.reserveMinutes * 60_000)
+        : null;
       // Total autoritativo: el backend recalcula con el motor de precios (niveles
       // y paquetes) para que no se pueda manipular desde el navegador.
       const totalAmount = computeOrderPrice(numbers.length, {

@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 const settingsSchema = updateRiferoSchema.pick({
   defaultReserveMinutes: true,
   allowProofUpload: true,
+  autoReleaseExpired: true,
   showWinners: true,
   useDigitalDraw: true,
 });
@@ -105,6 +106,7 @@ export default function Settings() {
     defaultValues: {
       defaultReserveMinutes: 120,
       allowProofUpload: false,
+      autoReleaseExpired: true,
       showWinners: true,
       useDigitalDraw: false,
     },
@@ -115,6 +117,7 @@ export default function Settings() {
       reset({
         defaultReserveMinutes: profile.defaultReserveMinutes,
         allowProofUpload: profile.allowProofUpload,
+        autoReleaseExpired: profile.autoReleaseExpired,
         showWinners: profile.showWinners,
         useDigitalDraw: profile.useDigitalDraw,
       });
@@ -131,6 +134,7 @@ export default function Settings() {
       reset({
         defaultReserveMinutes: res.profile.defaultReserveMinutes,
         allowProofUpload: res.profile.allowProofUpload,
+        autoReleaseExpired: res.profile.autoReleaseExpired,
         showWinners: res.profile.showWinners,
         useDigitalDraw: res.profile.useDigitalDraw,
       });
@@ -237,6 +241,22 @@ export default function Settings() {
               </div>
               <Switch checked={applyReserveToExisting} onCheckedChange={setApplyReserveToExisting} />
             </div>
+            {/* Interruptor maestro: liberar (o no) los boletos cuando vence el apartado. */}
+            <Controller
+              control={control}
+              name="autoReleaseExpired"
+              render={({ field }) => (
+                <div className="flex items-start justify-between gap-3 rounded-xl border bg-card px-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold leading-tight">Liberar boletos automáticamente</p>
+                    <p className="text-xs text-muted-foreground">
+                      Cuando un apartado vence sin pago, sus boletos se liberan solos. Desactívalo para que <strong>nada se libere automáticamente</strong>: los apartados no expiran y tú decides cuándo liberarlos.
+                    </p>
+                  </div>
+                  <Switch checked={field.value ?? true} onCheckedChange={field.onChange} />
+                </div>
+              )}
+            />
           </CardContent>
         </Card>
 

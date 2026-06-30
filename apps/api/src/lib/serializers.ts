@@ -150,6 +150,7 @@ export function toRiferoProfileDTO(p: RiferoProfile, ctx: PlanCtxLite): RiferoPr
     faqs: riferoFaqs(p),
     defaultReserveMinutes: p.defaultReserveMinutes,
     allowProofUpload: p.allowProofUpload,
+    autoReleaseExpired: p.autoReleaseExpired,
     showWinners: p.showWinners,
     useDigitalDraw: p.useDigitalDraw,
     status: p.status,
