@@ -10,7 +10,7 @@
  */
 import type { BuyerInput } from '@bismark/shared';
 
-const KEY = 'sortea-buyer';
+const KEY = 'bismark-buyer';
 
 /** Lo que recordamos del comprador (mismos campos que el formulario). */
 export type RememberedBuyer = BuyerInput;

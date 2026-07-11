@@ -51,13 +51,13 @@ function setName(html: string, name: string, value: string): string {
   return html.replace(re, (_m, a: string, b: string) => `${a}${escapeHtml(value)}${b}`);
 }
 
-const ADMIN_TITLE = 'Sortea | ADMIN';
+const ADMIN_TITLE = 'Bismark | ADMIN';
 
-// El administrador (/admin, /login) es SIEMPRE la marca Sortea, nunca la del
+// El administrador (/admin, /login) es SIEMPRE la marca Bismark, nunca la del
 // rifero: el panel es del producto. Por eso NO le inyectamos el logo/nombre del
-// organizador. Le dejamos los íconos estáticos de Sortea, el título "Sortea |
-// ADMIN" y un manifest dedicado (abre directo en /admin con el ícono de Sortea),
-// para que al "Agregar a inicio" o compartir se vea Sortea, no el rifero.
+// organizador. Le dejamos los íconos estáticos de Bismark, el título "Bismark |
+// ADMIN" y un manifest dedicado (abre directo en /admin con el ícono de Bismark),
+// para que al "Agregar a inicio" o compartir se vea Bismark, no el rifero.
 function renderAdminIndex(rawHtml: string): string {
   let html = rawHtml;
   html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${ADMIN_TITLE}</title>`);

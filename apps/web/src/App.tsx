@@ -48,7 +48,7 @@ export function App() {
   useEffect(() => {
     void fetchMe();
   }, [fetchMe]);
-  // Marca de la PWA según la sección: admin = Sortea (siempre), público = rifero.
+  // Marca de la PWA según la sección: admin = Bismark (siempre), público = rifero.
   usePwaBranding();
 
   return (

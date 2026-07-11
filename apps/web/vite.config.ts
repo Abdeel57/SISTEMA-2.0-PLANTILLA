@@ -26,7 +26,7 @@ export default defineConfig({
         'apple-touch-icon.png',
         'og-default.png',
         'offline.html',
-        // Manifest dedicado del administrador (marca Sortea, abre directo en /admin).
+        // Manifest dedicado del administrador (marca Bismark, abre directo en /admin).
         // El manifest público lo genera vite-plugin-pwa; este es estático.
         'admin.webmanifest',
       ],

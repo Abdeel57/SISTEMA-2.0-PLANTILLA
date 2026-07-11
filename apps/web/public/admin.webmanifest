@@ -1,8 +1,8 @@
 {
   "id": "/admin",
-  "name": "Sortea | ADMIN",
-  "short_name": "Sortea ADMIN",
-  "description": "Panel de administración de Sortea.",
+  "name": "Bismark | ADMIN",
+  "short_name": "Bismark ADMIN",
+  "description": "Panel de administración de Bismark.",
   "start_url": "/admin",
   "scope": "/",
   "display": "standalone",

@@ -5,10 +5,10 @@ import { publicService } from '@/services/publicSite';
 import { apiAssetUrl } from '@/lib/api';
 
 const SITE = '_'; // alias single-tenant: "el rifero de este sitio"
-const ADMIN_TITLE = 'Sortea | ADMIN';
+const ADMIN_TITLE = 'Bismark | ADMIN';
 
-// El administrador (/admin, /login) es SIEMPRE la marca Sortea, nunca la del
-// rifero: el panel es del producto (Sortea), no del organizador.
+// El administrador (/admin, /login) es SIEMPRE la marca Bismark, nunca la del
+// rifero: el panel es del producto (Bismark), no del organizador.
 function isAdminPath(pathname: string): boolean {
   return pathname === '/login' || pathname === '/admin' || pathname.startsWith('/admin/');
 }
@@ -48,8 +48,8 @@ function setAppleTitle(title: string): void {
 
 // Aplica la marca de la PWA (favicon de la pestaña, ícono de A2HS, nombre y
 // manifest) según la sección, y la reafirma al navegar dentro de la SPA:
-//   - Administrador (/admin, /login): SIEMPRE Sortea. Logo de Sortea (nunca el
-//     del rifero), nombre "Sortea | ADMIN" y manifest que abre directo en /admin.
+//   - Administrador (/admin, /login): SIEMPRE Bismark. Logo de Bismark (nunca el
+//     del rifero), nombre "Bismark | ADMIN" y manifest que abre directo en /admin.
 //   - Público: la identidad del rifero del sitio (su logo como favicon y su nombre).
 // En producción el backend ya inyecta lo correcto en el HTML inicial (ver
 // site-html.ts); esto lo garantiza también en desarrollo y tras navegar.

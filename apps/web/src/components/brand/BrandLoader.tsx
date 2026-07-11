@@ -1,7 +1,6 @@
 import type { CSSProperties } from 'react';
 import { cn } from '@/lib/cn';
-import logoColor from '@/assets/sortea-logo.png';
-import logoWhite from '@/assets/sortea-icon-white.png';
+import logoUrl from '@/assets/bismark-logo.png';
 
 // Recorta la capa del destello a la silueta del monograma (PNG transparente).
 function maskFor(url: string): CSSProperties {
@@ -17,12 +16,11 @@ function maskFor(url: string): CSSProperties {
   };
 }
 
-// Pantalla de carga de marca: el ícono de Sortea quieto, barrido por un destello
-// diagonal con los colores del degradado (azul → blanco → magenta). Sin texto.
-//   fullScreen (default): overlay fijo sobre tinta — el ícono BLANCO respira
-//     sobre un aura azul/magenta pulsante. Cargas de página completas.
-//   fullScreen=false: versión compacta sobre fondo claro (ej. boletera); usa el
-//     ícono a color para leerse bien sin el fondo oscuro.
+// Pantalla de carga de marca: el monograma de Bismark quieto, barrido por un
+// destello diagonal. Sin texto.
+//   fullScreen (default): overlay fijo sobre tinta — el monograma invertido
+//     (blanco) respira sobre un aura azul pulsante. Cargas de página completas.
+//   fullScreen=false: versión compacta sobre fondo claro (ej. boletera).
 export function BrandLoader({
   fullScreen = true,
   className,
@@ -30,8 +28,6 @@ export function BrandLoader({
   fullScreen?: boolean;
   className?: string;
 }) {
-  const logoUrl = fullScreen ? logoWhite : logoColor;
-
   return (
     <div
       role="status"
@@ -44,12 +40,12 @@ export function BrandLoader({
       )}
       style={
         fullScreen
-          ? { backgroundImage: 'radial-gradient(620px circle at 50% 50%, rgba(34,53,249,0.16), transparent 65%)' }
+          ? { backgroundImage: 'radial-gradient(620px circle at 50% 50%, rgba(26,77,255,0.16), transparent 65%)' }
           : undefined
       }
     >
       <div className={cn('relative grid place-items-center', fullScreen ? 'h-24 w-24' : 'h-12 w-12')}>
-        {/* Aura de marca: halo azul→magenta que late detrás del ícono. */}
+        {/* Aura de marca: halo azul que late detrás del ícono. */}
         {fullScreen && <div aria-hidden className="brand-loader-aura absolute -inset-7 rounded-full" />}
         <img
           src={logoUrl}
@@ -57,7 +53,7 @@ export function BrandLoader({
           draggable={false}
           className={cn(
             'relative h-full w-full select-none object-contain',
-            fullScreen ? 'brand-loader-breathe opacity-95' : 'opacity-90',
+            fullScreen ? 'brand-loader-breathe invert opacity-95' : 'opacity-90 dark:invert',
           )}
         />
         {/* Destello diagonal recortado a la silueta del monograma. */}

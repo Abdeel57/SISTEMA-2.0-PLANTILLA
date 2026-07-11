@@ -16,7 +16,7 @@ const prisma = new PrismaClient();
 
 const env = {
   // Credenciales iniciales del administrador (puede cambiarlas después).
-  adminUser: (process.env.ADMIN_USER ?? 'Sortea').trim(),
+  adminUser: (process.env.ADMIN_USER ?? 'Bismark').trim(),
   adminPassword: process.env.ADMIN_PASSWORD ?? 'admin123',
   // Nombre público inicial de la página (se edita desde /admin → Perfil).
   siteName: process.env.SITE_NAME ?? 'Mi Página de Rifas',
@@ -155,7 +155,7 @@ async function main() {
 
   // Si el sitio YA está configurado (existe un perfil de rifero), NO recreamos el
   // usuario ni el perfil: respetamos lo que el cliente tenga, incluido un usuario
-  // renombrado (p. ej. cambiar el acceso de "bismark" a "sortea"). Buscar por el
+  // renombrado (p. ej. cambiar el acceso de "bismark" a otro usuario). Buscar por el
   // PERFIL —y no por el email de ADMIN_USER— evita crear administradores
   // DUPLICADOS (un usuario huérfano sin perfil) cuando ADMIN_USER cambia entre
   // deploys. Solo aseguramos la rifa base.
