@@ -13,7 +13,7 @@ import {
   Wallet,
   XCircle,
 } from 'lucide-react';
-import { formatMXN, formatDateMX, waProofMessage, waReserveMessage } from '@bismark/shared';
+import { formatMXN, formatDateMX, waProofMessage, waReserveMessage, dialCodeForCountry } from '@bismark/shared';
 import { ApiError } from '@/lib/api';
 import {
   publicService,
@@ -128,6 +128,8 @@ function OrderCard({
   order,
   index,
   whatsapp,
+  whatsappCountry,
+  whatsappName,
   buyerPhone,
   allowProofUpload,
   onChanged,
@@ -135,6 +137,9 @@ function OrderCard({
   order: PublicOrderLookupItem;
   index: number;
   whatsapp: string | null;
+  // País (lada +52/+1) y nombre de quien atiende el número al que se envía el pago.
+  whatsappCountry?: string | null;
+  whatsappName?: string | null;
   // Teléfono con el que el comprador buscó sus órdenes: va en el mensaje al rifero
   // para que identifique de quién es el pago.
   buyerPhone: string;
@@ -213,6 +218,7 @@ function OrderCard({
             ) : whatsapp ? (
               <WhatsAppButton
                 phone={whatsapp}
+                dialCode={dialCodeForCountry(whatsappCountry)}
                 size="sm"
                 className="attn-pulse rounded-xl font-display text-xs font-extrabold uppercase tracking-wide"
                 label="Envía tu pago"
@@ -238,8 +244,9 @@ function OrderCard({
             {whatsapp && (
               <WhatsAppButton
                 phone={whatsapp}
+                dialCode={dialCodeForCountry(whatsappCountry)}
                 className="w-full"
-                label="Avisar al organizador por WhatsApp"
+                label={whatsappName ? `Avisar a ${whatsappName} por WhatsApp` : 'Avisar al organizador por WhatsApp'}
                 message={waProofMessage({
                   raffleName: order.raffleTitle,
                   ticketNumbers: order.ticketNumbers.join(', '),
@@ -482,6 +489,14 @@ export default function VerifyTickets({ subdomain }: Props) {
                     order={o}
                     index={i}
                     whatsapp={result?.paymentProfile?.whatsapp ?? rifero?.whatsapp ?? null}
+                    whatsappCountry={
+                      result?.paymentProfile?.whatsapp
+                        ? result.paymentProfile.whatsappCountry
+                        : rifero?.whatsappCountry
+                    }
+                    whatsappName={
+                      result?.paymentProfile?.whatsapp ? result.paymentProfile.whatsappName : rifero?.whatsappName
+                    }
                     buyerPhone={lookup.variables?.phone ?? ''}
                     allowProofUpload={allowProofUpload}
                     onChanged={() => search()}

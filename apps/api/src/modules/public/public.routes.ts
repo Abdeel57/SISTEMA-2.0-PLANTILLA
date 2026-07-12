@@ -11,6 +11,7 @@ import {
   toRaffleDTO,
   toWinnerDTO,
   riferoPaymentMethods,
+  riferoPaymentContact,
 } from '../../lib/serializers.js';
 
 function parseEventNumber(raw: string): number {
@@ -133,7 +134,7 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
           cardNumber: profile.payCardNumber,
           concept: profile.payConcept,
           instructions: profile.payInstructions ?? raffle.paymentInstructions,
-          whatsapp: profile.payWhatsapp ?? profile.whatsapp,
+          ...riferoPaymentContact(profile),
           methods: riferoPaymentMethods(profile),
         },
       },
@@ -178,7 +179,7 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
         cardNumber: profile.payCardNumber,
         concept: profile.payConcept,
         instructions: profile.payInstructions,
-        whatsapp: profile.payWhatsapp ?? profile.whatsapp,
+        ...riferoPaymentContact(profile),
         methods: riferoPaymentMethods(profile),
       };
 

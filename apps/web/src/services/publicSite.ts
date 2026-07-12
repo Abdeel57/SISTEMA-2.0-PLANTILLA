@@ -33,7 +33,10 @@ export interface PublicPaymentProfile {
   cardNumber: string | null;
   concept: string | null;
   instructions: string | null;
+  // WhatsApp donde se coordina el pago (el de comprobantes; cae al de contacto).
   whatsapp: string | null;
+  whatsappCountry?: string; // ISO 'MX' | 'US' (lada del wa.me)
+  whatsappName?: string | null; // quién atiende ese número
   methods?: PaymentMethodDTO[];
 }
 export interface PublicOrderLookupResult {

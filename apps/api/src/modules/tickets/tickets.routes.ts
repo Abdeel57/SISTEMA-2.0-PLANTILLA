@@ -9,7 +9,7 @@ import { loadOwnedRaffle } from '../../lib/ownership.js';
 import { buildTicketMap } from '../../lib/ticket-map.js';
 import { getPlanContext } from '../../lib/plan.js';
 import { newOrderCode } from '../../lib/codes.js';
-import { toBuyerDTO, riferoPaymentMethods, rafflePricingTiers, rafflePricingBundles } from '../../lib/serializers.js';
+import { toBuyerDTO, riferoPaymentMethods, riferoPaymentContact, rafflePricingTiers, rafflePricingBundles } from '../../lib/serializers.js';
 import { logActivity } from '../../lib/activity.js';
 import { sendNewOrderEmail } from '../../lib/mailer.js';
 import { sendPushToUser } from '../../lib/push.js';
@@ -322,7 +322,7 @@ export default async function ticketsRoutes(app: FastifyInstance): Promise<void>
           expiresAt: result.order.expiresAt?.toISOString() ?? null,
           digitalTicketCode: null, // aún no existe; se genera al confirmar el pago
           riferoPublicName: profile.publicName,
-          riferoWhatsapp: profile.payWhatsapp || profile.whatsapp,
+          riferoWhatsapp: riferoPaymentContact(profile).whatsapp,
           paymentProfile: {
             holderName: profile.payHolderName,
             bank: profile.payBank,
@@ -330,7 +330,7 @@ export default async function ticketsRoutes(app: FastifyInstance): Promise<void>
             cardNumber: profile.payCardNumber,
             concept: profile.payConcept,
             instructions: profile.payInstructions || raffle.paymentInstructions,
-            whatsapp: profile.payWhatsapp || profile.whatsapp,
+            ...riferoPaymentContact(profile),
             methods: riferoPaymentMethods(profile),
           },
         },

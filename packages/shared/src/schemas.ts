@@ -71,10 +71,15 @@ export const faqItemSchema = z.object({
 });
 export type FaqItemInput = z.infer<typeof faqItemSchema>;
 
+// País del número de WhatsApp del organizador (define la lada +52/+1).
+export const waCountrySchema = z.enum(['MX', 'US']);
+
 export const updateRiferoSchema = z.object({
   publicName: z.string().min(2).max(80).optional(),
   description: z.string().max(600).optional(),
   whatsapp: z.string().min(10).max(20).optional(),
+  whatsappCountry: waCountrySchema.optional(),
+  whatsappName: z.string().max(60).optional().or(z.literal('')),
   logoUrl: imageUrl.optional().or(z.literal('')),
   coverUrl: imageUrl.optional().or(z.literal('')),
   facebook: z.string().max(200).optional().or(z.literal('')),
@@ -93,6 +98,8 @@ export const updateRiferoSchema = z.object({
   payConcept: z.string().max(120).optional(),
   payInstructions: z.string().max(1000).optional(),
   payWhatsapp: z.string().max(20).optional(),
+  payWhatsappCountry: waCountrySchema.optional(),
+  payWhatsappName: z.string().max(60).optional().or(z.literal('')),
   paymentMethods: z.array(paymentMethodSchema).max(6).optional(),
   faqs: z.array(faqItemSchema).max(10).optional(),
   defaultReserveMinutes: z.number().int().min(5).max(10080).optional(),

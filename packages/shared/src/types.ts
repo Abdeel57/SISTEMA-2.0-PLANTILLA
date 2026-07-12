@@ -127,6 +127,8 @@ export interface RiferoProfileDTO {
   coverUrl: string | null;
   description: string | null;
   whatsapp: string | null;
+  whatsappCountry: string; // ISO 'MX' | 'US' (define la lada +52/+1)
+  whatsappName: string | null; // quién atiende ese número
   facebook: string | null;
   instagram: string | null;
   tiktok: string | null;
@@ -143,6 +145,8 @@ export interface RiferoProfileDTO {
   payConcept: string | null;
   payInstructions: string | null;
   payWhatsapp: string | null;
+  payWhatsappCountry: string; // ISO 'MX' | 'US'
+  payWhatsappName: string | null; // quién recibe los comprobantes
   paymentMethods: PaymentMethodDTO[];
   faqs: FaqItemDTO[];
   defaultReserveMinutes: number;
@@ -168,6 +172,8 @@ export interface PublicRiferoDTO {
   coverUrl: string | null;
   description: string | null;
   whatsapp: string | null;
+  whatsappCountry: string; // ISO 'MX' | 'US' (lada del wa.me)
+  whatsappName: string | null; // quién atiende (se muestra al comprador)
   facebook: string | null;
   instagram: string | null;
   tiktok: string | null;
@@ -266,7 +272,10 @@ export interface PublicRaffleDTO extends RaffleDTO {
     cardNumber: string | null;
     concept: string | null;
     instructions: string | null;
+    // WhatsApp donde se coordina el pago (el de comprobantes; cae al de contacto).
     whatsapp: string | null;
+    whatsappCountry: string; // ISO 'MX' | 'US' (lada del wa.me)
+    whatsappName: string | null; // quién atiende ese número
     methods?: PaymentMethodDTO[];
   };
 }

@@ -118,6 +118,19 @@ export function riferoPaymentMethods(p: RiferoProfile): PaymentMethodDTO[] {
   return [];
 }
 
+// WhatsApp donde el comprador coordina el PAGO: el de comprobantes y, si no está
+// configurado, el de contacto — cada uno con SU país (lada) y quién atiende.
+export function riferoPaymentContact(p: RiferoProfile): {
+  whatsapp: string | null;
+  whatsappCountry: string;
+  whatsappName: string | null;
+} {
+  if (p.payWhatsapp) {
+    return { whatsapp: p.payWhatsapp, whatsappCountry: p.payWhatsappCountry, whatsappName: p.payWhatsappName ?? null };
+  }
+  return { whatsapp: p.whatsapp ?? null, whatsappCountry: p.whatsappCountry, whatsappName: p.whatsappName ?? null };
+}
+
 export function toRiferoProfileDTO(p: RiferoProfile, ctx: PlanCtxLite): RiferoProfileDTO {
   return {
     id: p.id,
@@ -130,6 +143,8 @@ export function toRiferoProfileDTO(p: RiferoProfile, ctx: PlanCtxLite): RiferoPr
     coverUrl: p.coverUrl ?? null,
     description: p.description ?? null,
     whatsapp: p.whatsapp ?? null,
+    whatsappCountry: p.whatsappCountry,
+    whatsappName: p.whatsappName ?? null,
     facebook: p.facebook ?? null,
     instagram: p.instagram ?? null,
     tiktok: p.tiktok ?? null,
@@ -146,6 +161,8 @@ export function toRiferoProfileDTO(p: RiferoProfile, ctx: PlanCtxLite): RiferoPr
     payConcept: p.payConcept ?? null,
     payInstructions: p.payInstructions ?? null,
     payWhatsapp: p.payWhatsapp ?? null,
+    payWhatsappCountry: p.payWhatsappCountry,
+    payWhatsappName: p.payWhatsappName ?? null,
     paymentMethods: riferoPaymentMethods(p),
     faqs: riferoFaqs(p),
     defaultReserveMinutes: p.defaultReserveMinutes,
@@ -271,6 +288,8 @@ export function toPublicRiferoDTO(p: RiferoProfile, raffles: PublicRaffleSummary
     coverUrl: p.coverUrl ?? null,
     description: p.description ?? null,
     whatsapp: p.whatsapp ?? null,
+    whatsappCountry: p.whatsappCountry,
+    whatsappName: p.whatsappName ?? null,
     facebook: p.facebook ?? null,
     instagram: p.instagram ?? null,
     tiktok: p.tiktok ?? null,

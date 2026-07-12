@@ -7,6 +7,7 @@ import {
   formatMXN,
   formatDateMX,
   buildWhatsappLink,
+  dialCodeForCountry,
   DEFAULT_FAQS,
   type PublicRaffleSummaryDTO,
 } from '@bismark/shared';
@@ -307,6 +308,13 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
   // FAQ personalizadas del rifero; si no ha guardado las suyas, las de fábrica.
   const faqs = rifero.faqs && rifero.faqs.length > 0 ? rifero.faqs : DEFAULT_FAQS;
 
+  // WhatsApp de contacto: lada según el país del número (México/USA) y saludo
+  // personalizado si el rifero dijo quién atiende ("¡Hola, Karen!").
+  const waDial = dialCodeForCountry(rifero.whatsappCountry);
+  const waMessage = rifero.whatsappName
+    ? `¡Hola, *${rifero.whatsappName}*! 👋\n\nVi la página de *${rifero.publicName}* y tengo una pregunta. 🎟️`
+    : `¡Hola *${rifero.publicName}*! 👋\n\nVi tu página de rifas y tengo una pregunta. 🎟️`;
+
   return (
     <RiferoTheme primaryColor={rifero.primaryColor} secondaryColor={rifero.secondaryColor}>
       <div className="min-h-screen bg-muted/40">
@@ -444,16 +452,13 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
                   )}
                   {rifero.whatsapp && (
                     <a
-                      href={buildWhatsappLink(
-                        rifero.whatsapp,
-                        `¡Hola *${rifero.publicName}*! 👋\n\nVi tu página de rifas y tengo una pregunta. 🎟️`,
-                      )}
+                      href={buildWhatsappLink(rifero.whatsapp, waMessage, waDial)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex h-11 items-center gap-2 rounded-full bg-[#25D366] px-4 font-bold text-white shadow-sm transition-transform hover:-translate-y-0.5 lg:hidden"
                     >
                       <WhatsappIcon className="h-5 w-5" />
-                      WhatsApp
+                      {rifero.whatsappName ? `WhatsApp · ${rifero.whatsappName}` : 'WhatsApp'}
                     </a>
                   )}
                 </div>
@@ -475,16 +480,13 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
                 )}
                 {rifero.whatsapp && (
                   <a
-                    href={buildWhatsappLink(
-                      rifero.whatsapp,
-                      `¡Hola *${rifero.publicName}*! 👋\n\nVi tu página de rifas y tengo una pregunta. 🎟️`,
-                    )}
+                    href={buildWhatsappLink(rifero.whatsapp, waMessage, waDial)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#25D366] px-5 font-bold text-white shadow-sm transition-transform hover:-translate-y-0.5"
                   >
                     <WhatsappIcon className="h-5 w-5" />
-                    WhatsApp
+                    {rifero.whatsappName ? `WhatsApp · ${rifero.whatsappName}` : 'WhatsApp'}
                   </a>
                 )}
               </div>

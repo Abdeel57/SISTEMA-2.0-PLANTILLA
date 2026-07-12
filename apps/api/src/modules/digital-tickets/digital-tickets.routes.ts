@@ -7,7 +7,7 @@ import { loadOwnedOrder } from '../../lib/ownership.js';
 import { renderDigitalTicketPdf } from '../../lib/pdf.js';
 import { readAssetBytes } from '../../lib/storage.js';
 import { getPlanContext } from '../../lib/plan.js';
-import { riferoPaymentMethods } from '../../lib/serializers.js';
+import { riferoPaymentMethods, riferoPaymentContact } from '../../lib/serializers.js';
 import { env } from '../../config/env.js';
 import { ORDER_STATUS_LABELS } from '@bismark/shared';
 
@@ -82,7 +82,7 @@ export default async function digitalTicketsRoutes(app: FastifyInstance): Promis
         ticketPrice: o.raffle.ticketPrice,
         expiresAt: o.expiresAt?.toISOString() ?? null,
         allowProofUpload,
-        riferoWhatsapp: profile.payWhatsapp || profile.whatsapp,
+        riferoWhatsapp: riferoPaymentContact(profile).whatsapp,
         paymentProfile: {
           holderName: profile.payHolderName,
           bank: profile.payBank,
@@ -90,7 +90,7 @@ export default async function digitalTicketsRoutes(app: FastifyInstance): Promis
           cardNumber: profile.payCardNumber,
           concept: profile.payConcept,
           instructions: profile.payInstructions ?? o.raffle.paymentInstructions,
-          whatsapp: profile.payWhatsapp ?? profile.whatsapp,
+          ...riferoPaymentContact(profile),
           methods: riferoPaymentMethods(profile),
         },
       },

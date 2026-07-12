@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Info, Lock, Plus, Trash2 } from 'lucide-react';
-import { paymentMethodSchema, type PaymentMethodInput } from '@bismark/shared';
+import { paymentMethodSchema, PHONE_COUNTRIES, type PaymentMethodInput } from '@bismark/shared';
 import { riferoService } from '@/services/riferos';
 import { ApiError } from '@/lib/api';
 import { PanelIntro } from '@/components/owner/PanelKit';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input, Textarea } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -127,6 +128,8 @@ export default function Payments() {
 
   const [methods, setMethods] = useState<PaymentMethodInput[]>([]);
   const [payWhatsapp, setPayWhatsapp] = useState('');
+  const [payWhatsappCountry, setPayWhatsappCountry] = useState<'MX' | 'US'>('MX');
+  const [payWhatsappName, setPayWhatsappName] = useState('');
   const [payInstructions, setPayInstructions] = useState('');
   const [allowProofUpload, setAllowProofUpload] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -147,6 +150,8 @@ export default function Payments() {
       })),
     );
     setPayWhatsapp(profile.payWhatsapp ?? '');
+    setPayWhatsappCountry(profile.payWhatsappCountry === 'US' ? 'US' : 'MX');
+    setPayWhatsappName(profile.payWhatsappName ?? '');
     setPayInstructions(profile.payInstructions ?? '');
     setAllowProofUpload(planAllowsProof ? profile.allowProofUpload : false);
     setLoaded(true);
@@ -160,6 +165,8 @@ export default function Payments() {
       return riferoService.update({
         paymentMethods: methods,
         payWhatsapp,
+        payWhatsappCountry,
+        payWhatsappName,
         payInstructions,
         ...(planAllowsProof ? { allowProofUpload } : {}),
         // Espejo del primer método en los campos legados (compatibilidad).
@@ -260,16 +267,58 @@ export default function Payments() {
         <CardContent className="space-y-4">
           <div>
             <Label htmlFor="payWhatsapp">WhatsApp para enviar comprobantes</Label>
+            {/* País + número: la bandera define la lada (+52/+1) del enlace de WhatsApp. */}
+            <div className="flex gap-2">
+              <div className="w-28 shrink-0">
+                <Select
+                  aria-label="País del número"
+                  value={payWhatsappCountry}
+                  onChange={(e) => {
+                    setPayWhatsappCountry(e.target.value === 'US' ? 'US' : 'MX');
+                    touch();
+                  }}
+                >
+                  {PHONE_COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.flag} +{c.dialCode}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex-1">
+                <Input
+                  id="payWhatsapp"
+                  inputMode="tel"
+                  placeholder="55 1234 5678"
+                  value={payWhatsapp}
+                  onChange={(e) => {
+                    setPayWhatsapp(e.target.value);
+                    touch();
+                  }}
+                />
+              </div>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Si lo dejas vacío, se usa tu WhatsApp de contacto (Perfil).
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="payWhatsappName">
+              ¿Quién recibe los comprobantes? <span className="font-normal text-muted-foreground">(opcional)</span>
+            </Label>
             <Input
-              id="payWhatsapp"
-              inputMode="tel"
-              placeholder="55 1234 5678"
-              value={payWhatsapp}
+              id="payWhatsappName"
+              maxLength={60}
+              placeholder="Ej. Karen"
+              value={payWhatsappName}
               onChange={(e) => {
-                setPayWhatsapp(e.target.value);
+                setPayWhatsappName(e.target.value);
                 touch();
               }}
             />
+            <p className="mt-1 text-xs text-muted-foreground">
+              El comprador verá a quién le está escribiendo al enviar su pago.
+            </p>
           </div>
           <div>
             <Label htmlFor="payInstructions">Instrucciones generales de pago</Label>

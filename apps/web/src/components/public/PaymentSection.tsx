@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Upload, Copy, Clock, CheckCircle2, Loader2, WifiOff } from 'lucide-react';
-import { formatMXN, timeRemaining, waReserveMessage, waProofMessage, type DigitalTicketDTO } from '@bismark/shared';
+import {
+  formatMXN,
+  timeRemaining,
+  waReserveMessage,
+  waProofMessage,
+  dialCodeForCountry,
+  type DigitalTicketDTO,
+} from '@bismark/shared';
 import { ApiError } from '@/lib/api';
 import { publicService } from '@/services/publicSite';
 import { WhatsAppButton } from '@/components/brand/WhatsAppButton';
@@ -102,8 +109,9 @@ export function PaymentSection({
         {ticket.riferoWhatsapp && (
           <WhatsAppButton
             phone={ticket.riferoWhatsapp}
+            dialCode={dialCodeForCountry(pay?.whatsappCountry)}
             size="lg"
-            label="Enviar comprobante por WhatsApp"
+            label={pay?.whatsappName ? `Enviar comprobante a ${pay.whatsappName}` : 'Enviar comprobante por WhatsApp'}
             message={waReserveMessage({
               raffleName: ticket.raffleTitle,
               ticketNumbers: ticket.ticketNumbers.join(', '),
@@ -155,9 +163,14 @@ function ProofUpload({ ticket }: { ticket: DigitalTicketDTO }) {
         {ticket.riferoWhatsapp && (
           <WhatsAppButton
             phone={ticket.riferoWhatsapp}
+            dialCode={dialCodeForCountry(ticket.paymentProfile?.whatsappCountry)}
             size="lg"
             className="w-full"
-            label="Avisar al organizador por WhatsApp"
+            label={
+              ticket.paymentProfile?.whatsappName
+                ? `Avisar a ${ticket.paymentProfile.whatsappName} por WhatsApp`
+                : 'Avisar al organizador por WhatsApp'
+            }
             message={waProofMessage({
               raffleName: ticket.raffleTitle,
               ticketNumbers: ticket.ticketNumbers.join(', '),

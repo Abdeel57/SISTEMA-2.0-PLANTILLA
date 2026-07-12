@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams, Link } from 'react-router-dom';
 import { Ticket as TicketIcon, AlertCircle, ShieldCheck, WifiOff, Home } from 'lucide-react';
-import { formatDateTimeMX, formatMXN, buildWhatsappLink, waReserveMessage } from '@bismark/shared';
+import { formatDateTimeMX, formatMXN, buildWhatsappLink, dialCodeForCountry, waReserveMessage } from '@bismark/shared';
 import { publicService } from '@/services/publicSite';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { Button } from '@/components/ui/button';
@@ -77,6 +77,7 @@ export default function RiferoPayment() {
             orderCode: ticket.orderCode,
             buyerState: ticket.buyerState,
           }),
+          dialCodeForCountry(ticket.paymentProfile?.whatsappCountry),
         ),
       }
     : {};

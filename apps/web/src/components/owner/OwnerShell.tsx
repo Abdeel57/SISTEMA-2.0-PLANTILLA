@@ -30,6 +30,8 @@ export function OwnerShell() {
         coverUrl: profile.coverUrl,
         description: profile.description,
         whatsapp: profile.whatsapp,
+        whatsappCountry: profile.whatsappCountry,
+        whatsappName: profile.whatsappName,
         facebook: profile.facebook,
         instagram: profile.instagram,
         tiktok: profile.tiktok,

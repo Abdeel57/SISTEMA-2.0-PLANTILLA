@@ -22,6 +22,8 @@ import {
   formatDateMX,
   waReserveMessage,
   buildWhatsappLink,
+  dialCodeForCountry,
+  formatPhoneIntl,
   computeOrderPrice,
   nextDealHint,
   MEXICAN_STATES,
@@ -268,6 +270,13 @@ export default function PublicRaffle({ subdomain }: Props) {
       // liga a los "Métodos de pago" de esta página (?pago=1 abre el modal de datos
       // bancarios) para que sepa a dónde transferir.
       const waNumber = res.receipt.riferoWhatsapp || raffle?.rifero.whatsapp || '';
+      // Lada del número al que se envía: la del WhatsApp de pagos o, en su
+      // defecto, la del de contacto (México +52 / USA +1).
+      const waDial = dialCodeForCountry(
+        res.receipt.riferoWhatsapp
+          ? res.receipt.paymentProfile.whatsappCountry
+          : raffle?.rifero.whatsappCountry,
+      );
       if (raffle && !raffle.allowProofUpload && waNumber) {
         const paymentUrl = `${window.location.origin}${window.location.pathname}?pago=1`;
         const message = waReserveMessage({
@@ -281,7 +290,7 @@ export default function PublicRaffle({ subdomain }: Props) {
           buyerState: variables.state,
           paymentUrl,
         });
-        window.location.href = buildWhatsappLink(waNumber, message);
+        window.location.href = buildWhatsappLink(waNumber, message, waDial);
         return;
       }
 
@@ -756,7 +765,10 @@ export default function PublicRaffle({ subdomain }: Props) {
           <a
             href={buildWhatsappLink(
               rifero.whatsapp,
-              `¡Hola *${rifero.publicName}*! 👋\n\nTengo una pregunta sobre la rifa:\n🎟️ *${raffle.title}*`,
+              rifero.whatsappName
+                ? `¡Hola, *${rifero.whatsappName}*! 👋\n\nTengo una pregunta sobre la rifa:\n🎟️ *${raffle.title}*`
+                : `¡Hola *${rifero.publicName}*! 👋\n\nTengo una pregunta sobre la rifa:\n🎟️ *${raffle.title}*`,
+              dialCodeForCountry(rifero.whatsappCountry),
             )}
             target="_blank"
             rel="noopener noreferrer"
@@ -764,7 +776,15 @@ export default function PublicRaffle({ subdomain }: Props) {
           >
             <span className="underline">Preguntas al WhatsApp</span>
             <br />
-            <span className="text-lg tabular-nums">{rifero.whatsapp}</span>
+            <span className="text-lg tabular-nums">{formatPhoneIntl(rifero.whatsapp, rifero.whatsappCountry)}</span>
+            {rifero.whatsappName && (
+              <>
+                <br />
+                <span className="text-sm font-semibold normal-case tracking-normal opacity-90">
+                  Te atiende {rifero.whatsappName}
+                </span>
+              </>
+            )}
           </a>
         )}
 
@@ -793,8 +813,13 @@ export default function PublicRaffle({ subdomain }: Props) {
             <DialogFooter>
               <WhatsAppButton
                 phone={(pay.whatsapp || rifero.whatsapp)!}
+                dialCode={dialCodeForCountry(pay.whatsapp ? pay.whatsappCountry : rifero.whatsappCountry)}
                 size="lg"
-                label="Preguntar por WhatsApp"
+                label={
+                  (pay.whatsapp ? pay.whatsappName : rifero.whatsappName)
+                    ? `Preguntar a ${pay.whatsapp ? pay.whatsappName : rifero.whatsappName}`
+                    : 'Preguntar por WhatsApp'
+                }
                 message={`¡Hola *${rifero.publicName}*! 👋\n\nTengo una pregunta sobre los *métodos de pago* de la rifa:\n🎟️ *${raffle.title}*`}
               />
             </DialogFooter>
@@ -995,8 +1020,13 @@ export default function PublicRaffle({ subdomain }: Props) {
                   {receipt.riferoWhatsapp && (
                     <WhatsAppButton
                       phone={receipt.riferoWhatsapp}
+                      dialCode={dialCodeForCountry(receipt.paymentProfile.whatsappCountry)}
                       size="lg"
-                      label="Enviar comprobante por WhatsApp"
+                      label={
+                        receipt.paymentProfile.whatsappName
+                          ? `Enviar comprobante a ${receipt.paymentProfile.whatsappName}`
+                          : 'Enviar comprobante por WhatsApp'
+                      }
                       message={waReserveMessage({
                         raffleName: raffle.title,
                         ticketNumbers: receipt.ticketNumbers.join(', '),

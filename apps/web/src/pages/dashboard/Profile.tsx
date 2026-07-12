@@ -15,12 +15,19 @@ import {
   ChevronDown,
   RotateCcw,
 } from 'lucide-react';
-import { updateRiferoSchema, DEFAULT_FAQS, type FaqItemDTO, type RiferoProfileDTO } from '@bismark/shared';
+import {
+  updateRiferoSchema,
+  DEFAULT_FAQS,
+  PHONE_COUNTRIES,
+  type FaqItemDTO,
+  type RiferoProfileDTO,
+} from '@bismark/shared';
 import { riferoService } from '@/services/riferos';
 import { ApiError } from '@/lib/api';
 import { PanelIntro } from '@/components/owner/PanelKit';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input, Textarea } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +39,8 @@ import { toast } from 'sonner';
 const profileFormSchema = updateRiferoSchema.pick({
   description: true,
   whatsapp: true,
+  whatsappCountry: true,
+  whatsappName: true,
   facebook: true,
   instagram: true,
   tiktok: true,
@@ -57,6 +66,8 @@ export default function Profile() {
     defaultValues: {
       description: '',
       whatsapp: '',
+      whatsappCountry: 'MX',
+      whatsappName: '',
       facebook: '',
       instagram: '',
       tiktok: '',
@@ -68,6 +79,8 @@ export default function Profile() {
       reset({
         description: profile.description ?? '',
         whatsapp: profile.whatsapp ?? '',
+        whatsappCountry: profile.whatsappCountry === 'US' ? 'US' : 'MX',
+        whatsappName: profile.whatsappName ?? '',
         facebook: profile.facebook ?? '',
         instagram: profile.instagram ?? '',
         tiktok: profile.tiktok ?? '',
@@ -170,11 +183,41 @@ export default function Profile() {
 
             <div>
               <Label htmlFor="whatsapp">WhatsApp de contacto</Label>
-              <Input id="whatsapp" inputMode="tel" placeholder="55 1234 5678" {...register('whatsapp')} />
+              {/* País + número: la bandera define la lada (+52/+1) con la que se
+                  arman los enlaces de WhatsApp de toda la página pública. */}
+              <div className="flex gap-2">
+                <div className="w-28 shrink-0">
+                  <Select aria-label="País del número" {...register('whatsappCountry')}>
+                    {PHONE_COUNTRIES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} +{c.dialCode}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <Input id="whatsapp" inputMode="tel" placeholder="55 1234 5678" {...register('whatsapp')} />
+                </div>
+              </div>
               {errors.whatsapp && (
                 <p className="text-destructive text-sm mt-1">{errors.whatsapp.message}</p>
               )}
-              <p className="mt-1 text-xs text-muted-foreground">Aquí te escribirán tus compradores.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Aquí te escribirán tus compradores. Si tu número es de USA, elige 🇺🇸 +1.
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="whatsappName">
+                ¿Quién atiende este WhatsApp? <span className="font-normal text-muted-foreground">(opcional)</span>
+              </Label>
+              <Input id="whatsappName" maxLength={60} placeholder="Ej. Karen" {...register('whatsappName')} />
+              {errors.whatsappName && (
+                <p className="text-destructive text-sm mt-1">{errors.whatsappName.message}</p>
+              )}
+              <p className="mt-1 text-xs text-muted-foreground">
+                Se muestra en tu página («Te atiende Karen») y en el saludo del mensaje que te envían.
+              </p>
             </div>
           </CardContent>
         </Card>

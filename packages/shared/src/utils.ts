@@ -104,6 +104,20 @@ export function buildWhatsappLink(phone: string, message: string, dialCode: stri
   return `https://wa.me/${num}?text=${encodeURIComponent(message)}`;
 }
 
+// Número para MOSTRAR con su lada: "+52 662 123 4567". Agrupa 3-3-4 los números
+// nacionales de 10 dígitos; si ya viene con lada u otro largo, lo deja tal cual.
+export function formatPhoneIntl(phone: string, country?: string | null): string {
+  const digits = phone.replace(/\D/g, '');
+  const dial = dialCodeForCountry(country);
+  const national =
+    digits.length === 10 ? digits : digits.startsWith(dial) ? digits.slice(dial.length) : digits;
+  const grouped =
+    national.length === 10
+      ? `${national.slice(0, 3)} ${national.slice(3, 6)} ${national.slice(6)}`
+      : national;
+  return `+${dial} ${grouped}`;
+}
+
 export interface WaTemplateVars {
   raffleName: string;
   ticketNumbers: string; // ya formateados separados por coma

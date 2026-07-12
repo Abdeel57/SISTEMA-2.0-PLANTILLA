@@ -190,7 +190,9 @@ model RiferoProfile {
   coverUrl    String?
   description String?
 
-  whatsapp  String?
+  whatsapp        String?
+  whatsappCountry String  @default("MX") // ISO MX/US: define la lada (+52/+1) del WhatsApp de contacto
+  whatsappName    String? // quién atiende ese número (se muestra al comprador)
   facebook  String?
   instagram String?
   tiktok    String?
@@ -208,8 +210,10 @@ model RiferoProfile {
   payClabe        String?
   payCardNumber   String?
   payConcept      String?
-  payInstructions String?
-  payWhatsapp     String?
+  payInstructions    String?
+  payWhatsapp        String?
+  payWhatsappCountry String  @default("MX") // ISO MX/US: lada del WhatsApp de comprobantes
+  payWhatsappName    String? // quién recibe los comprobantes en ese número
   // Varios métodos de pago (lista JSON de PaymentMethodDTO); los campos pay* de
   // arriba quedan como compatibilidad (espejo del primer método).
   paymentMethods  Json?
