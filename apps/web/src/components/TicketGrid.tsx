@@ -145,6 +145,14 @@ export function TicketGrid({
   // Maquinita de la suerte (en modo solo-maquinita abre desplegada de entrada)
   const [luckyOpen, setLuckyOpen] = useState(luckyOnly);
   const [luckyQty, setLuckyQty] = useState(5);
+  // Texto del input de cantidad: permite quedar vacío mientras se escribe (la
+  // cantidad efectiva es luckyQty, que siempre conserva el último valor válido).
+  const [luckyQtyText, setLuckyQtyText] = useState('5');
+  const setQty = (n: number) => {
+    const clamped = Math.max(1, Math.min(999, n));
+    setLuckyQty(clamped);
+    setLuckyQtyText(String(clamped));
+  };
   const [justPicked, setJustPicked] = useState<Set<number>>(() => new Set());
   const [burst, setBurst] = useState<{ id: number; x: number; y: number } | null>(null);
   const [spinText, setSpinText] = useState<string | null>(null); // números girando en el botón
@@ -358,25 +366,34 @@ export function TicketGrid({
               <div className="flex items-center justify-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setLuckyQty((q) => Math.max(1, q - 1))}
+                  onClick={() => setQty(luckyQty - 1)}
                   className="grid h-11 w-11 place-items-center rounded-lg border-2 text-xl font-bold leading-none active:scale-95"
                   style={{ borderColor: brand, color: brand }}
                   aria-label="Menos"
                 >
                   −
                 </button>
+                {/* Colores explícitos: sin ellos, en tema oscuro el texto hereda
+                    blanco sobre el fondo blanco del input y no se ve al escribir. */}
                 <input
-                  type="number"
+                  type="text"
                   inputMode="numeric"
-                  min={1}
-                  value={luckyQty}
-                  onChange={(e) => setLuckyQty(Math.max(1, Math.min(999, Number(e.target.value) || 1)))}
-                  className="h-11 w-16 rounded-lg border-2 text-center font-ticket text-base font-bold outline-none"
+                  pattern="[0-9]*"
+                  value={luckyQtyText}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 3);
+                    setLuckyQtyText(digits);
+                    const n = Number(digits);
+                    if (n >= 1) setLuckyQty(Math.min(999, n));
+                  }}
+                  onBlur={() => setLuckyQtyText(String(luckyQty))}
+                  className="h-11 w-16 rounded-lg border-2 bg-white text-center font-ticket text-base font-bold text-zinc-900 outline-none"
                   style={{ borderColor: brand }}
+                  aria-label="Cantidad de boletos"
                 />
                 <button
                   type="button"
-                  onClick={() => setLuckyQty((q) => Math.min(999, q + 1))}
+                  onClick={() => setQty(luckyQty + 1)}
                   className="grid h-11 w-11 place-items-center rounded-lg border-2 text-xl font-bold leading-none active:scale-95"
                   style={{ borderColor: brand, color: brand }}
                   aria-label="Más"
@@ -389,7 +406,7 @@ export function TicketGrid({
                   <button
                     key={n}
                     type="button"
-                    onClick={() => setLuckyQty(n)}
+                    onClick={() => setQty(n)}
                     className="rounded-full border px-3 py-1 text-xs font-bold tabular-nums"
                     style={{ borderColor: brand, color: brand }}
                   >
