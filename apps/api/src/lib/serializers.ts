@@ -242,6 +242,7 @@ export function toRaffleDTO(raffle: Raffle, images: RaffleImage[], stats: Raffle
     useDigitalDraw: raffle.useDigitalDraw,
     showCountdown: raffle.showCountdown,
     priceListRows: raffle.priceListRows,
+    manualSelection: raffle.manualSelection,
     opportunities: raffle.opportunities,
     pricingTiers: rafflePricingTiers(raffle),
     pricingBundles: rafflePricingBundles(raffle),

@@ -114,6 +114,7 @@ export default function RaffleForm() {
       allowWinnerPublication: true,
       useDigitalDraw: false,
       showCountdown: true,
+      manualSelection: true,
       priceListRows: 10,
       images: [],
     },
@@ -157,6 +158,7 @@ export default function RaffleForm() {
       allowWinnerPublication: r.allowWinnerPublication,
       useDigitalDraw: r.useDigitalDraw,
       showCountdown: r.showCountdown,
+      manualSelection: r.manualSelection,
       priceListRows: r.priceListRows,
       images: r.images.map((img) => img.url),
     });
@@ -580,6 +582,21 @@ export default function RaffleForm() {
                 <Switch
                   checked={watch('showCountdown') ?? true}
                   onCheckedChange={(v) => setValue('showCountdown', v)}
+                />
+              </div>
+              {/* Selección manual: apagada = la cuadrícula se oculta y el comprador
+                  solo puede elegir boletos con la maquinita de la suerte. */}
+              <div className="flex items-center justify-between gap-3 rounded-xl border bg-muted/40 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Selección manual de boletos</p>
+                  <p className="text-xs text-muted-foreground">
+                    Activada: el comprador elige sus números en la cuadrícula. Desactivada: la cuadrícula se
+                    oculta y solo puede usar la maquinita de la suerte.
+                  </p>
+                </div>
+                <Switch
+                  checked={watch('manualSelection') ?? true}
+                  onCheckedChange={(v) => setValue('manualSelection', v)}
                 />
               </div>
               {/* Tiempo de apartado: cuánto tiene el comprador para pagar antes de

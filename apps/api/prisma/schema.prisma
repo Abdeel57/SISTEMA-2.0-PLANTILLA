@@ -338,6 +338,9 @@ model Raffle {
   showCountdown          Boolean @default(true) // mostrar la cuenta regresiva al sorteo en la rifa pública
   // Cuántas filas muestra la tabla de precios pública ("N boletos por $X"): de 1 a priceListRows.
   priceListRows          Int     @default(10)
+  // Selección manual de boletos en la página pública: true = cuadrícula normal;
+  // false = la cuadrícula se oculta y el comprador elige solo con la maquinita.
+  manualSelection        Boolean @default(true)
 
   // Oportunidades por boleto: por cada boleto manual elegido, el comprador recibe
   // (opportunities - 1) números de regalo del rango de emisiones extra. 1 = sin

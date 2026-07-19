@@ -675,19 +675,24 @@ export default function PublicRaffle({ subdomain }: Props) {
             {/* Banner negro de instrucción */}
             <div className="-mx-4 mb-4 bg-zinc-950 px-4 py-3 text-center">
               <h2 className="text-lg font-black uppercase leading-tight tracking-wide text-white sm:text-xl">
-                Haz click abajo en tu número de la suerte
+                {raffle.manualSelection
+                  ? 'Haz click abajo en tu número de la suerte'
+                  : 'Deja que la maquinita elija tus números de la suerte'}
               </h2>
             </div>
 
-            {/* Atajo: escribir el número en lugar de buscarlo en la cuadrícula */}
-            <button
-              type="button"
-              onClick={() => setGoToOpen(true)}
-              className="mb-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-[var(--rifero-primary)] text-base font-extrabold uppercase tracking-wide text-[var(--rifero-primary)] transition-colors hover:bg-[var(--rifero-primary)]/10 active:scale-[0.99] sm:text-lg"
-            >
-              <Hash className="h-5 w-5" />
-              Ir a mi número
-            </button>
+            {/* Atajo: escribir el número en lugar de buscarlo en la cuadrícula.
+                Sin selección manual no aplica (no se eligen números a mano). */}
+            {raffle.manualSelection && (
+              <button
+                type="button"
+                onClick={() => setGoToOpen(true)}
+                className="mb-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-[var(--rifero-primary)] text-base font-extrabold uppercase tracking-wide text-[var(--rifero-primary)] transition-colors hover:bg-[var(--rifero-primary)]/10 active:scale-[0.99] sm:text-lg"
+              >
+                <Hash className="h-5 w-5" />
+                Ir a mi número
+              </button>
+            )}
 
             {!ticketMap ? (
               <BrandLoader fullScreen={false} />
@@ -696,6 +701,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                 map={ticketMap}
                 selectable
                 minimal
+                luckyOnly={!raffle.manualSelection}
                 selected={selected}
                 onSelectionChange={setSelected}
                 maxSelectable={raffle.maxTicketsPerOrder ?? undefined}

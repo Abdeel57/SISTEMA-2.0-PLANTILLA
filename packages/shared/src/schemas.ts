@@ -146,6 +146,9 @@ const raffleBaseSchema = z.object({
   allowWinnerPublication: z.boolean().optional(),
   useDigitalDraw: z.boolean().optional(),
   showCountdown: z.boolean().optional(),
+  // Selección manual de boletos en la página pública. false = la cuadrícula se
+  // oculta y el comprador solo puede usar la maquinita de la suerte.
+  manualSelection: z.boolean().optional(),
   // Filas de la tabla de precios pública ("N boletos por $X"): 1…50. Default 10.
   priceListRows: z.number().int().min(1, 'Mínimo 1').max(50, 'Máximo 50').optional(),
   // Promociones de volumen (opcionales): niveles por umbral y paquetes exactos.

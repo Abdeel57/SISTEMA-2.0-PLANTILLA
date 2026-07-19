@@ -215,6 +215,8 @@ export interface RaffleDTO {
   status: RaffleStatus;
   // Visibilidad en la página pública (PUBLISHED + hidden=false = visible).
   hidden: boolean;
+  // Selección manual de boletos: false = solo maquinita de la suerte.
+  manualSelection: boolean;
   terms: string | null;
   paymentInstructions: string | null;
   reserveMinutes: number;

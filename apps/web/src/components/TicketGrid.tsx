@@ -99,6 +99,9 @@ interface Props {
   onTicketClick?: (ticket: TicketLiteDTO) => void;
   cellSize?: number;
   minimal?: boolean; // oculta filtros y leyenda (vista pública de comprador)
+  // Selección manual desactivada: sin cuadrícula ni buscador; el comprador solo
+  // elige boletos con la maquinita de la suerte (los ve y puede re-tirar).
+  luckyOnly?: boolean;
 }
 
 // Posición de un índice dentro de la vista filtrada (asc). -1 si no está.
@@ -128,6 +131,7 @@ export function TicketGrid({
   onTicketClick,
   cellSize = 48,
   minimal = false,
+  luckyOnly = false,
 }: Props) {
   // En la vista pública mostramos TODOS los boletos: los disponibles en blanco y
   // los no disponibles en negro (antes el filtro fijo "Disponibles" los ocultaba).
@@ -138,8 +142,8 @@ export function TicketGrid({
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const parentRef = useRef<HTMLDivElement>(null);
   const [columns, setColumns] = useState(6);
-  // Maquinita de la suerte
-  const [luckyOpen, setLuckyOpen] = useState(false);
+  // Maquinita de la suerte (en modo solo-maquinita abre desplegada de entrada)
+  const [luckyOpen, setLuckyOpen] = useState(luckyOnly);
   const [luckyQty, setLuckyQty] = useState(5);
   const [justPicked, setJustPicked] = useState<Set<number>>(() => new Set());
   const [burst, setBurst] = useState<{ id: number; x: number; y: number } | null>(null);
@@ -236,9 +240,12 @@ export function TicketGrid({
     window.setTimeout(() => setBurst(null), 2700);
     setJustPicked(new Set(picked));
     window.setTimeout(() => setJustPicked(new Set()), 800);
-    const idx0 = picked[0]! - map.start;
-    const pos0 = view ? positionInView(view, idx0) : idx0;
-    if (pos0 >= 0) rowVirtualizer.scrollToIndex(Math.floor(pos0 / columns), { align: 'center' });
+    // Sin cuadrícula no hay a dónde desplazarse (los números se ven en el panel superior).
+    if (!luckyOnly) {
+      const idx0 = picked[0]! - map.start;
+      const pos0 = view ? positionInView(view, idx0) : idx0;
+      if (pos0 >= 0) rowVirtualizer.scrollToIndex(Math.floor(pos0 / columns), { align: 'center' });
+    }
     toast.success(picked.length === 1 ? '¡1 boleto de la suerte!' : `¡${picked.length} boletos de la suerte!`);
   };
 
@@ -270,7 +277,8 @@ export function TicketGrid({
   return (
     <div className="flex flex-col">
       <LuckyConfetti burst={burst} />
-      {/* Buscador */}
+      {/* Buscador (sin selección manual no hay números que buscar) */}
+      {!luckyOnly && (
       <div className="relative mb-3">
         {!minimal && (
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -289,6 +297,7 @@ export function TicketGrid({
           </button>
         )}
       </div>
+      )}
 
       {!minimal && (
         <>
@@ -392,7 +401,8 @@ export function TicketGrid({
                 type="button"
                 onClick={() => {
                   roll(luckyQty);
-                  setLuckyOpen(false);
+                  // En modo solo-maquinita el panel queda abierto para volver a tirar.
+                  if (!luckyOnly) setLuckyOpen(false);
                 }}
                 className="lucky-glow mt-3 w-full rounded-xl py-2.5 font-display text-sm font-extrabold uppercase tracking-wide text-white"
                 style={{ background: brand }}
@@ -406,7 +416,7 @@ export function TicketGrid({
 
       {/* Leyenda (vista de comprador): blanco = disponible, negro = no disponible.
           Sin el conteo de disponibles, a propósito (no exponer cuántos quedan). */}
-      {minimal && (
+      {minimal && !luckyOnly && (
         <div className="mb-2 flex items-center gap-4 text-xs font-bold text-muted-foreground">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-3.5 w-5 rounded border bg-white" style={{ borderColor: brand }} />
@@ -419,7 +429,8 @@ export function TicketGrid({
         </div>
       )}
 
-      {/* Cuadrícula virtualizada */}
+      {/* Cuadrícula virtualizada (oculta cuando la selección manual está desactivada) */}
+      {!luckyOnly && (
       <div
         ref={parentRef}
         className="relative h-[min(60dvh,540px)] overflow-y-auto overscroll-contain rounded-xl border bg-background p-1.5"
@@ -494,6 +505,7 @@ export function TicketGrid({
           </div>
         )}
       </div>
+      )}
 
       {/* Resumen fijo inferior (sólo vista no-minimal; el comprador usa el panel superior) */}
       {selectable && !minimal && selected.length > 0 && (
