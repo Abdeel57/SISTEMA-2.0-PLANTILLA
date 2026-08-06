@@ -37,6 +37,7 @@ import { sanitizeHtml, isRichHtml } from '@/lib/sanitizeHtml';
 import { decodeTicketMap, applyTicketChanges, type TicketMapData } from '@/lib/ticketMap';
 import { useTicketChanges } from '@/lib/pwa/useTicketChanges';
 import { track } from '@/lib/analytics';
+import { pixelTrack } from '@/lib/pixel';
 import { publicService } from '@/services/publicSite';
 import { ticketService } from '@/services/tickets';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -239,6 +240,39 @@ export default function PublicRaffle({ subdomain }: Props) {
     };
   }, [raffle?.id, giftCount]);
 
+  // ── Pixel de Facebook: embudo del comprador ────────────────────────────────
+  // ViewContent: abrió la rifa (una vez por rifa).
+  useEffect(() => {
+    if (!raffle?.id) return;
+    pixelTrack('ViewContent', {
+      content_type: 'product',
+      content_ids: [raffle.id],
+      content_name: raffle.title,
+      value: raffle.ticketPrice,
+      currency: 'MXN',
+    });
+  }, [raffle?.id, raffle?.title, raffle?.ticketPrice]);
+
+  // AddToCart: la PRIMERA vez que elige boletos. Se rearma al vaciar la
+  // selección, para no reportar un evento por cada toque en la cuadrícula.
+  const cartReported = useRef(false);
+  useEffect(() => {
+    if (selected.length === 0) {
+      cartReported.current = false;
+      return;
+    }
+    if (cartReported.current || !raffle?.id) return;
+    cartReported.current = true;
+    pixelTrack('AddToCart', {
+      content_type: 'product',
+      content_ids: [raffle.id],
+      content_name: raffle.title,
+      num_items: selected.length,
+      value: selected.length * raffle.ticketPrice,
+      currency: 'MXN',
+    });
+  }, [selected.length, raffle?.id, raffle?.title, raffle?.ticketPrice]);
+
   const form = useForm<ReserveFormInput>({
     resolver: zodResolver(reserveFormSchema),
     defaultValues: { country: 'MX', whatsapp: '', nombres: '', apellidos: '', state: '' },
@@ -259,6 +293,17 @@ export default function PublicRaffle({ subdomain }: Props) {
       track('order_reserved', {
         ticketCount: res.receipt.ticketNumbers.length,
         totalAmount: res.receipt.totalAmount,
+      });
+      // Pixel: apartado hecho. Es un LEAD, no un Purchase: el pago es manual y
+      // aún no está confirmado; reportarlo como venta inflaría el ROAS y
+      // entrenaría mal la optimización de Meta.
+      pixelTrack('Lead', {
+        content_type: 'product',
+        content_ids: [raffle?.id ?? ''],
+        content_name: raffle?.title,
+        num_items: res.receipt.ticketNumbers.length,
+        value: res.receipt.totalAmount,
+        currency: 'MXN',
       });
       setBuyerOpen(false);
       setSelected([]);
@@ -410,6 +455,15 @@ export default function PublicRaffle({ subdomain }: Props) {
 
   // Abre el formulario del comprador pre-llenado con sus datos recordados.
   const openBuyer = () => {
+    // Pixel: el comprador entró al checkout (llenar datos para apartar).
+    pixelTrack('InitiateCheckout', {
+      content_type: 'product',
+      content_ids: [raffle?.id ?? ''],
+      content_name: raffle?.title,
+      num_items: selected.length,
+      value: priceResult.total,
+      currency: 'MXN',
+    });
     const saved = recallBuyer();
     if (saved) {
       const { nombres, apellidos } = splitName(saved.fullName);

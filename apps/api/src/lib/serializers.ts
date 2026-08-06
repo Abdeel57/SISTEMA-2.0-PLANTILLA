@@ -170,6 +170,7 @@ export function toRiferoProfileDTO(p: RiferoProfile, ctx: PlanCtxLite): RiferoPr
     autoReleaseExpired: p.autoReleaseExpired,
     showWinners: p.showWinners,
     useDigitalDraw: p.useDigitalDraw,
+    facebookPixelId: p.facebookPixelId ?? null,
     status: p.status,
     verified: p.verified,
     hasActivePlan: ctx.hasActivePlan,
@@ -301,6 +302,7 @@ export function toPublicRiferoDTO(p: RiferoProfile, raffles: PublicRaffleSummary
     logoGlow: p.logoGlow,
     publicDarkMode: p.publicDarkMode,
     verified: p.verified,
+    facebookPixelId: p.facebookPixelId ?? null,
     faqs: riferoFaqs(p),
     raffles,
   };

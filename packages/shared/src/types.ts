@@ -154,6 +154,8 @@ export interface RiferoProfileDTO {
   autoReleaseExpired: boolean;
   showWinners: boolean;
   useDigitalDraw: boolean;
+  // Pixel de Facebook (Meta): ID numérico. Null = las páginas públicas no lo cargan.
+  facebookPixelId: string | null;
   status: RiferoStatus;
   verified: boolean;
   // Derivados
@@ -184,6 +186,8 @@ export interface PublicRiferoDTO {
   logoGlow: boolean;
   publicDarkMode: boolean; // tema oscuro de la página pública
   verified: boolean;
+  // Pixel de Facebook (Meta) que deben cargar las páginas públicas. Null = ninguno.
+  facebookPixelId: string | null;
   faqs: FaqItemDTO[];
   raffles: PublicRaffleSummaryDTO[];
 }

@@ -4,7 +4,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { Save, Clock, Upload, Trophy, Sparkles, Lock, Users, ChevronRight } from 'lucide-react';
+import { Save, Clock, Upload, Trophy, Sparkles, Lock, Users, ChevronRight, BarChart3 } from 'lucide-react';
 import { updateRiferoSchema } from '@bismark/shared';
 import { riferoService } from '@/services/riferos';
 import { ApiError } from '@/lib/api';
@@ -24,6 +24,7 @@ const settingsSchema = updateRiferoSchema.pick({
   autoReleaseExpired: true,
   showWinners: true,
   useDigitalDraw: true,
+  facebookPixelId: true,
 });
 type SettingsForm = z.infer<typeof settingsSchema>;
 
@@ -109,6 +110,7 @@ export default function Settings() {
       autoReleaseExpired: true,
       showWinners: true,
       useDigitalDraw: false,
+      facebookPixelId: '',
     },
   });
 
@@ -120,6 +122,7 @@ export default function Settings() {
         autoReleaseExpired: profile.autoReleaseExpired,
         showWinners: profile.showWinners,
         useDigitalDraw: profile.useDigitalDraw,
+        facebookPixelId: profile.facebookPixelId ?? '',
       });
     }
   }, [profile, reset]);
@@ -137,6 +140,7 @@ export default function Settings() {
         autoReleaseExpired: res.profile.autoReleaseExpired,
         showWinners: res.profile.showWinners,
         useDigitalDraw: res.profile.useDigitalDraw,
+        facebookPixelId: res.profile.facebookPixelId ?? '',
       });
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Algo salió mal'),
@@ -305,6 +309,34 @@ export default function Settings() {
                 />
               )}
             />
+          </CardContent>
+        </Card>
+
+        {/* Pixel de Facebook (Meta): mide tus anuncios en la página pública. */}
+        <Card>
+          <CardContent className="flex flex-col gap-2 p-5">
+            <Label htmlFor="facebookPixelId" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Pixel de Facebook (Meta)
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Pega el <strong>ID del pixel</strong> que aparece en Meta Events Manager (solo números). Mide a los
+              visitantes de tu página pública para tus anuncios. Déjalo vacío para no cargar ningún pixel.
+            </p>
+            <Input
+              id="facebookPixelId"
+              inputMode="numeric"
+              placeholder="1234567890123456"
+              {...register('facebookPixelId')}
+            />
+            {errors.facebookPixelId && (
+              <p className="text-sm text-destructive">{errors.facebookPixelId.message}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Se registran: visitas, ver una rifa, elegir boletos, empezar a apartar y apartado hecho (como
+              <strong> Lead</strong>). La venta se confirma cuando tú apruebas el pago, así que no se reporta como
+              compra para no inflar tus resultados.
+            </p>
           </CardContent>
         </Card>
 

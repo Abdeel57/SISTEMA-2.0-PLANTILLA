@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
 import { usePwaBranding } from '@/hooks/usePwaBranding';
+import { useFacebookPixel } from '@/hooks/useFacebookPixel';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { OwnerShell } from '@/components/owner/OwnerShell';
 import { AdminDrawer } from '@/components/owner/AdminDrawer';
@@ -50,6 +51,8 @@ export function App() {
   }, [fetchMe]);
   // Marca de la PWA según la sección: admin = Bismark (siempre), público = rifero.
   usePwaBranding();
+  // Pixel de Facebook del rifero: solo páginas públicas y solo si lo configuró.
+  useFacebookPixel();
 
   return (
     <>

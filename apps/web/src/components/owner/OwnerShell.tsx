@@ -42,6 +42,8 @@ export function OwnerShell() {
         logoGlow: profile.logoGlow,
         verified: profile.verified,
         publicDarkMode: profile.publicDarkMode,
+        // Vista previa dentro del panel: nunca carga el pixel del rifero.
+        facebookPixelId: null,
         faqs: profile.faqs,
         raffles: raffles.map((r) => ({
           id: r.id,

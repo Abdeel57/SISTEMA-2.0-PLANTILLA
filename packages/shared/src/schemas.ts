@@ -107,6 +107,12 @@ export const updateRiferoSchema = z.object({
   autoReleaseExpired: z.boolean().optional(),
   showWinners: z.boolean().optional(),
   useDigitalDraw: z.boolean().optional(),
+  // Pixel de Facebook (Meta): solo el ID numérico que da Events Manager.
+  facebookPixelId: z
+    .string()
+    .regex(/^\d{10,20}$/, 'El ID del pixel son solo números (15-16 dígitos)')
+    .optional()
+    .or(z.literal('')),
 });
 export type UpdateRiferoInput = z.infer<typeof updateRiferoSchema>;
 
