@@ -360,17 +360,19 @@ export default function VerifyTickets({ subdomain }: Props) {
             className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full opacity-[0.18] blur-3xl"
             style={{ background: BRAND }}
           />
-          <div className="relative mx-auto max-w-2xl px-4 pb-6 pt-7">
+          {/* En PC el bloque de búsqueda se centra: a todo lo ancho quedaría
+              desbalanceado contra el espacio vacío de la derecha. */}
+          <div className="relative mx-auto max-w-2xl px-4 pb-6 pt-7 lg:max-w-6xl lg:px-6 lg:pb-10 lg:pt-12 lg:text-center">
             <span
               className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-display text-[11px] font-extrabold uppercase tracking-wide"
               style={{ background: BRAND_SOFT, color: BRAND }}
             >
               <Wallet className="h-3.5 w-3.5" /> Tu billetera de boletos
             </span>
-            <h1 className="mt-3 font-display text-3xl font-extrabold uppercase leading-[0.95] tracking-tight sm:text-4xl">
+            <h1 className="mt-3 font-display text-3xl font-extrabold uppercase leading-[0.95] tracking-tight sm:text-4xl lg:text-5xl">
               Verificar <span style={{ color: BRAND }}>mis boletos</span>
             </h1>
-            <p className="mt-2 max-w-md text-sm text-muted-foreground">
+            <p className="mt-2 max-w-md text-sm text-muted-foreground lg:mx-auto lg:text-base">
               Busca tus boletos por teléfono, o por tu nombre y un número de boleto.
             </p>
 
@@ -403,7 +405,7 @@ export default function VerifyTickets({ subdomain }: Props) {
                 e.preventDefault();
                 search();
               }}
-              className="mt-3 flex flex-col gap-2 sm:flex-row"
+              className="mt-3 flex flex-col gap-2 sm:flex-row lg:mx-auto lg:max-w-2xl lg:text-left"
             >
               {mode === 'phone' ? (
                 <div className="relative flex-1">
@@ -446,7 +448,7 @@ export default function VerifyTickets({ subdomain }: Props) {
         </div>
 
         {/* ── Resultados ── */}
-        <div className="mx-auto max-w-2xl px-4 pt-6">
+        <div className="mx-auto max-w-2xl px-4 pt-6 lg:max-w-6xl lg:px-6 lg:pt-8">
           {lookup.isPending ? (
             <div className="grid place-items-center py-16">
               <Loader2 className="h-8 w-8 animate-spin" style={{ color: BRAND }} />
@@ -482,7 +484,8 @@ export default function VerifyTickets({ subdomain }: Props) {
               <p className="mb-3 font-display text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
                 {orders.length} {orders.length === 1 ? 'orden' : 'órdenes'}
               </p>
-              <div className="grid gap-3.5">
+              {/* En PC las órdenes van en dos columnas: se ven varias sin desplazar. */}
+              <div className="grid gap-3.5 lg:grid-cols-2 lg:gap-5">
                 {orders.map((o, i) => (
                   <OrderCard
                     key={o.code}
@@ -505,8 +508,8 @@ export default function VerifyTickets({ subdomain }: Props) {
               </div>
 
               {hasPending && result?.paymentProfile && paymentHasData(result.paymentProfile) && (
-                <div className="mt-7">
-                  <h2 className="mb-2.5 font-display text-base font-extrabold uppercase tracking-tight">
+                <div className="mt-7 lg:mx-auto lg:mt-10 lg:max-w-2xl">
+                  <h2 className="mb-2.5 font-display text-base font-extrabold uppercase tracking-tight lg:text-center lg:text-xl">
                     ¿Debes boletos? Paga aquí
                   </h2>
                   <PaymentCard pay={result.paymentProfile} />

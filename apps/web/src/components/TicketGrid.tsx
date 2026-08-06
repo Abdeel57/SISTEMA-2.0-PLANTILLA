@@ -172,7 +172,11 @@ export function TicketGrid({
     if (!el) return;
     const update = () => {
       const w = el.clientWidth;
-      const cols = Math.max(4, Math.min(12, Math.floor((w - 4) / cellSize)));
+      // El tope de columnas depende del ANCHO REAL disponible: en móvil manda el
+      // ancho (nunca llega al tope de 12), y en PC subimos el tope a 20 para
+      // aprovechar la pantalla y ver muchos más números sin desplazar.
+      const cap = w >= 900 ? 20 : 12;
+      const cols = Math.max(4, Math.min(cap, Math.floor((w - 4) / cellSize)));
       setColumns(cols);
     };
     update();
@@ -285,9 +289,10 @@ export function TicketGrid({
   return (
     <div className="flex flex-col">
       <LuckyConfetti burst={burst} />
-      {/* Buscador (sin selección manual no hay números que buscar) */}
+      {/* Buscador (sin selección manual no hay números que buscar). En la vista
+          pública de PC se centra acotado; a todo lo ancho se vería desproporcionado. */}
       {!luckyOnly && (
-      <div className="relative mb-3">
+      <div className={cn('relative mb-3', minimal && 'lg:mx-auto lg:w-full lg:max-w-lg')}>
         {!minimal && (
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         )}
@@ -337,9 +342,10 @@ export function TicketGrid({
         </>
       )}
 
-      {/* Maquinita de la suerte (glow arcoíris + cantidad + confeti) */}
+      {/* Maquinita de la suerte (glow arcoíris + cantidad + confeti).
+          En PC se centra con ancho acotado: a todo lo ancho se vería desproporcionada. */}
       {minimal && selectable && (
-        <div className="mb-3">
+        <div className="mb-3 lg:mx-auto lg:w-full lg:max-w-lg">
           <button
             ref={luckyBtnRef}
             type="button"
@@ -434,7 +440,7 @@ export function TicketGrid({
       {/* Leyenda (vista de comprador): blanco = disponible, negro = no disponible.
           Sin el conteo de disponibles, a propósito (no exponer cuántos quedan). */}
       {minimal && !luckyOnly && (
-        <div className="mb-2 flex items-center gap-4 text-xs font-bold text-muted-foreground">
+        <div className="mb-2 flex items-center gap-4 text-xs font-bold text-muted-foreground lg:justify-center lg:gap-6 lg:text-sm">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-3.5 w-5 rounded border bg-white" style={{ borderColor: brand }} />
             Disponibles
@@ -450,7 +456,7 @@ export function TicketGrid({
       {!luckyOnly && (
       <div
         ref={parentRef}
-        className="relative h-[min(60dvh,540px)] overflow-y-auto overscroll-contain rounded-xl border bg-background p-1.5"
+        className="relative h-[min(60dvh,540px)] overflow-y-auto overscroll-contain rounded-xl border bg-background p-1.5 lg:h-[min(72dvh,660px)] lg:p-2.5"
       >
         {viewLength === 0 ? (
           <div className="grid h-full place-items-center text-sm text-muted-foreground">Sin boletos para mostrar</div>

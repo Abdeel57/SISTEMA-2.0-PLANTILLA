@@ -43,7 +43,10 @@ export function RiferoTopBar({
         hidden ? '-translate-y-full' : 'translate-y-0',
       )}
     >
-      <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-3" style={{ height: 56 }}>
+      <div
+        className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-3 lg:max-w-5xl lg:px-6"
+        style={{ height: 56 }}
+      >
         <a href={leftHref} className={linkClass} style={glow}>
           Métodos
           <br />

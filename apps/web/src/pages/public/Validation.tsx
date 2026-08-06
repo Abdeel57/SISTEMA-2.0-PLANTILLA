@@ -23,16 +23,16 @@ export default function Validation() {
     <div className="flex min-h-screen flex-col bg-muted/20">
       {/* Encabezado de plataforma */}
       <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur safe-top">
-        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4">
+        <div className="mx-auto flex h-14 max-w-2xl items-center justify-between px-4 lg:h-16 lg:max-w-5xl lg:px-6">
           <Link to="/">
             <Logo />
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-md flex-1 px-4 py-8">
+      <main className="mx-auto w-full max-w-md flex-1 px-4 py-8 lg:max-w-xl lg:py-12">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-extrabold sm:text-3xl">Verificación de boleto</h1>
+          <h1 className="text-2xl font-extrabold sm:text-3xl lg:text-4xl">Verificación de boleto</h1>
           <p className="mt-1 text-base text-muted-foreground">Folio consultado: {code}</p>
         </div>
 

@@ -15,7 +15,7 @@ export function BismarkCta({ className }: { className?: string }) {
   return (
     <section
       className={cn(
-        'relative isolate w-full overflow-hidden border-t border-white/10 bg-brand-dark px-6 py-12 text-center',
+        'relative isolate w-full overflow-hidden border-t border-white/10 bg-brand-dark px-6 py-12 text-center lg:py-16',
         className,
       )}
     >
@@ -26,7 +26,7 @@ export function BismarkCta({ className }: { className?: string }) {
         style={{ background: 'radial-gradient(55% 100% at 50% 100%, rgba(26,77,255,0.3), transparent 75%)' }}
       />
 
-      <div className="mx-auto max-w-md">
+      <div className="mx-auto max-w-md lg:max-w-lg">
         {/* Logo + nombre de marca */}
         <div className="mb-3 inline-flex items-center gap-2">
           <LogoMark variant="white" className="h-7 w-7" />

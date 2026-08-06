@@ -83,7 +83,7 @@ export default function DigitalTicket() {
       <div className="flex min-h-screen flex-col bg-muted/30">
         {/* Encabezado con la marca del organizador */}
         <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur safe-top">
-          <div className="mx-auto flex h-14 max-w-2xl items-center justify-center px-4">
+          <div className="mx-auto flex h-14 max-w-2xl items-center justify-center px-4 lg:h-16 lg:max-w-5xl lg:px-6">
             {ticket ? (
               <Link to="/" className="inline-flex items-center gap-2">
                 <BrandLogo
@@ -105,7 +105,7 @@ export default function DigitalTicket() {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-md flex-1 px-4 py-8">
+        <main className="mx-auto w-full max-w-md flex-1 px-4 py-8 lg:max-w-2xl lg:py-12">
           {(isLoading || checking) && !ticket ? (
             <BrandLoader fullScreen={false} />
           ) : !ticket ? (

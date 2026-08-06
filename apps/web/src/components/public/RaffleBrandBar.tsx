@@ -99,7 +99,10 @@ export function RaffleBrandBar({
         hidden ? '-translate-y-full' : 'translate-y-0',
       )}
     >
-      <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-3" style={{ height: BAR_CORE }}>
+      <div
+        className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-3 lg:max-w-6xl lg:px-6"
+        style={{ height: BAR_CORE }}
+      >
         <SideButton action={left} />
 
         {/* Logo: enlaza al perfil del rifero; sobresale sin estirar la barra */}

@@ -93,7 +93,7 @@ export default function RiferoPayment() {
           {...topBarRight}
         />
 
-        <main className="mx-auto w-full max-w-md px-4 py-6">
+        <main className="mx-auto w-full max-w-md px-4 py-6 lg:max-w-2xl lg:py-10">
           {/* Indicador offline / guardado */}
           {fromCache ? (
             <div className="mb-4 flex items-center gap-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">

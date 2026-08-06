@@ -486,11 +486,11 @@ export default function PublicRaffle({ subdomain }: Props) {
             className="fixed inset-x-0 z-40 animate-fade-in border-b-4 border-[var(--rifero-primary)] bg-zinc-950/95 text-white shadow-[0_16px_30px_-6px_rgba(0,0,0,0.55)] backdrop-blur transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
             style={{ top: panelTopPx, transform: barHidden ? `translateY(-${BAR_TOTAL}px)` : undefined }}
           >
-            <div className="mx-auto max-w-2xl px-4 py-2.5">
+            <div className="mx-auto max-w-2xl px-4 py-2.5 lg:max-w-4xl lg:py-3">
               <button
                 type="button"
                 onClick={openBuyer}
-                className="attn-pulse flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--rifero-primary)] py-2.5 text-base font-black uppercase tracking-wide text-white active:scale-[0.99] sm:text-lg"
+                className="attn-pulse flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--rifero-primary)] py-2.5 text-base font-black uppercase tracking-wide text-white active:scale-[0.99] sm:text-lg lg:mx-auto lg:max-w-xl lg:py-3"
               >
                 <span aria-hidden className="attn-arrow-l">→</span> Apartar{' '}
                 <span aria-hidden className="attn-arrow-r">←</span>
@@ -565,116 +565,140 @@ export default function PublicRaffle({ subdomain }: Props) {
             className="bg-gradient-to-b from-zinc-800 to-zinc-950 text-center shadow-md"
             style={{ paddingTop: heroPadTopPx }}
           >
-            <div className="mx-auto max-w-2xl px-4 pb-4">
-              <h1 className="text-3xl font-black uppercase leading-[1.05] tracking-tight text-white sm:text-4xl">
+            <div className="mx-auto max-w-2xl px-4 pb-4 lg:max-w-5xl lg:pb-7">
+              <h1 className="text-3xl font-black uppercase leading-[1.05] tracking-tight text-white sm:text-4xl lg:text-5xl">
                 {raffle.title}
               </h1>
               {raffle.prize && (
-                <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-white/70 sm:text-base">
+                <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-white/70 sm:text-base lg:text-lg">
                   {raffle.prize}
                 </p>
               )}
               {raffle.drawDate && (
-                <p className="mt-2 text-base font-extrabold uppercase tracking-wide text-white sm:text-lg">
+                <p className="mt-2 text-base font-extrabold uppercase tracking-wide text-white sm:text-lg lg:text-xl">
                   {formatDateMX(raffle.drawDate)}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Llamado a la lista de boletos — flechas y texto grandes (según referencia) */}
-          <div className="mt-3 flex items-center justify-center gap-3">
-            <Triangle className="h-7 w-7 rotate-180 fill-[var(--rifero-primary)] text-[var(--rifero-primary)] sm:h-9 sm:w-9" />
-            <span className="text-xl font-black uppercase tracking-wide sm:text-2xl">Lista de boletos abajo</span>
-            <Triangle className="h-7 w-7 rotate-180 fill-[var(--rifero-primary)] text-[var(--rifero-primary)] sm:h-9 sm:w-9" />
-          </div>
+          {/* ── Bloque principal: premio + precios.
+              Móvil: se apilan igual que siempre (imagen, cuenta regresiva y la banda
+              negra de precios a todo lo ancho).
+              PC: van lado a lado en un ancho cómodo, para que el premio y la lista de
+              precios se vean juntos sin tener que desplazar la página. ── */}
+          <div className="lg:mx-auto lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start lg:gap-8 lg:px-6 lg:pt-7">
+            {/* Columna izquierda (PC): llamado, imagen del premio y cuenta regresiva */}
+            <div className="lg:min-w-0">
+              {/* Llamado a la lista de boletos — flechas y texto grandes (según referencia) */}
+              <div className="mt-3 flex items-center justify-center gap-3 lg:mt-0">
+                <Triangle className="h-7 w-7 rotate-180 fill-[var(--rifero-primary)] text-[var(--rifero-primary)] sm:h-9 sm:w-9" />
+                <span className="text-xl font-black uppercase tracking-wide sm:text-2xl">Lista de boletos abajo</span>
+                <Triangle className="h-7 w-7 rotate-180 fill-[var(--rifero-primary)] text-[var(--rifero-primary)] sm:h-9 sm:w-9" />
+              </div>
 
-          {/* Imagen del premio con marco de marca */}
-          <div className="mx-auto max-w-2xl px-4 pb-4 pt-3">
-            <div className="overflow-hidden rounded-2xl border-4 border-[var(--rifero-primary)] shadow-[0_14px_32px_-10px_rgba(0,0,0,0.5)]">
-              <PrizeGallery images={raffle.images} title={raffle.title} />
+              {/* Imagen del premio con marco de marca */}
+              <div className="mx-auto max-w-2xl px-4 pb-4 pt-3 lg:max-w-none lg:px-0">
+                <div className="overflow-hidden rounded-2xl border-4 border-[var(--rifero-primary)] shadow-[0_14px_32px_-10px_rgba(0,0,0,0.5)]">
+                  <PrizeGallery images={raffle.images} title={raffle.title} />
+                </div>
+              </div>
+
+              {/* ── Cuenta regresiva al sorteo (debajo de la imagen, mismo fondo del hero).
+                  Se puede ocultar por rifa desde el panel (paso "Sorteo y pago"). ── */}
+              {raffle.showCountdown && <RaffleCountdown drawDate={raffle.drawDate} status={raffle.status} />}
+            </div>
+
+            {/* ── Tabla de precios (única sección en negro). Cada fila ya refleja la
+                mejor oferta (paquetes/niveles) para esa cantidad. En PC es la tarjeta
+                de la derecha; en móvil, la banda negra de siempre. ── */}
+            <div className="bg-zinc-950 py-5 text-white lg:rounded-3xl lg:py-7 lg:shadow-[0_20px_45px_-18px_rgba(0,0,0,0.6)] lg:ring-1 lg:ring-white/10">
+              <div className="mx-auto max-w-2xl px-4 lg:max-w-none lg:px-7">
+                {/* Encabezado (solo PC): da contexto a la columna de precios */}
+                <p className="mb-3 hidden text-center font-display text-sm font-extrabold uppercase tracking-[0.22em] text-[var(--rifero-primary)] lg:block">
+                  Precios
+                </p>
+                <div>
+                  {Array.from({ length: raffle.priceListRows ?? 10 }, (_, i) => i + 1).map((n) => {
+                    const row = computeOrderPrice(n, pricingCfg);
+                    return (
+                      <div
+                        key={n}
+                        className="flex items-center justify-center gap-1.5 py-1.5 text-sm font-bold uppercase tracking-wide lg:py-2 lg:text-base"
+                      >
+                        <span className="text-[var(--rifero-primary)]">{n}</span>
+                        <span>{n === 1 ? 'boleto por' : 'boletos por'}</span>
+                        {row.savings > 0 && (
+                          <span className="text-xs font-semibold text-white/40 line-through lg:text-sm">
+                            {formatMXN(row.baseTotal)}
+                          </span>
+                        )}
+                        <span className="tabular-nums">{formatMXN(row.total)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Promociones por cantidad (niveles y paquetes) */}
+                {hasDeals && (
+                  <div className="mt-3 flex flex-wrap justify-center gap-2">
+                    {raffle.pricingBundles
+                      .slice()
+                      .sort((a, b) => a.qty - b.qty)
+                      .map((b, i) => (
+                        <span
+                          key={`b${i}`}
+                          className="rounded-full bg-[var(--rifero-primary)]/15 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[var(--rifero-primary)] ring-1 ring-[var(--rifero-primary)]/30"
+                        >
+                          {b.qty} boletos por {formatMXN(b.price)}
+                        </span>
+                      ))}
+                    {raffle.pricingTiers
+                      .slice()
+                      .sort((a, b) => a.minQty - b.minQty)
+                      .map((t, i) => (
+                        <span
+                          key={`t${i}`}
+                          className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-emerald-400 ring-1 ring-emerald-500/30"
+                        >
+                          Desde {t.minQty}: {formatMXN(t.unitPrice)} c/u
+                        </span>
+                      ))}
+                  </div>
+                )}
+
+                {/* Atajo (solo PC): baja directo al selector de boletos */}
+                <a
+                  href="#apartar"
+                  className="mt-5 hidden w-full items-center justify-center gap-2 rounded-xl bg-[var(--rifero-primary)] py-3 font-display text-base font-extrabold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5 lg:flex"
+                >
+                  Elegir mis boletos
+                  <ChevronDown className="h-5 w-5" />
+                </a>
+              </div>
             </div>
           </div>
-
-          {/* ── Cuenta regresiva al sorteo (debajo de la imagen, mismo fondo del hero).
-              Se puede ocultar por rifa desde el panel (paso "Sorteo y pago"). ── */}
-          {raffle.showCountdown && <RaffleCountdown drawDate={raffle.drawDate} status={raffle.status} />}
         </header>
 
-        {/* ── Tabla de precios (única sección en negro). Cada fila ya refleja la
-            mejor oferta (paquetes/niveles) para esa cantidad. ── */}
-        <div className="bg-zinc-950 py-5 text-white">
-          <div className="mx-auto max-w-2xl px-4">
-            <div>
-              {Array.from({ length: raffle.priceListRows ?? 10 }, (_, i) => i + 1).map((n) => {
-                const row = computeOrderPrice(n, pricingCfg);
-                return (
-                  <div
-                    key={n}
-                    className="flex items-center justify-center gap-1.5 py-1.5 text-sm font-bold uppercase tracking-wide"
-                  >
-                    <span className="text-[var(--rifero-primary)]">{n}</span>
-                    <span>{n === 1 ? 'boleto por' : 'boletos por'}</span>
-                    {row.savings > 0 && (
-                      <span className="text-xs font-semibold text-white/40 line-through">
-                        {formatMXN(row.baseTotal)}
-                      </span>
-                    )}
-                    <span className="tabular-nums">{formatMXN(row.total)}</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Promociones por cantidad (niveles y paquetes) */}
-            {hasDeals && (
-              <div className="mt-3 flex flex-wrap justify-center gap-2">
-                {raffle.pricingBundles
-                  .slice()
-                  .sort((a, b) => a.qty - b.qty)
-                  .map((b, i) => (
-                    <span
-                      key={`b${i}`}
-                      className="rounded-full bg-[var(--rifero-primary)]/15 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[var(--rifero-primary)] ring-1 ring-[var(--rifero-primary)]/30"
-                    >
-                      {b.qty} boletos por {formatMXN(b.price)}
-                    </span>
-                  ))}
-                {raffle.pricingTiers
-                  .slice()
-                  .sort((a, b) => a.minQty - b.minQty)
-                  .map((t, i) => (
-                    <span
-                      key={`t${i}`}
-                      className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-emerald-400 ring-1 ring-emerald-500/30"
-                    >
-                      Desde {t.minQty}: {formatMXN(t.unitPrice)} c/u
-                    </span>
-                  ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="mx-auto max-w-2xl px-4 pt-6">
+        <div className="mx-auto max-w-2xl px-4 pt-6 lg:max-w-6xl lg:px-6 lg:pt-10">
           {/* Promoción / descripción del rifero (cartel con texto enriquecido) */}
           {raffle.description &&
             (isRichHtml(raffle.description) ? (
               <div
-                className="rt-content mt-6 text-base leading-snug"
+                className="rt-content mt-6 text-base leading-snug lg:mx-auto lg:max-w-3xl lg:text-lg"
                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(raffle.description) }}
               />
             ) : (
-              <p className="mt-6 whitespace-pre-line text-center text-base font-extrabold uppercase leading-snug text-[var(--rifero-primary)]">
+              <p className="mt-6 whitespace-pre-line text-center text-base font-extrabold uppercase leading-snug text-[var(--rifero-primary)] lg:mx-auto lg:max-w-3xl lg:text-lg">
                 {raffle.description}
               </p>
             ))}
 
           {/* Selector de boletos */}
           <div id="apartar" className="mt-8 scroll-mt-20">
-            {/* Banner negro de instrucción */}
-            <div className="-mx-4 mb-4 bg-zinc-950 px-4 py-3 text-center">
-              <h2 className="text-lg font-black uppercase leading-tight tracking-wide text-white sm:text-xl">
+            {/* Banner negro de instrucción (en PC, tarjeta redondeada dentro del ancho) */}
+            <div className="-mx-4 mb-4 bg-zinc-950 px-4 py-3 text-center lg:mx-0 lg:rounded-2xl lg:py-4">
+              <h2 className="text-lg font-black uppercase leading-tight tracking-wide text-white sm:text-xl lg:text-2xl">
                 {raffle.manualSelection
                   ? 'Haz click abajo en tu número de la suerte'
                   : 'Deja que la maquinita elija tus números de la suerte'}
@@ -687,7 +711,7 @@ export default function PublicRaffle({ subdomain }: Props) {
               <button
                 type="button"
                 onClick={() => setGoToOpen(true)}
-                className="mb-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-[var(--rifero-primary)] text-base font-extrabold uppercase tracking-wide text-[var(--rifero-primary)] transition-colors hover:bg-[var(--rifero-primary)]/10 active:scale-[0.99] sm:text-lg"
+                className="mb-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-[var(--rifero-primary)] text-base font-extrabold uppercase tracking-wide text-[var(--rifero-primary)] transition-colors hover:bg-[var(--rifero-primary)]/10 active:scale-[0.99] sm:text-lg lg:mx-auto lg:max-w-lg"
               >
                 <Hash className="h-5 w-5" />
                 Ir a mi número
@@ -714,9 +738,9 @@ export default function PublicRaffle({ subdomain }: Props) {
 
           {/* Ganadores */}
           {raffle.winners.length > 0 && (
-            <div className="mt-8">
-              <h2 className="mb-3 flex items-center gap-2 text-lg font-extrabold">
-                <Trophy className="h-5 w-5 text-[var(--rifero-primary)]" />
+            <div className="mt-8 lg:mt-12">
+              <h2 className="mb-3 flex items-center gap-2 text-lg font-extrabold lg:justify-center lg:text-2xl">
+                <Trophy className="h-5 w-5 text-[var(--rifero-primary)] lg:h-6 lg:w-6" />
                 Ganadores
               </h2>
               {raffle.winners.find((w) => w.evidenceUrl)?.evidenceUrl && (
@@ -724,10 +748,10 @@ export default function PublicRaffle({ subdomain }: Props) {
                   src={apiAssetUrl(raffle.winners.find((w) => w.evidenceUrl)!.evidenceUrl!)}
                   controls
                   playsInline
-                  className="mb-3 w-full rounded-2xl border bg-black"
+                  className="mb-3 w-full rounded-2xl border bg-black lg:mx-auto lg:max-w-3xl"
                 />
               )}
-              <div className="grid gap-3">
+              <div className="grid gap-3 lg:grid-cols-2 lg:gap-4">
                 {raffle.winners
                   .slice()
                   .sort((a, b) => a.position - b.position)
@@ -753,7 +777,7 @@ export default function PublicRaffle({ subdomain }: Props) {
 
           {/* Términos (plegados: solo se cargan al pulsar, para los curiosos) */}
           {raffle.terms && (
-            <details className="group mt-8 overflow-hidden rounded-2xl border bg-card shadow-sm [&_summary::-webkit-details-marker]:hidden">
+            <details className="group mt-8 overflow-hidden rounded-2xl border bg-card shadow-sm [&_summary::-webkit-details-marker]:hidden lg:mx-auto lg:mt-12 lg:max-w-3xl">
               <summary className="flex cursor-pointer list-none items-center gap-2.5 px-4 py-3.5 font-display text-base font-extrabold tracking-tight">
                 <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
                 <span className="flex-1">Términos y condiciones</span>
@@ -778,11 +802,13 @@ export default function PublicRaffle({ subdomain }: Props) {
             )}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-10 block bg-[var(--rifero-primary)] py-4 text-center font-extrabold uppercase leading-tight tracking-wide text-white transition-opacity hover:opacity-90"
+            className="mt-10 block bg-[var(--rifero-primary)] py-4 text-center font-extrabold uppercase leading-tight tracking-wide text-white transition-opacity hover:opacity-90 lg:mt-14 lg:py-6 lg:text-lg"
           >
             <span className="underline">Preguntas al WhatsApp</span>
             <br />
-            <span className="text-lg tabular-nums">{formatPhoneIntl(rifero.whatsapp, rifero.whatsappCountry)}</span>
+            <span className="text-lg tabular-nums lg:text-2xl">
+              {formatPhoneIntl(rifero.whatsapp, rifero.whatsappCountry)}
+            </span>
             {rifero.whatsappName && (
               <>
                 <br />

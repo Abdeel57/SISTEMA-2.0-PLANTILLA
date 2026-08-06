@@ -39,7 +39,7 @@ export function PromoBanner({
         ...(sticky ? { top: topPx, transform: hidden ? `translateY(-${topPx}px)` : 'translateY(0)' } : {}),
       }}
     >
-      <p className="px-4 py-1.5 font-display text-sm font-extrabold uppercase tracking-wide [text-shadow:0_1px_2px_rgba(0,0,0,0.3)] sm:text-base">
+      <p className="px-4 py-1.5 font-display text-sm font-extrabold uppercase tracking-wide [text-shadow:0_1px_2px_rgba(0,0,0,0.3)] sm:text-base lg:py-2 lg:text-lg">
         {title}
       </p>
       {subtitle && <p className="bg-black/25 px-4 py-1 text-[11px] font-semibold text-white/95 sm:text-xs">{subtitle}</p>}
