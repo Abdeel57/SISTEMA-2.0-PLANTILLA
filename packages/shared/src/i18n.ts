@@ -112,6 +112,14 @@ export const MESSAGES = {
     es: 'Este rifero aún no publicó sus métodos de pago. Contáctalo por WhatsApp para saber cómo pagar.',
     en: "This organizer hasn't published payment details yet. Message them on WhatsApp to find out how to pay.",
   },
+  'pay.descVerify': {
+    es: 'Paga a estos datos y sube tu comprobante desde tu orden.',
+    en: 'Send your payment to these details and upload your receipt from your order.',
+  },
+  'pay.searchFirst': {
+    es: 'Busca tus boletos con tu teléfono para ver los datos de pago, o contacta al rifero por WhatsApp.',
+    en: 'Look up your tickets with your phone to see the payment details, or message the organizer on WhatsApp.',
+  },
   'pay.ask': { es: 'Preguntar por WhatsApp', en: 'Ask on WhatsApp' },
   'pay.askTo': { es: 'Preguntar a {name}', en: 'Ask {name}' },
   'pay.holder': { es: 'Titular', en: 'Account holder' },
@@ -248,6 +256,14 @@ export const MESSAGES = {
   },
   'profile.verifyTickets': { es: 'Verificar mis boletos', en: 'Verify my tickets' },
   'profile.verifiedOrganizer': { es: 'Rifero verificado', en: 'Verified organizer' },
+  'profile.firstPlace': { es: '1er lugar', en: '1st place' },
+  'profile.nthPlace': { es: '{n}° lugar', en: 'Place #{n}' },
+  'profile.video': { es: 'Video', en: 'Video' },
+  'profile.inactiveTitle': { es: 'Esta página aún no está activa', en: 'This page is not active yet' },
+  'profile.inactiveBody': {
+    es: 'está preparando sus rifas. Vuelve pronto para participar.',
+    en: 'is getting the giveaways ready. Come back soon to enter.',
+  },
   'profile.notFound': { es: 'Página no encontrada', en: 'Page not found' },
   'profile.notFoundDesc': {
     es: 'Esta página de rifas no existe o fue desactivada.',
@@ -351,6 +367,12 @@ export const MESSAGES = {
 
   // ── Boleto digital ──
   'ticket.digital': { es: 'Boleto digital', en: 'Digital ticket' },
+  'ticket.yourPayment': { es: 'Tu pago', en: 'Your payment' },
+  'ticket.payNotFound': { es: 'No encontramos tu pago', en: "We couldn't find your payment" },
+  'ticket.payNotFoundBody': {
+    es: 'Revisa que el enlace o el folio sean correctos.',
+    en: 'Check that the link or the code is correct.',
+  },
   'ticket.numbers': { es: 'Números de boleto', en: 'Ticket numbers' },
   'ticket.holder': { es: 'A nombre de', en: 'Ticket holder' },
   'ticket.prize': { es: 'Premio', en: 'Prize' },

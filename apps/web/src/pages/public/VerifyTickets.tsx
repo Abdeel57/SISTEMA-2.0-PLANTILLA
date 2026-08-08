@@ -13,7 +13,8 @@ import {
   Wallet,
   XCircle,
 } from 'lucide-react';
-import { formatMXN, formatDateMX, waProofMessage, waReserveMessage, dialCodeForCountry } from '@bismark/shared';
+import { formatDate, waProofMessage, waReserveMessage, dialCodeForCountry } from '@bismark/shared';
+import { t, useT, useMoney, useLocale } from '@/store/site';
 import { ApiError } from '@/lib/api';
 import {
   publicService,
@@ -52,19 +53,20 @@ function StatusPill({ status }: { status: string }) {
   if (status === 'PAID') {
     return (
       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-        <CheckCircle2 className="h-3.5 w-3.5" /> Pagada
+        <CheckCircle2 className="h-3.5 w-3.5" /> {t('status.paid')}
       </span>
     );
   }
   if (isPending(status)) {
     return (
       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-        <Clock className="h-3.5 w-3.5" /> Pendiente
+        <Clock className="h-3.5 w-3.5" /> {t('status.pending')}
       </span>
     );
   }
   if (status === 'EXPIRED' || status === 'REJECTED' || status === 'CANCELLED') {
-    const label = status === 'EXPIRED' ? 'Vencida' : status === 'REJECTED' ? 'Rechazada' : 'Cancelada';
+    const label =
+      status === 'EXPIRED' ? t('status.expired') : status === 'REJECTED' ? t('status.rejected') : t('status.cancelled');
     return (
       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-red-700 dark:bg-red-950 dark:text-red-300">
         <XCircle className="h-3.5 w-3.5" /> {label}
@@ -80,6 +82,7 @@ function StatusPill({ status }: { status: string }) {
 
 // ── Subir comprobante (reusa el endpoint del flujo de pago) ──────
 function UploadProof({ orderCode, onUploaded }: { orderCode: string; onUploaded: () => void }) {
+  const tr = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -87,10 +90,10 @@ function UploadProof({ orderCode, onUploaded }: { orderCode: string; onUploaded:
     setUploading(true);
     try {
       await publicService.uploadProof(orderCode, file);
-      toast.success('Comprobante enviado. El organizador lo revisará y confirmará tu pago.');
+      toast.success(tr('proof.sentToast'));
       onUploaded();
     } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : 'No se pudo enviar el comprobante');
+      toast.error(e instanceof ApiError ? e.message : tr('proof.failed'));
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = '';
@@ -107,7 +110,7 @@ function UploadProof({ orderCode, onUploaded }: { orderCode: string; onUploaded:
         style={{ borderColor: BRAND, color: BRAND }}
       >
         {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-        Subir comprobante
+        {tr('proof.upload')}
       </button>
       <input
         ref={inputRef}
@@ -147,6 +150,9 @@ function OrderCard({
   allowProofUpload: boolean;
   onChanged: () => void;
 }) {
+  const tr = useT();
+  const fmt = useMoney();
+  const locale = useLocale();
   const pending = isPending(order.status);
   return (
     <article
@@ -169,7 +175,7 @@ function OrderCard({
               </h3>
             </div>
             <p className="mt-1 font-ticket text-[11px] text-muted-foreground">
-              {order.code} · {formatDateMX(order.createdAt)}
+              {order.code} · {formatDate(order.createdAt, locale)}
             </p>
           </div>
           <StatusPill status={order.status} />
@@ -178,7 +184,9 @@ function OrderCard({
         {/* Boletos: chips estilo boleto (vencidas/rechazadas ya no tienen boletos) */}
         {order.ticketNumbers.length > 0 && (
         <div className="mt-3 rounded-xl border border-dashed p-2.5" style={{ borderColor: BRAND, background: BRAND_SOFT }}>
-          <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">Tus boletos</p>
+          <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+            {tr('verify.yourTickets')}
+          </p>
           <div className="flex flex-wrap gap-1.5">
             {order.ticketNumbers.map((n) => (
               <span
@@ -196,9 +204,11 @@ function OrderCard({
         {/* Total + acción */}
         <div className="mt-3.5 flex items-end justify-between gap-3">
           <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">Total</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+              {tr('ticket.total')}
+            </p>
             <p className="font-ticket text-xl font-bold" style={{ color: BRAND }}>
-              {formatMXN(order.totalAmount)}
+              {fmt(order.totalAmount)}
             </p>
           </div>
 
@@ -208,7 +218,7 @@ function OrderCard({
               className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 font-display text-xs font-extrabold uppercase tracking-wide text-white shadow-sm transition-transform active:scale-[0.98]"
               style={{ background: BRAND }}
             >
-              Ver boleto digital <ArrowRight className="h-4 w-4" />
+              {tr('verify.viewDigital')} <ArrowRight className="h-4 w-4" />
             </Link>
           ) : pending ? (
             // Si el sitio recibe comprobantes, se sube aquí; si no, se envía el
@@ -221,14 +231,15 @@ function OrderCard({
                 dialCode={dialCodeForCountry(whatsappCountry)}
                 size="sm"
                 className="attn-pulse rounded-xl font-display text-xs font-extrabold uppercase tracking-wide"
-                label="Envía tu pago"
+                label={tr('verify.sendPayment')}
                 message={waReserveMessage({
                   raffleName: order.raffleTitle,
                   ticketNumbers: order.ticketNumbers.join(', '),
-                  total: formatMXN(order.totalAmount),
+                  total: fmt(order.totalAmount),
                   orderCode: order.code,
                   buyerPhone,
                   buyerState: order.buyerState,
+                  locale,
                 })}
               />
             ) : null
@@ -238,7 +249,7 @@ function OrderCard({
         {pending && order.hasProof && (
           <div className="mt-3 space-y-2">
             <p className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-              <Clock className="h-3.5 w-3.5 shrink-0" /> Comprobante enviado · esperando que el organizador confirme tu pago.
+              <Clock className="h-3.5 w-3.5 shrink-0" /> {tr('verify.proofSent')}
             </p>
             {/* Aviso directo al organizador por WhatsApp de que ya se pagó. */}
             {whatsapp && (
@@ -246,14 +257,15 @@ function OrderCard({
                 phone={whatsapp}
                 dialCode={dialCodeForCountry(whatsappCountry)}
                 className="w-full"
-                label={whatsappName ? `Avisar a ${whatsappName} por WhatsApp` : 'Avisar al organizador por WhatsApp'}
+                label={whatsappName ? tr('verify.notifyTo', { name: whatsappName }) : tr('verify.notify')}
                 message={waProofMessage({
                   raffleName: order.raffleTitle,
                   ticketNumbers: order.ticketNumbers.join(', '),
-                  total: formatMXN(order.totalAmount),
+                  total: fmt(order.totalAmount),
                   orderCode: order.code,
                   buyerPhone,
                   buyerState: order.buyerState,
+                  locale,
                 })}
               />
             )}
@@ -263,11 +275,13 @@ function OrderCard({
         {(order.status === 'EXPIRED' || order.status === 'REJECTED' || order.status === 'CANCELLED') && (
           <p className="mt-3 flex items-start gap-1.5 rounded-lg bg-red-50 px-2.5 py-2 text-xs font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300">
             <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            {order.status === 'EXPIRED'
-              ? 'Tu apartado venció y los boletos se liberaron. Si siguen disponibles, vuelve a apartarlos.'
-              : order.status === 'REJECTED'
-                ? 'El organizador no validó este pago. Contáctalo si crees que es un error.'
-                : 'Esta orden fue cancelada.'}
+            {tr(
+              order.status === 'EXPIRED'
+                ? 'status.expiredMsg'
+                : order.status === 'REJECTED'
+                  ? 'status.rejectedMsg'
+                  : 'status.cancelledMsg',
+            )}
           </p>
         )}
       </div>
@@ -280,7 +294,8 @@ export default function VerifyTickets({ subdomain }: Props) {
   const slug = subdomain ?? params.slug ?? '';
   // Single-tenant: el perfil del rifero es la raíz del sitio.
   const riferoHref = '/';
-  useDocumentTitle('Verificar mis boletos');
+  const tr = useT();
+  useDocumentTitle(tr('profile.verifyTickets'));
 
   const [mode, setMode] = useState<'phone' | 'name'>('phone');
   const [phone, setPhone] = useState('');
@@ -300,7 +315,7 @@ export default function VerifyTickets({ subdomain }: Props) {
     mutationFn: (params: { phone?: string; name?: string; ticket?: string }) =>
       publicService.lookupOrders(slug, params),
     onSuccess: (res) => setResult(res),
-    onError: (e) => toast.error(e instanceof ApiError ? e.message : 'No se pudo buscar'),
+    onError: (e) => toast.error(e instanceof ApiError ? e.message : tr('verify.searchFailed')),
   });
 
   useEffect(() => {
@@ -317,7 +332,7 @@ export default function VerifyTickets({ subdomain }: Props) {
     if (mode === 'phone') {
       const tel = phone.replace(/\D/g, '');
       if (tel.length < 10) {
-        toast.error('Escribe tu teléfono a 10 dígitos');
+        toast.error(tr('verify.needPhone'));
         return;
       }
       lookup.mutate({ phone: tel });
@@ -325,7 +340,7 @@ export default function VerifyTickets({ subdomain }: Props) {
       const nm = name.trim();
       const tk = ticket.trim();
       if (nm.length < 2 || tk.length < 1) {
-        toast.error('Escribe tu nombre y un número de boleto');
+        toast.error(tr('verify.needNameTicket'));
         return;
       }
       lookup.mutate({ name: nm, ticket: tk });
@@ -349,8 +364,8 @@ export default function VerifyTickets({ subdomain }: Props) {
           logoScale={rifero?.logoScale}
           logoGlow={rifero?.logoGlow}
           riferoHref={riferoHref}
-          left={{ line1: 'Regresar', line2: 'a comprar', href: backToBuyHref }}
-          right={{ line1: 'Métodos', line2: 'de pago', onClick: () => setPayOpen(true) }}
+          left={{ line1: tr('bar.back.l1'), line2: tr('bar.back.l2'), href: backToBuyHref }}
+          right={{ line1: tr('bar.pay.l1'), line2: tr('bar.pay.l2'), onClick: () => setPayOpen(true) }}
         />
 
         {/* ── Hero del título con acento de marca ── */}
@@ -367,21 +382,21 @@ export default function VerifyTickets({ subdomain }: Props) {
               className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-display text-[11px] font-extrabold uppercase tracking-wide"
               style={{ background: BRAND_SOFT, color: BRAND }}
             >
-              <Wallet className="h-3.5 w-3.5" /> Tu billetera de boletos
+              <Wallet className="h-3.5 w-3.5" /> {tr('verify.badge')}
             </span>
             <h1 className="mt-3 font-display text-3xl font-extrabold uppercase leading-[0.95] tracking-tight sm:text-4xl lg:text-5xl">
-              Verificar <span style={{ color: BRAND }}>mis boletos</span>
+              {tr('verify.title1')} <span style={{ color: BRAND }}>{tr('verify.title2')}</span>
             </h1>
             <p className="mt-2 max-w-md text-sm text-muted-foreground lg:mx-auto lg:text-base">
-              Busca tus boletos por teléfono, o por tu nombre y un número de boleto.
+              {tr('verify.desc')}
             </p>
 
             {/* Selector de modo de búsqueda */}
             <div className="mt-4 inline-flex rounded-xl border bg-card p-1">
               {(
                 [
-                  { key: 'phone', label: 'Teléfono' },
-                  { key: 'name', label: 'Nombre y boleto' },
+                  { key: 'phone', label: tr('verify.byPhone') },
+                  { key: 'name', label: tr('verify.byName') },
                 ] as const
               ).map((m) => {
                 const active = mode === m.key;
@@ -414,7 +429,7 @@ export default function VerifyTickets({ subdomain }: Props) {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     inputMode="tel"
-                    placeholder="Tu teléfono (10 dígitos)"
+                    placeholder={tr('verify.phonePlaceholder')}
                     className="h-12 w-full rounded-xl border-2 border-input bg-card pl-10 pr-3 font-ticket text-base tracking-tight outline-none transition-colors placeholder:font-sans placeholder:text-muted-foreground focus:border-[var(--rifero-primary)]"
                   />
                 </div>
@@ -423,14 +438,14 @@ export default function VerifyTickets({ subdomain }: Props) {
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Tu nombre completo"
+                    placeholder={tr('verify.namePlaceholder')}
                     className="h-12 w-full flex-1 rounded-xl border-2 border-input bg-card px-3.5 text-base tracking-tight outline-none transition-colors placeholder:text-muted-foreground focus:border-[var(--rifero-primary)]"
                   />
                   <input
                     value={ticket}
                     onChange={(e) => setTicket(e.target.value)}
                     inputMode="numeric"
-                    placeholder="N° de boleto"
+                    placeholder={tr('verify.ticketPlaceholder')}
                     className="h-12 w-full rounded-xl border-2 border-input bg-card px-3.5 font-ticket text-base tracking-tight outline-none transition-colors placeholder:font-sans placeholder:text-muted-foreground focus:border-[var(--rifero-primary)] sm:w-36"
                   />
                 </div>
@@ -441,7 +456,7 @@ export default function VerifyTickets({ subdomain }: Props) {
                 className="h-12 shrink-0 rounded-xl px-5 font-display font-extrabold uppercase tracking-wide text-white shadow-sm"
                 style={{ background: BRAND }}
               >
-                Buscar
+                {tr('verify.search')}
               </Button>
             </form>
           </div>
@@ -452,7 +467,7 @@ export default function VerifyTickets({ subdomain }: Props) {
           {lookup.isPending ? (
             <div className="grid place-items-center py-16">
               <Loader2 className="h-8 w-8 animate-spin" style={{ color: BRAND }} />
-              <p className="mt-3 text-sm font-semibold text-muted-foreground">Buscando tus boletos…</p>
+              <p className="mt-3 text-sm font-semibold text-muted-foreground">{tr('verify.searching')}</p>
             </div>
           ) : hasSearched && orders.length === 0 ? (
             <div className="animate-reveal mx-auto max-w-sm py-12 text-center">
@@ -462,11 +477,9 @@ export default function VerifyTickets({ subdomain }: Props) {
               >
                 <Ticket className="h-8 w-8" />
               </div>
-              <p className="font-display text-lg font-extrabold uppercase tracking-tight">No encontramos boletos</p>
+              <p className="font-display text-lg font-extrabold uppercase tracking-tight">{tr('verify.emptyTitle')}</p>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                {mode === 'phone'
-                  ? 'Revisa que sea el mismo teléfono con el que apartaste.'
-                  : 'Revisa que tu nombre y el número de boleto sean correctos.'}
+                {tr(mode === 'phone' ? 'verify.emptyPhone' : 'verify.emptyName')}
               </p>
               <Button
                 asChild
@@ -475,14 +488,14 @@ export default function VerifyTickets({ subdomain }: Props) {
                 style={{ borderColor: BRAND, color: BRAND }}
               >
                 <Link to={backToBuyHref}>
-                  <ArrowLeft className="h-4 w-4" /> Ir a comprar boletos
+                  <ArrowLeft className="h-4 w-4" /> {tr('verify.goBuy')}
                 </Link>
               </Button>
             </div>
           ) : orders.length > 0 ? (
             <>
               <p className="mb-3 font-display text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
-                {orders.length} {orders.length === 1 ? 'orden' : 'órdenes'}
+                {orders.length} {tr(orders.length === 1 ? 'common.order' : 'common.orders')}
               </p>
               {/* En PC las órdenes van en dos columnas: se ven varias sin desplazar. */}
               <div className="grid gap-3.5 lg:grid-cols-2 lg:gap-5">
@@ -510,7 +523,7 @@ export default function VerifyTickets({ subdomain }: Props) {
               {hasPending && result?.paymentProfile && paymentHasData(result.paymentProfile) && (
                 <div className="mt-7 lg:mx-auto lg:mt-10 lg:max-w-2xl">
                   <h2 className="mb-2.5 font-display text-base font-extrabold uppercase tracking-tight lg:text-center lg:text-xl">
-                    ¿Debes boletos? Paga aquí
+                    {tr('verify.owe')}
                   </h2>
                   <PaymentCard pay={result.paymentProfile} />
                 </div>
@@ -528,15 +541,13 @@ export default function VerifyTickets({ subdomain }: Props) {
       <Dialog open={payOpen} onOpenChange={setPayOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-display uppercase tracking-tight">Métodos de pago</DialogTitle>
-            <DialogDescription>Paga a estos datos y sube tu comprobante desde tu orden.</DialogDescription>
+            <DialogTitle className="font-display uppercase tracking-tight">{tr('pay.title')}</DialogTitle>
+            <DialogDescription>{tr('pay.descVerify')}</DialogDescription>
           </DialogHeader>
           {result?.paymentProfile && paymentHasData(result.paymentProfile) ? (
             <PaymentCard pay={result.paymentProfile} />
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Busca tus boletos con tu teléfono para ver los datos de pago, o contacta al rifero por WhatsApp.
-            </p>
+            <p className="text-sm text-muted-foreground">{tr('pay.searchFirst')}</p>
           )}
         </DialogContent>
       </Dialog>

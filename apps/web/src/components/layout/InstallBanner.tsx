@@ -1,5 +1,7 @@
 import { Download, X } from 'lucide-react';
+import { BRAND } from '@bismark/shared';
 import { useInstallPrompt } from '@/lib/pwa/useInstallPrompt';
+import { useT } from '@/store/site';
 import { Button } from '@/components/ui/button';
 
 /**
@@ -8,6 +10,7 @@ import { Button } from '@/components/ui/button';
  * descartado antes. El descarte se recuerda en localStorage (ver useInstallPrompt).
  */
 export function InstallBanner() {
+  const tr = useT();
   const { canInstall, promptInstall, dismiss } = useInstallPrompt();
   if (!canInstall) return null;
 
@@ -18,18 +21,16 @@ export function InstallBanner() {
           B
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold leading-tight">Instala Bismark</p>
-          <p className="truncate text-xs text-muted-foreground">
-            Ábrela como app, sin navegador y más rápida.
-          </p>
+          <p className="text-sm font-bold leading-tight">{tr('install.title', { name: BRAND.name })}</p>
+          <p className="truncate text-xs text-muted-foreground">{tr('install.body')}</p>
         </div>
         <Button size="sm" onClick={() => void promptInstall()}>
           <Download className="h-4 w-4" />
-          Instalar
+          {tr('install.cta')}
         </Button>
         <button
           onClick={dismiss}
-          aria-label="Descartar"
+          aria-label={tr('common.close')}
           className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <X className="h-4 w-4" />

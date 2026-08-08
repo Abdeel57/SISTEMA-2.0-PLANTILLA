@@ -4,13 +4,14 @@ import { Link, useParams } from 'react-router-dom';
 import { Ticket, Clock, ChevronDown, ArrowRight, PlayCircle, Trophy, QrCode } from 'lucide-react';
 import {
   RaffleStatus,
-  formatMXN,
-  formatDateMX,
+  formatDate,
   buildWhatsappLink,
   dialCodeForCountry,
   DEFAULT_FAQS,
+  DEFAULT_FAQS_EN,
   type PublicRaffleSummaryDTO,
 } from '@bismark/shared';
+import { useT, useMoney, useLocale } from '@/store/site';
 import { apiAssetUrl } from '@/lib/api';
 import { publicService, type PublicRiferoWinner } from '@/services/publicSite';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -49,6 +50,9 @@ function daysToDraw(drawDate: string | null): number | null {
 // ── Tarjeta de rifa (pensada para móvil: insignias sobre la imagen,
 //    días al sorteo y precio tipo talón de boleto) ────────────────
 function RafflePost({ raffle, basePath }: { raffle: PublicRaffleSummaryDTO; basePath: string }) {
+  const tr = useT();
+  const fmt = useMoney();
+  const locale = useLocale();
   const cover = raffle.coverUrl ? apiAssetUrl(raffle.coverUrl) : null;
   const finished = raffle.status === RaffleStatus.FINISHED;
   const href = `${basePath}/e${raffle.eventNumber}`;
@@ -76,12 +80,12 @@ function RafflePost({ raffle, basePath }: { raffle: PublicRaffleSummaryDTO; base
           {days !== null && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold backdrop-blur">
               <Clock className="h-3.5 w-3.5" />
-              {days === 1 ? 'Sortea mañana' : `Faltan ${days} días`}
+              {days === 1 ? tr('profile.drawsTomorrow') : tr('profile.daysLeft', { n: days as number })}
             </span>
           )}
           {raffle.drawDate && (
             <span className="text-[11px] font-semibold text-white/85 [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
-              {formatDateMX(raffle.drawDate)}
+              {formatDate(raffle.drawDate, locale)}
             </span>
           )}
         </div>
@@ -97,9 +101,11 @@ function RafflePost({ raffle, basePath }: { raffle: PublicRaffleSummaryDTO; base
             {raffle.prize && <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">{raffle.prize}</p>}
           </div>
           <div className="shrink-0 text-right">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Por boleto</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              {tr('profile.perTicket')}
+            </p>
             <p className="font-ticket text-2xl font-bold leading-tight" style={{ color: BRAND }}>
-              {formatMXN(raffle.ticketPrice)}
+              {fmt(raffle.ticketPrice)}
             </p>
           </div>
         </div>
@@ -113,7 +119,7 @@ function RafflePost({ raffle, basePath }: { raffle: PublicRaffleSummaryDTO; base
           style={{ background: BRAND }}
         >
           <Link to={href}>
-            {finished ? 'Ver resultado' : 'Comprar boletos'} <ArrowRight className="h-4 w-4" />
+            {tr(finished ? 'profile.seeResult' : 'profile.buyTickets')} <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
       </div>
@@ -123,6 +129,7 @@ function RafflePost({ raffle, basePath }: { raffle: PublicRaffleSummaryDTO; base
 
 // ── Tarjeta de ganador (oro para el 1er lugar) ──────────────────
 function WinnerCard({ w }: { w: PublicRiferoWinner }) {
+  const tr = useT();
   const first = w.position === 1;
   return (
     <div className="flex items-center gap-3 rounded-2xl border bg-card p-3.5 shadow-sm">
@@ -142,7 +149,7 @@ function WinnerCard({ w }: { w: PublicRiferoWinner }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-          {first ? '1er lugar · ' : `${w.position}° lugar · `}
+          {first ? tr('profile.firstPlace') : tr('profile.nthPlace', { n: w.position })} ·{' '}
           {w.eventLabel} · {w.raffleTitle}
         </p>
         <p
@@ -164,7 +171,7 @@ function WinnerCard({ w }: { w: PublicRiferoWinner }) {
           className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold"
           style={{ background: BRAND_SOFT, color: BRAND }}
         >
-          <PlayCircle className="h-4 w-4" /> Video
+          <PlayCircle className="h-4 w-4" /> {tr('profile.video')}
         </a>
       )}
     </div>
@@ -230,6 +237,8 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 export default function PublicRifero({ subdomain, previewData }: Props) {
+  const tr = useT();
+  const locale = useLocale();
   const params = useParams<{ slug: string }>();
   const slug = subdomain ?? params.slug ?? previewData?.rifero?.slug ?? '';
   // Single-tenant: el perfil vive en la raíz; todos los enlaces son absolutos.
@@ -277,10 +286,10 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
           <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-muted">
             <Clock className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h1 className="text-2xl font-extrabold">Esta página aún no está activa</h1>
+          <h1 className="text-2xl font-extrabold">{tr('profile.inactiveTitle')}</h1>
           <p className="mt-2 text-muted-foreground">
             {data?.publicName ? `${data.publicName} ` : ''}
-            está preparando sus rifas. Vuelve pronto para participar.
+            {tr('profile.inactiveBody')}
           </p>
           <div className="mt-8">
             <PoweredBy />
@@ -306,7 +315,8 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
   const active = rifero.raffles.filter((r) => r.status === RaffleStatus.PUBLISHED);
   const finished = rifero.raffles.filter((r) => r.status === RaffleStatus.FINISHED);
   // FAQ personalizadas del rifero; si no ha guardado las suyas, las de fábrica.
-  const faqs = rifero.faqs && rifero.faqs.length > 0 ? rifero.faqs : DEFAULT_FAQS;
+  const faqs =
+    rifero.faqs && rifero.faqs.length > 0 ? rifero.faqs : locale === 'en' ? DEFAULT_FAQS_EN : DEFAULT_FAQS;
 
   // WhatsApp de contacto: lada según el país del número (México/USA) y saludo
   // personalizado si el rifero dijo quién atiende ("¡Hola, Karen!").
@@ -393,9 +403,15 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
                 {/* Insignias del rifero (stats compactas; oculta las que van en 0) */}
                 {(() => {
                   const chips = [
-                    { value: active.length, label: active.length === 1 ? 'disponible' : 'disponibles' },
-                    { value: finished.length, label: finished.length === 1 ? 'sorteo realizado' : 'sorteos realizados' },
-                    { value: winners.length, label: winners.length === 1 ? 'ganador' : 'ganadores' },
+                    {
+                      value: active.length,
+                      label: tr(active.length === 1 ? 'profile.available' : 'profile.availablePlural'),
+                    },
+                    {
+                      value: finished.length,
+                      label: tr(finished.length === 1 ? 'profile.drawDone' : 'profile.drawsDone'),
+                    },
+                    { value: winners.length, label: tr(winners.length === 1 ? 'profile.winner' : 'profile.winners') },
                   ].filter((c) => c.value > 0);
                   if (chips.length === 0) return null;
                   return (
@@ -474,7 +490,7 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
                     style={{ background: BRAND }}
                   >
                     <a href="#rifas">
-                      Ver rifas disponibles <ChevronDown className="h-4 w-4" />
+                      {tr('profile.seeRaffles')} <ChevronDown className="h-4 w-4" />
                     </a>
                   </Button>
                 )}
@@ -496,7 +512,7 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
 
           {/* ── Rifas disponibles (feed) ── */}
           <section id="rifas" className="mt-5 scroll-mt-6 lg:mt-10">
-            <SectionTitle>Rifas disponibles</SectionTitle>
+            <SectionTitle>{tr('profile.availableRaffles')}</SectionTitle>
             {active.length > 0 ? (
               <div className={active.length > 1 ? 'grid gap-4 lg:grid-cols-2 lg:gap-5' : 'mx-auto grid max-w-xl gap-4'}>
                 {active.map((r) => (
@@ -506,8 +522,8 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
             ) : (
               <EmptyState
                 icon={<Ticket className="h-10 w-10" />}
-                title="Aún no hay rifas disponibles"
-                description="Este rifero todavía no publica rifas. Síguelo en redes para enterarte primero."
+                title={tr('profile.emptyTitle')}
+                description={tr('profile.emptyDesc')}
               />
             )}
           </section>
@@ -515,7 +531,7 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
           {/* ── Sorteos realizados (rifas finalizadas: ver resultado) ── */}
           {finished.length > 0 && (
             <section className="mt-10 lg:mt-14">
-              <SectionTitle>Sorteos realizados</SectionTitle>
+              <SectionTitle>{tr('profile.pastRaffles')}</SectionTitle>
               <div className={finished.length > 1 ? 'grid gap-4 lg:grid-cols-2 lg:gap-5' : 'mx-auto grid max-w-xl gap-4'}>
                 {finished.map((r) => (
                   <RafflePost key={r.id} raffle={r} basePath={basePath} />
@@ -527,7 +543,7 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
           {/* ── Ganadores ── */}
           {winners.length > 0 && (
             <section className="mt-10 lg:mt-14">
-              <SectionTitle>Ganadores</SectionTitle>
+              <SectionTitle>{tr('profile.winnersTitle')}</SectionTitle>
               <div className={winners.length > 1 ? 'grid gap-3 lg:grid-cols-2' : 'mx-auto grid max-w-xl gap-3'}>
                 {winners.map((w) => (
                   <WinnerCard key={w.id} w={w} />
@@ -539,7 +555,7 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
           {/* ── Preguntas frecuentes (personalizables desde el admin) ── */}
           {faqs.length > 0 && (
             <section className="mx-auto mt-10 max-w-3xl lg:mt-14">
-              <SectionTitle>Preguntas frecuentes</SectionTitle>
+              <SectionTitle>{tr('profile.faq')}</SectionTitle>
               <div className="grid gap-2.5">
                 {faqs.map((f, i) => (
                   <Faq key={`${i}-${f.q}`} n={i + 1} q={f.q}>
@@ -571,11 +587,11 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
               </div>
 
               <h2 className="mt-3 font-display text-lg font-extrabold tracking-[-0.02em] sm:text-xl">
-                Compra con confianza
+                {tr('profile.trustTitle')}
                 <span className="text-[var(--rifero-primary)]">.</span>
               </h2>
               <p className="mx-auto mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">
-                Cada boleto pagado genera un boleto digital con código QR para validarlo el día del sorteo.
+                {tr('profile.trustDesc')}
               </p>
 
               <Button
@@ -585,13 +601,13 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
                 style={{ background: BRAND }}
               >
                 <Link to={verificarHref}>
-                  Verificar mis boletos <ArrowRight className="h-4 w-4" />
+                  {tr('profile.verifyTickets')} <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
 
               {rifero.verified && (
                 <p className="mt-4 flex items-center justify-center gap-1.5 text-xs font-bold" style={{ color: BRAND }}>
-                  <VerifiedBadge size={15} /> Rifero verificado
+                  <VerifiedBadge size={15} /> {tr('profile.verifiedOrganizer')}
                 </p>
               )}
             </div>

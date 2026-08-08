@@ -7,11 +7,24 @@ import { loadOwnedOrder } from '../../lib/ownership.js';
 import { renderDigitalTicketPdf } from '../../lib/pdf.js';
 import { readAssetBytes } from '../../lib/storage.js';
 import { getPlanContext } from '../../lib/plan.js';
-import { riferoPaymentMethods, riferoPaymentContact } from '../../lib/serializers.js';
+import { riferoPaymentMethods, riferoPaymentContact, siteLocale, siteCurrency } from '../../lib/serializers.js';
 import { env } from '../../config/env.js';
-import { ORDER_STATUS_LABELS } from '@bismark/shared';
+import { ORDER_STATUS_LABELS, translate, type Locale } from '@bismark/shared';
 
-const STATUS_LABEL = (s: string): string => ORDER_STATUS_LABELS[s as keyof typeof ORDER_STATUS_LABELS] ?? s;
+// Etiqueta del estado en el idioma del sitio (el boleto lo ve el comprador).
+const STATUS_KEYS: Record<string, Parameters<typeof translate>[1]> = {
+  RESERVED: 'status.reserved',
+  PENDING_PAYMENT: 'status.pending',
+  PAID: 'status.paid',
+  EXPIRED: 'status.expired',
+  REJECTED: 'status.rejected',
+  CANCELLED: 'status.cancelled',
+};
+const STATUS_LABEL = (s: string, locale: Locale): string => {
+  const key = STATUS_KEYS[s];
+  if (key) return translate(locale, key);
+  return ORDER_STATUS_LABELS[s as keyof typeof ORDER_STATUS_LABELS] ?? s;
+};
 
 // URL absoluta de validación (va dentro del QR del boleto). Si PUBLIC_WEB_URL no
 // está definida, se infiere del host de la petición (frontend y API comparten origen).
@@ -124,7 +137,7 @@ export default async function digitalTicketsRoutes(app: FastifyInstance): Promis
       ticketNumbers: o.tickets.map((t) => t.displayNumber),
       buyerName: o.buyer.fullName,
       buyerState: o.buyer.state ?? null,
-      statusLabel: STATUS_LABEL(o.status),
+      statusLabel: STATUS_LABEL(o.status, siteLocale(o.raffle.rifero)),
       totalAmount: o.totalAmount,
       orderCode: o.code,
       verifyUrl: verifyUrl(dt.code, request),
@@ -132,6 +145,8 @@ export default async function digitalTicketsRoutes(app: FastifyInstance): Promis
       primaryColor: o.raffle.rifero.primaryColor,
       secondaryColor: o.raffle.rifero.secondaryColor,
       riferoVerified: o.raffle.rifero.verified,
+      locale: siteLocale(o.raffle.rifero),
+      currency: siteCurrency(o.raffle.rifero),
       logo,
     });
 

@@ -1,6 +1,6 @@
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
-import { formatMXN, formatDateMX, BRAND } from '@bismark/shared';
+import { formatMoney, formatDate, translate, BRAND, type Currency, type Locale } from '@bismark/shared';
 
 export interface DigitalTicketPdfData {
   raffleTitle: string;
@@ -21,6 +21,9 @@ export interface DigitalTicketPdfData {
   riferoVerified?: boolean;
   /** Bytes del logo del rifero (idealmente PNG/JPG). Si no se puede incrustar, se usa la inicial. */
   logo?: Buffer | null;
+  /** Idioma y moneda del sitio ("Modo USA"). El boleto lo ve el comprador. */
+  locale?: Locale;
+  currency?: Currency;
 }
 
 // Máximo de números que se imprimen como "chips" en el boleto. Con más, se añade
@@ -64,6 +67,11 @@ function streamToBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
 export async function renderDigitalTicketPdf(data: DigitalTicketPdfData): Promise<Buffer> {
   const doc = new PDFDocument({ size: 'A5', margin: 0, layout: 'portrait' });
   const done = streamToBuffer(doc);
+
+  // Idioma y moneda del sitio: el boleto es del comprador, no del organizador.
+  const locale: Locale = data.locale ?? 'es';
+  const currency: Currency = data.currency ?? 'MXN';
+  const L = locale === 'en';
 
   const W = doc.page.width; // ≈ 419.5
   const H = doc.page.height; // ≈ 595.3
@@ -136,7 +144,7 @@ export async function renderDigitalTicketPdf(data: DigitalTicketPdfData): Promis
       .fillColor(onAccent)
       .font('Helvetica-Bold')
       .fontSize(9)
-      .text('Organizador verificado', cx + 11, cy - 5, { width: tw - 20, lineBreak: false });
+      .text(L ? 'Verified organizer' : 'Organizador verificado', cx + 11, cy - 5, { width: tw - 20, lineBreak: false });
   }
   // Píldora "BOLETO DIGITAL · E#".
   const pill = `BOLETO DIGITAL · ${data.eventLabel}`;
@@ -165,7 +173,11 @@ export async function renderDigitalTicketPdf(data: DigitalTicketPdfData): Promis
   y += 16;
 
   // Números de boleto como "chips".
-  doc.fillColor(muted).font('Helvetica-Bold').fontSize(8).text('NÚMEROS DE BOLETO', PAD, y, { characterSpacing: 0.8 });
+  doc
+    .fillColor(muted)
+    .font('Helvetica-Bold')
+    .fontSize(8)
+    .text(translate(locale, 'ticket.numbers').toUpperCase(), PAD, y, { characterSpacing: 0.8 });
   y = doc.y + 7;
   const shown = data.ticketNumbers.slice(0, MAX_CHIPS);
   const extra = data.ticketNumbers.length - shown.length;
@@ -188,12 +200,16 @@ export async function renderDigitalTicketPdf(data: DigitalTicketPdfData): Promis
 
   // Total destacado (a todo lo ancho).
   doc.roundedRect(PAD, y, CONTENT_W, 44, 12).fill(lighten(accent, 0.88));
-  doc.fillColor(chipInk).font('Helvetica-Bold').fontSize(8.5).text('TOTAL', PAD + 16, y + 10, { characterSpacing: 0.8 });
+  doc
+    .fillColor(chipInk)
+    .font('Helvetica-Bold')
+    .fontSize(8.5)
+    .text(translate(locale, 'ticket.total').toUpperCase(), PAD + 16, y + 10, { characterSpacing: 0.8 });
   doc
     .fillColor(accentDeep)
     .font('Helvetica-Bold')
     .fontSize(22)
-    .text(formatMXN(data.totalAmount), PAD + 16, y + 18, { width: CONTENT_W - 32 });
+    .text(formatMoney(data.totalAmount, currency), PAD + 16, y + 18, { width: CONTENT_W - 32 });
   y += 44 + 18;
 
   // Datos clave en 2 columnas.
@@ -212,9 +228,13 @@ export async function renderDigitalTicketPdf(data: DigitalTicketPdfData): Promis
     if (r) cell(colX2, r[0], r[1]);
     y += 30;
   };
-  gridRow(['A NOMBRE DE', data.buyerName], ['ESTADO', data.buyerState || '—']);
-  gridRow(['ESTATUS', data.statusLabel], ['FOLIO', data.orderCode]);
-  gridRow(['FECHA', formatDateMX(data.createdAt)], data.drawDate ? ['SORTEO', formatDateMX(data.drawDate)] : null);
+  const up = (k: Parameters<typeof translate>[1]) => translate(locale, k).toUpperCase();
+  gridRow([up('ticket.holder'), data.buyerName], [up('ticket.state'), data.buyerState || '—']);
+  gridRow([up('ticket.status'), data.statusLabel], [up('ticket.code'), data.orderCode]);
+  gridRow(
+    [up('ticket.date'), formatDate(data.createdAt, locale)],
+    data.drawDate ? [up('ticket.draw'), formatDate(data.drawDate, locale)] : null,
+  );
 
   // ── Pie: perforación + QR + verificación ──
   y += 8;
@@ -238,16 +258,30 @@ export async function renderDigitalTicketPdf(data: DigitalTicketPdfData): Promis
       .fillColor(muted)
       .font('Helvetica-Bold')
       .fontSize(7)
-      .text('ESCANEA PARA VERIFICAR', qrX - 8, y + qrSize + 5, { width: qrSize + 16, align: 'center' });
+      .text(L ? 'SCAN TO VERIFY' : 'ESCANEA PARA VERIFICAR', qrX - 8, y + qrSize + 5, {
+        width: qrSize + 16,
+        align: 'center',
+      });
 
     // Texto a la izquierda del QR.
     const leftW = qrX - PAD - 12;
-    doc.fillColor(ink).font('Helvetica-Bold').fontSize(13).text('Tu boleto participante', PAD, y + 6, { width: leftW });
+    doc
+      .fillColor(ink)
+      .font('Helvetica-Bold')
+      .fontSize(13)
+      .text(L ? 'Your entry ticket' : 'Tu boleto participante', PAD, y + 6, { width: leftW });
     doc
       .fillColor(muted)
       .font('Helvetica')
       .fontSize(9.5)
-      .text('Muestra este código el día del sorteo para validar tu participación.', PAD, doc.y + 4, { width: leftW });
+      .text(
+        L
+          ? 'Show this code on the draw date to validate your entry.'
+          : 'Muestra este código el día del sorteo para validar tu participación.',
+        PAD,
+        doc.y + 4,
+        { width: leftW },
+      );
     bottom = y + qrSize + 20;
   } catch {
     bottom = y + 10;

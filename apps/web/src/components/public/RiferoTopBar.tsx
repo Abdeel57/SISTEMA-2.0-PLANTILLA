@@ -1,6 +1,7 @@
 import { apiAssetUrl } from '@/lib/api';
 import { VerifiedBadge } from '@/components/brand/VerifiedBadge';
 import { useHideOnScroll } from '@/hooks/useHideOnScroll';
+import { useT } from '@/store/site';
 import { cn } from '@/lib/cn';
 
 // Barra superior con la marca del rifero (fondo oscuro + bordes del color del
@@ -16,8 +17,8 @@ export function RiferoTopBar({
   rightHref = '#sube-tu-pago',
   // Etiqueta del acceso derecho. Cuando el sitio NO recibe comprobantes, la página
   // pasa "Envía tu / pago" + un enlace de WhatsApp (rightHref http externo).
-  rightLine1 = 'Sube tu',
-  rightLine2 = 'pago aquí',
+  rightLine1,
+  rightLine2,
 }: {
   logoUrl: string | null;
   publicName: string;
@@ -28,6 +29,9 @@ export function RiferoTopBar({
   rightLine1?: string;
   rightLine2?: string;
 }) {
+  const tr = useT();
+  const right1 = rightLine1 ?? tr('bar.upload.l1');
+  const right2 = rightLine2 ?? tr('bar.upload.l2');
   const rightExternal = rightHref.startsWith('http');
   const LOGO = 48;
   const hidden = useHideOnScroll();
@@ -48,9 +52,9 @@ export function RiferoTopBar({
         style={{ height: 56 }}
       >
         <a href={leftHref} className={linkClass} style={glow}>
-          Métodos
+          {tr('bar.pay.l1')}
           <br />
-          de pago
+          {tr('bar.pay.l2')}
         </a>
 
         <div className="relative shrink-0" style={{ width: LOGO, height: LOGO }}>
@@ -81,9 +85,9 @@ export function RiferoTopBar({
           className={linkClass}
           style={glow}
         >
-          {rightLine1}
+          {right1}
           <br />
-          {rightLine2}
+          {right2}
         </a>
       </div>
     </div>
