@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -18,8 +18,7 @@ import {
   FileText,
 } from 'lucide-react';
 import {
-  formatMXN,
-  formatDateMX,
+  formatDate,
   waReserveMessage,
   buildWhatsappLink,
   dialCodeForCountry,
@@ -31,7 +30,9 @@ import {
   PHONE_COUNTRIES,
   type BuyerInput,
   type OrderReceiptDTO,
+  type MessageKey,
 } from '@bismark/shared';
+import { useT, useMoney, useLocale } from '@/store/site';
 import { ApiError, apiAssetUrl } from '@/lib/api';
 import { sanitizeHtml, isRichHtml } from '@/lib/sanitizeHtml';
 import { decodeTicketMap, applyTicketChanges, type TicketMapData } from '@/lib/ticketMap';
@@ -78,16 +79,20 @@ interface Props {
 }
 
 // Formulario del comprador (estilo referencia: País · WhatsApp · Nombre(s) · Apellidos · Estado).
-const reserveFormSchema = z.object({
-  // País del teléfono: México (+52) por defecto; USA (+1) para clientes en USA.
-  country: z.string().min(2).max(2).default('MX'),
-  whatsapp: z.string().min(10, 'Escribe tu WhatsApp (10 dígitos)').max(20),
-  nombres: z.string().trim().min(2, 'Escribe tu(s) nombre(s)').max(60),
-  // Opcional: permite nombres de una sola palabra y el prellenado de nombres ya guardados.
-  apellidos: z.string().trim().max(60).optional().or(z.literal('')),
-  state: z.string().max(60).optional().or(z.literal('')),
-});
-type ReserveFormInput = z.infer<typeof reserveFormSchema>;
+// Los mensajes de error viajan traducidos: el esquema se arma con el idioma del sitio.
+type Translate = (key: MessageKey, vars?: Record<string, string | number>) => string;
+
+const makeReserveSchema = (tr: Translate) =>
+  z.object({
+    // País del teléfono: México (+52) por defecto; USA (+1) para clientes en USA.
+    country: z.string().min(2).max(2).default('MX'),
+    whatsapp: z.string().min(10, tr('buyer.errWhatsapp')).max(20),
+    nombres: z.string().trim().min(2, tr('buyer.errFirstName')).max(60),
+    // Opcional: permite nombres de una sola palabra y el prellenado de nombres ya guardados.
+    apellidos: z.string().trim().max(60).optional().or(z.literal('')),
+    state: z.string().max(60).optional().or(z.literal('')),
+  });
+type ReserveFormInput = z.infer<ReturnType<typeof makeReserveSchema>>;
 
 // Separa un nombre completo guardado en nombres / apellidos (para prellenar).
 function splitName(full: string): { nombres: string; apellidos: string } {
@@ -141,22 +146,24 @@ function PrizeGallery({ images, title }: { images: { id: string; url: string }[]
 // y —si la rifa dio oportunidades— los números de regalo con sus números reales
 // (no solo la cantidad). Sin regalos, solo la lista de boletos.
 function ReceiptTickets({ ticketNumbers, giftNumbers }: { ticketNumbers: string[]; giftNumbers: string[] }) {
+  const tr = useT();
   const hasGifts = giftNumbers.length > 0;
 
   return (
     <>
-      <p className="mb-1 text-[11px] text-muted-foreground">Tus boletos ({ticketNumbers.length})</p>
+      <p className="mb-1 text-[11px] text-muted-foreground">
+        {tr('receipt.yourTickets', { n: ticketNumbers.length })}
+      </p>
       <p className="text-sm font-semibold tabular-nums">{ticketNumbers.join(', ')}</p>
 
       {hasGifts && (
         <div className="mt-3 rounded-lg bg-[var(--rifero-primary)]/8 p-2.5">
           <p className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--rifero-primary)]">
-            🎁 Boletos de regalo ({giftNumbers.length})
+            {tr('receipt.giftTickets', { n: giftNumbers.length })}
           </p>
           <p className="mt-0.5 text-sm font-semibold tabular-nums">{giftNumbers.join(', ')}</p>
           <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
-            Por cada boleto que apartaste recibiste oportunidades adicionales de regalo. Participas con{' '}
-            <strong>{ticketNumbers.length + giftNumbers.length}</strong> números en total.
+            {tr('receipt.giftExplain', { total: ticketNumbers.length + giftNumbers.length })}
           </p>
         </div>
       )}
@@ -165,6 +172,10 @@ function ReceiptTickets({ ticketNumbers, giftNumbers }: { ticketNumbers: string[
 }
 
 export default function PublicRaffle({ subdomain }: Props) {
+  // Idioma y moneda del sitio ("Modo USA"): todo lo que ve el comprador.
+  const tr = useT();
+  const fmt = useMoney();
+  const locale = useLocale();
   const params = useParams<{ slug: string; eventParam: string; ref?: string }>();
   const slug = subdomain ?? params.slug ?? '';
   const eventNumber = parseInt((params.eventParam ?? '').replace(/^e/i, ''), 10);
@@ -273,6 +284,7 @@ export default function PublicRaffle({ subdomain }: Props) {
     });
   }, [selected.length, raffle?.id, raffle?.title, raffle?.ticketPrice]);
 
+  const reserveFormSchema = useMemo(() => makeReserveSchema(tr), [tr]);
   const form = useForm<ReserveFormInput>({
     resolver: zodResolver(reserveFormSchema),
     defaultValues: { country: 'MX', whatsapp: '', nombres: '', apellidos: '', state: '' },
@@ -328,12 +340,13 @@ export default function PublicRaffle({ subdomain }: Props) {
           raffleName: raffle.title,
           ticketNumbers: res.receipt.ticketNumbers.join(', '),
           giftNumbers: res.receipt.giftNumbers.join(', '),
-          total: formatMXN(res.receipt.totalAmount),
+          total: fmt(res.receipt.totalAmount),
           orderCode: res.receipt.code,
           buyerName: variables.fullName,
           buyerPhone: variables.phone,
           buyerState: variables.state,
           paymentUrl,
+          locale,
         });
         window.location.href = buildWhatsappLink(waNumber, message, waDial);
         return;
@@ -347,7 +360,7 @@ export default function PublicRaffle({ subdomain }: Props) {
     },
     onError: (err) => {
       // Boletos ya no disponibles u otro error: refrescar cuadrícula.
-      toast.error(err instanceof ApiError ? err.message : 'No se pudo apartar. Intenta de nuevo.');
+      toast.error(err instanceof ApiError ? err.message : tr('raffle.reserveFailed'));
       void queryClient.invalidateQueries({ queryKey: ['public-ticket-map', raffle?.id] });
       setBuyerOpen(false);
     },
@@ -391,10 +404,8 @@ export default function PublicRaffle({ subdomain }: Props) {
           <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-muted">
             <Ticket className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h1 className="text-2xl font-extrabold">Rifa no disponible</h1>
-          <p className="mt-2 text-muted-foreground">
-            Esta rifa no existe o ya no está disponible. Revisa el enlace o vuelve a la página del rifero.
-          </p>
+          <h1 className="text-2xl font-extrabold">{tr('raffle.unavailable.title')}</h1>
+          <p className="mt-2 text-muted-foreground">{tr('raffle.unavailable.body')}</p>
           <div className="mt-8">
             <PoweredBy />
           </div>
@@ -418,8 +429,8 @@ export default function PublicRaffle({ subdomain }: Props) {
   // pagada y, si el sitio NO recibe comprobantes, envía su pago por WhatsApp
   // desde cada orden. Solo cambia la etiqueta según se suban comprobantes o no.
   const uploadAction = raffle.allowProofUpload
-    ? { line1: 'Sube tu', line2: 'pago aquí', href: verificarHref, pulse: true }
-    : { line1: 'Verifica tu', line2: 'boleto', href: verificarHref, pulse: true };
+    ? { line1: tr('bar.upload.l1'), line2: tr('bar.upload.l2'), href: verificarHref, pulse: true }
+    : { line1: tr('bar.verify.l1'), line2: tr('bar.verify.l2'), href: verificarHref, pulse: true };
   const hasPayInfo = !!(pay.holderName || pay.bank || pay.clabe || pay.cardNumber || pay.concept || pay.instructions);
   // El cintillo (RaffleBrandBar) tiene altura fija; el panel de selección va justo debajo.
   const panelTopPx = BAR_TOTAL + 6;
@@ -483,9 +494,9 @@ export default function PublicRaffle({ subdomain }: Props) {
   const copyText = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success(`${label} copiado`);
+      toast.success(tr('common.copied', { label }));
     } catch {
-      toast.error('No se pudo copiar');
+      toast.error(tr('common.copyFailed'));
     }
   };
 
@@ -514,7 +525,7 @@ export default function PublicRaffle({ subdomain }: Props) {
           logoScale={rifero.logoScale}
           logoGlow={rifero.logoGlow}
           riferoHref={riferoHref}
-          left={{ line1: 'Métodos', line2: 'de pago', onClick: () => setPayOpen(true) }}
+          left={{ line1: tr('bar.pay.l1'), line2: tr('bar.pay.l2'), onClick: () => setPayOpen(true) }}
           right={uploadAction}
           hidden={barHidden}
         />
@@ -546,7 +557,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                 onClick={openBuyer}
                 className="attn-pulse flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--rifero-primary)] py-2.5 text-base font-black uppercase tracking-wide text-white active:scale-[0.99] sm:text-lg lg:mx-auto lg:max-w-xl lg:py-3"
               >
-                <span aria-hidden className="attn-arrow-l">→</span> Apartar{' '}
+                <span aria-hidden className="attn-arrow-l">→</span> {tr('raffle.reserve')}{' '}
                 <span aria-hidden className="attn-arrow-r">←</span>
               </button>
 
@@ -557,7 +568,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                     type="button"
                     onClick={() => setSelected(selected.filter((x) => x !== n))}
                     className="inline-flex items-center gap-1 rounded border-2 border-[var(--rifero-primary)] px-1.5 py-0.5 text-xs font-bold tabular-nums transition-colors hover:bg-[var(--rifero-primary)]"
-                    title="Quitar boleto"
+                    title={tr('raffle.removeTicket')}
                   >
                     {String(n).padStart(raffle.ticketFormat, '0')}
                     <X className="h-3 w-3 opacity-70" />
@@ -566,21 +577,24 @@ export default function PublicRaffle({ subdomain }: Props) {
               </div>
 
               <p className="mt-2 text-center text-sm font-extrabold uppercase tracking-wide text-[#ffe600] [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
-                {selected.length} {selected.length === 1 ? 'boleto' : 'boletos'} ·{' '}
+                {selected.length} {tr(selected.length === 1 ? 'common.ticket' : 'common.tickets')} ·{' '}
                 {priceResult.savings > 0 && (
-                  <span className="font-semibold text-white/55 line-through">{formatMXN(priceResult.baseTotal)}</span>
+                  <span className="font-semibold text-white/55 line-through">{fmt(priceResult.baseTotal)}</span>
                 )}{' '}
-                {formatMXN(priceResult.total)}
+                {fmt(priceResult.total)}
               </p>
               {priceResult.savings > 0 && (
                 <p className="text-center text-xs font-extrabold uppercase tracking-wide text-emerald-400">
-                  ¡Ahorras {formatMXN(priceResult.savings)}!
+                  {tr('raffle.youSave', { amount: fmt(priceResult.savings) })}
                 </p>
               )}
               {giftCount > 0 && (
                 <div className="mt-1.5">
                   <p className="text-center text-sm font-extrabold uppercase tracking-wide text-emerald-300 [text-shadow:0_1px_2px_rgba(0,0,0,0.55)]">
-                    🎁 +{giftCount} {giftCount === 1 ? 'boleto' : 'boletos'} de regalo
+                    {tr('raffle.giftTickets', {
+                      count: giftCount,
+                      noun: tr(giftCount === 1 ? 'common.ticket' : 'common.tickets'),
+                    })}
                   </p>
                   {giftPreviewNumbers.length > 0 && (
                     <div className="mx-auto mt-1 flex max-h-20 max-w-md flex-wrap justify-center gap-1 overflow-y-auto">
@@ -598,13 +612,17 @@ export default function PublicRaffle({ subdomain }: Props) {
               )}
               {dealHint && (
                 <p className="text-center text-xs font-semibold text-white/90">
-                  Agrega {dealHint.addQty} más y {dealHint.atQty} boletos te salen en {formatMXN(dealHint.newTotal)}
+                  {tr('raffle.dealHint', {
+                    add: dealHint.addQty,
+                    at: dealHint.atQty,
+                    total: fmt(dealHint.newTotal),
+                  })}
                 </p>
               )}
               <p className="text-center text-xs font-semibold text-[#ffe600]/90">
-                Para eliminar, toca el boleto ·{' '}
+                {tr('raffle.removeHint')} ·{' '}
                 <button type="button" onClick={() => setSelected([])} className="underline hover:text-white">
-                  Limpiar todo
+                  {tr('raffle.clearAll')}
                 </button>
               </p>
             </div>
@@ -630,7 +648,7 @@ export default function PublicRaffle({ subdomain }: Props) {
               )}
               {raffle.drawDate && (
                 <p className="mt-2 text-base font-extrabold uppercase tracking-wide text-white sm:text-lg lg:text-xl">
-                  {formatDateMX(raffle.drawDate)}
+                  {formatDate(raffle.drawDate, locale)}
                 </p>
               )}
             </div>
@@ -647,7 +665,9 @@ export default function PublicRaffle({ subdomain }: Props) {
               {/* Llamado a la lista de boletos — flechas y texto grandes (según referencia) */}
               <div className="mt-3 flex items-center justify-center gap-3 lg:mt-0">
                 <Triangle className="h-7 w-7 rotate-180 fill-[var(--rifero-primary)] text-[var(--rifero-primary)] sm:h-9 sm:w-9" />
-                <span className="text-xl font-black uppercase tracking-wide sm:text-2xl">Lista de boletos abajo</span>
+                <span className="text-xl font-black uppercase tracking-wide sm:text-2xl">
+                  {tr('raffle.ticketsBelow')}
+                </span>
                 <Triangle className="h-7 w-7 rotate-180 fill-[var(--rifero-primary)] text-[var(--rifero-primary)] sm:h-9 sm:w-9" />
               </div>
 
@@ -670,7 +690,7 @@ export default function PublicRaffle({ subdomain }: Props) {
               <div className="mx-auto max-w-2xl px-4 lg:max-w-none lg:px-7">
                 {/* Encabezado (solo PC): da contexto a la columna de precios */}
                 <p className="mb-3 hidden text-center font-display text-sm font-extrabold uppercase tracking-[0.22em] text-[var(--rifero-primary)] lg:block">
-                  Precios
+                  {tr('raffle.prices')}
                 </p>
                 <div>
                   {Array.from({ length: raffle.priceListRows ?? 10 }, (_, i) => i + 1).map((n) => {
@@ -681,13 +701,13 @@ export default function PublicRaffle({ subdomain }: Props) {
                         className="flex items-center justify-center gap-1.5 py-1.5 text-sm font-bold uppercase tracking-wide lg:py-2 lg:text-base"
                       >
                         <span className="text-[var(--rifero-primary)]">{n}</span>
-                        <span>{n === 1 ? 'boleto por' : 'boletos por'}</span>
+                        <span>{tr(n === 1 ? 'raffle.ticketFor' : 'raffle.ticketsFor')}</span>
                         {row.savings > 0 && (
                           <span className="text-xs font-semibold text-white/40 line-through lg:text-sm">
-                            {formatMXN(row.baseTotal)}
+                            {fmt(row.baseTotal)}
                           </span>
                         )}
-                        <span className="tabular-nums">{formatMXN(row.total)}</span>
+                        <span className="tabular-nums">{fmt(row.total)}</span>
                       </div>
                     );
                   })}
@@ -704,7 +724,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                           key={`b${i}`}
                           className="rounded-full bg-[var(--rifero-primary)]/15 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[var(--rifero-primary)] ring-1 ring-[var(--rifero-primary)]/30"
                         >
-                          {b.qty} boletos por {formatMXN(b.price)}
+                          {tr('raffle.bundle', { qty: b.qty, price: fmt(b.price) })}
                         </span>
                       ))}
                     {raffle.pricingTiers
@@ -715,7 +735,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                           key={`t${i}`}
                           className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-emerald-400 ring-1 ring-emerald-500/30"
                         >
-                          Desde {t.minQty}: {formatMXN(t.unitPrice)} c/u
+                          {tr('raffle.tier', { qty: t.minQty, price: fmt(t.unitPrice) })}
                         </span>
                       ))}
                   </div>
@@ -726,7 +746,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                   href="#apartar"
                   className="mt-5 hidden w-full items-center justify-center gap-2 rounded-xl bg-[var(--rifero-primary)] py-3 font-display text-base font-extrabold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5 lg:flex"
                 >
-                  Elegir mis boletos
+                  {tr('raffle.pickTickets')}
                   <ChevronDown className="h-5 w-5" />
                 </a>
               </div>
@@ -753,9 +773,7 @@ export default function PublicRaffle({ subdomain }: Props) {
             {/* Banner negro de instrucción (en PC, tarjeta redondeada dentro del ancho) */}
             <div className="-mx-4 mb-4 bg-zinc-950 px-4 py-3 text-center lg:mx-0 lg:rounded-2xl lg:py-4">
               <h2 className="text-lg font-black uppercase leading-tight tracking-wide text-white sm:text-xl lg:text-2xl">
-                {raffle.manualSelection
-                  ? 'Haz click abajo en tu número de la suerte'
-                  : 'Deja que la maquinita elija tus números de la suerte'}
+                {tr(raffle.manualSelection ? 'raffle.tapYourNumber' : 'raffle.letMachinePick')}
               </h2>
             </div>
 
@@ -768,7 +786,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                 className="mb-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-[var(--rifero-primary)] text-base font-extrabold uppercase tracking-wide text-[var(--rifero-primary)] transition-colors hover:bg-[var(--rifero-primary)]/10 active:scale-[0.99] sm:text-lg lg:mx-auto lg:max-w-lg"
               >
                 <Hash className="h-5 w-5" />
-                Ir a mi número
+                {tr('raffle.goToNumber')}
               </button>
             )}
 
@@ -795,7 +813,7 @@ export default function PublicRaffle({ subdomain }: Props) {
             <div className="mt-8 lg:mt-12">
               <h2 className="mb-3 flex items-center gap-2 text-lg font-extrabold lg:justify-center lg:text-2xl">
                 <Trophy className="h-5 w-5 text-[var(--rifero-primary)] lg:h-6 lg:w-6" />
-                Ganadores
+                {tr('raffle.winners')}
               </h2>
               {raffle.winners.find((w) => w.evidenceUrl)?.evidenceUrl && (
                 <video
@@ -816,7 +834,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                           {w.position}°
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm text-muted-foreground">Boleto ganador</p>
+                          <p className="text-sm text-muted-foreground">{tr('raffle.winningTicket')}</p>
                           <p className="text-xl font-extrabold tabular-nums">{w.ticketDisplayNumber}</p>
                           {w.prizeDescription && (
                             <p className="line-clamp-1 text-sm text-muted-foreground">{w.prizeDescription}</p>
@@ -834,7 +852,7 @@ export default function PublicRaffle({ subdomain }: Props) {
             <details className="group mt-8 overflow-hidden rounded-2xl border bg-card shadow-sm [&_summary::-webkit-details-marker]:hidden lg:mx-auto lg:mt-12 lg:max-w-3xl">
               <summary className="flex cursor-pointer list-none items-center gap-2.5 px-4 py-3.5 font-display text-base font-extrabold tracking-tight">
                 <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
-                <span className="flex-1">Términos y condiciones</span>
+                <span className="flex-1">{tr('raffle.terms')}</span>
                 <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
               </summary>
               <p className="whitespace-pre-line border-t px-4 py-3.5 text-sm leading-relaxed text-muted-foreground">
@@ -858,7 +876,7 @@ export default function PublicRaffle({ subdomain }: Props) {
             rel="noopener noreferrer"
             className="mt-10 block bg-[var(--rifero-primary)] py-4 text-center font-extrabold uppercase leading-tight tracking-wide text-white transition-opacity hover:opacity-90 lg:mt-14 lg:py-6 lg:text-lg"
           >
-            <span className="underline">Preguntas al WhatsApp</span>
+            <span className="underline">{tr('raffle.whatsappQuestions')}</span>
             <br />
             <span className="text-lg tabular-nums lg:text-2xl">
               {formatPhoneIntl(rifero.whatsapp, rifero.whatsappCountry)}
@@ -867,7 +885,7 @@ export default function PublicRaffle({ subdomain }: Props) {
               <>
                 <br />
                 <span className="text-sm font-semibold normal-case tracking-normal opacity-90">
-                  Te atiende {rifero.whatsappName}
+                  {tr('raffle.attendedBy', { name: rifero.whatsappName })}
                 </span>
               </>
             )}
@@ -883,16 +901,14 @@ export default function PublicRaffle({ subdomain }: Props) {
       <Dialog open={payOpen} onOpenChange={setPayOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-display uppercase tracking-tight">Métodos de pago</DialogTitle>
-            <DialogDescription>Realiza tu pago a estos datos y guarda tu comprobante para confirmarlo.</DialogDescription>
+            <DialogTitle className="font-display uppercase tracking-tight">{tr('pay.title')}</DialogTitle>
+            <DialogDescription>{tr('pay.desc')}</DialogDescription>
           </DialogHeader>
 
           {hasPayInfo ? (
             <PaymentCard pay={pay} />
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Este rifero aún no publicó sus métodos de pago. Contáctalo por WhatsApp para saber cómo pagar.
-            </p>
+            <p className="text-sm text-muted-foreground">{tr('pay.none')}</p>
           )}
 
           {(pay.whatsapp || rifero.whatsapp) && (
@@ -903,8 +919,8 @@ export default function PublicRaffle({ subdomain }: Props) {
                 size="lg"
                 label={
                   (pay.whatsapp ? pay.whatsappName : rifero.whatsappName)
-                    ? `Preguntar a ${pay.whatsapp ? pay.whatsappName : rifero.whatsappName}`
-                    : 'Preguntar por WhatsApp'
+                    ? tr('pay.askTo', { name: (pay.whatsapp ? pay.whatsappName : rifero.whatsappName) as string })
+                    : tr('pay.ask')
                 }
                 message={`¡Hola *${rifero.publicName}*! 👋\n\nTengo una pregunta sobre los *métodos de pago* de la rifa:\n🎟️ *${raffle.title}*`}
               />
@@ -920,7 +936,7 @@ export default function PublicRaffle({ subdomain }: Props) {
           <button
             type="button"
             onClick={() => setBuyerOpen(false)}
-            aria-label="Cerrar"
+            aria-label={tr('common.close')}
             disabled={reserveMutation.isPending}
             className="absolute right-0 top-0 z-10 grid h-10 w-10 place-items-center rounded-bl-2xl rounded-tr-2xl bg-red-600 text-white shadow-md transition hover:bg-red-700 disabled:opacity-50"
           >
@@ -929,22 +945,22 @@ export default function PublicRaffle({ subdomain }: Props) {
 
           <div className="px-5 py-6">
             <DialogTitle className="px-7 text-center text-lg font-black uppercase leading-tight tracking-tight">
-              Llena tus datos y da click en apartar
+              {tr('buyer.title')}
             </DialogTitle>
-            <DialogDescription className="sr-only">Completa tus datos para apartar tus boletos.</DialogDescription>
+            <DialogDescription className="sr-only">{tr('buyer.desc')}</DialogDescription>
 
             <p className="mt-2 text-center text-xl font-black uppercase" style={{ color: 'var(--rifero-primary)' }}>
-              {selected.length} {selected.length === 1 ? 'boleto' : 'boletos'} por{' '}
+              {selected.length} {tr(selected.length === 1 ? 'raffle.ticketFor' : 'raffle.ticketsFor')}{' '}
               {priceResult.savings > 0 && (
                 <span className="text-base font-bold text-muted-foreground line-through">
-                  {formatMXN(priceResult.baseTotal)}
+                  {fmt(priceResult.baseTotal)}
                 </span>
               )}{' '}
-              {formatMXN(priceResult.total)}
+              {fmt(priceResult.total)}
             </p>
             {priceResult.savings > 0 && (
               <p className="text-center text-sm font-extrabold uppercase text-emerald-600">
-                ¡Ahorras {formatMXN(priceResult.savings)}!
+                {tr('raffle.youSave', { amount: fmt(priceResult.savings) })}
               </p>
             )}
 
@@ -956,7 +972,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                   {/* Selector de país (bandera + lada) */}
                   <div className="relative shrink-0">
                     <select
-                      aria-label="País del teléfono"
+                      aria-label={tr('buyer.phoneCountry')}
                       className="h-12 appearance-none rounded-xl border-2 bg-background pl-3 pr-7 text-base font-semibold focus-visible:border-[var(--rifero-primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--rifero-primary)]"
                       {...countryField}
                       onChange={(e) => {
@@ -980,7 +996,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                       type="tel"
                       inputMode="numeric"
                       autoComplete="tel"
-                      placeholder="WhatsApp (10 dígitos)"
+                      placeholder={tr('buyer.whatsapp')}
                       className="h-12 rounded-xl border-2 text-base placeholder:font-semibold placeholder:uppercase placeholder:tracking-wide focus-visible:border-[var(--rifero-primary)] focus-visible:ring-[var(--rifero-primary)]"
                       {...form.register('whatsapp')}
                     />
@@ -995,7 +1011,7 @@ export default function PublicRaffle({ subdomain }: Props) {
               <div>
                 <Input
                   autoComplete="given-name"
-                  placeholder="Nombre(s)"
+                  placeholder={tr('buyer.firstName')}
                   className="h-12 rounded-xl border-transparent bg-muted text-base uppercase placeholder:font-semibold placeholder:uppercase placeholder:tracking-wide focus-visible:border-[var(--rifero-primary)] focus-visible:bg-background focus-visible:ring-[var(--rifero-primary)]"
                   {...nombresField}
                   onChange={toUpperLive(nombresField)}
@@ -1008,7 +1024,7 @@ export default function PublicRaffle({ subdomain }: Props) {
               <div>
                 <Input
                   autoComplete="family-name"
-                  placeholder="Apellidos (opcional)"
+                  placeholder={tr('buyer.lastName')}
                   className="h-12 rounded-xl border-transparent bg-muted text-base uppercase placeholder:font-semibold placeholder:uppercase placeholder:tracking-wide focus-visible:border-[var(--rifero-primary)] focus-visible:bg-background focus-visible:ring-[var(--rifero-primary)]"
                   {...apellidosField}
                   onChange={toUpperLive(apellidosField)}
@@ -1023,7 +1039,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                 {...form.register('state')}
               >
                 <option value="">
-                  {selectedCountry === 'US' ? 'Selecciona estado (USA)' : 'Selecciona estado'}
+                  {tr(selectedCountry === 'US' ? 'buyer.selectStateUsa' : 'buyer.selectState')}
                 </option>
                 {statesForCountry.map((s) => (
                   <option key={s} value={s}>
@@ -1039,13 +1055,11 @@ export default function PublicRaffle({ subdomain }: Props) {
                 className="mt-2 h-14 w-full rounded-xl text-lg font-black uppercase tracking-wide text-white shadow-lg transition hover:brightness-110"
                 style={{ backgroundColor: 'var(--rifero-primary)' }}
               >
-                Apartar
+                {tr('raffle.reserve')}
               </Button>
 
               <p className="pt-1 text-center text-sm font-bold text-emerald-600">
-                {raffle.allowProofUpload
-                  ? '¡Al apartar podrás subir el comprobante de pago de tu boleto!'
-                  : '¡Al apartar te enviaremos a WhatsApp para coordinar tu pago!'}
+                {tr(raffle.allowProofUpload ? 'buyer.afterUpload' : 'buyer.afterWhatsapp')}
               </p>
             </form>
           </div>
@@ -1061,22 +1075,20 @@ export default function PublicRaffle({ subdomain }: Props) {
                 <div className="mx-auto mb-2 grid h-14 w-14 place-items-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-950">
                   <CheckCircle2 className="h-8 w-8" />
                 </div>
-                <DialogTitle className="text-center">¡Boletos apartados!</DialogTitle>
-                <DialogDescription className="text-center">
-                  Guarda tu folio y realiza tu pago para confirmar.
-                </DialogDescription>
+                <DialogTitle className="text-center">{tr('receipt.title')}</DialogTitle>
+                <DialogDescription className="text-center">{tr('receipt.desc')}</DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">
                 {/* Folio + tiempo restante */}
                 <div className="flex items-center justify-between rounded-xl bg-muted p-3">
                   <div>
-                    <p className="text-[11px] text-muted-foreground">Tu folio</p>
+                    <p className="text-[11px] text-muted-foreground">{tr('receipt.code')}</p>
                     <p className="text-lg font-extrabold tracking-wide">{receipt.code}</p>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => copyText(receipt.code, 'Folio')}>
+                  <Button variant="ghost" size="sm" onClick={() => copyText(receipt.code, tr('receipt.codeLabel'))}>
                     <Copy className="h-4 w-4" />
-                    Copiar
+                    {tr('common.copy')}
                   </Button>
                 </div>
 
@@ -1088,16 +1100,16 @@ export default function PublicRaffle({ subdomain }: Props) {
 
                   <Separator className="my-3" />
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Total a pagar</span>
+                    <span className="text-sm text-muted-foreground">{tr('receipt.totalToPay')}</span>
                     <span className="text-xl font-extrabold text-[var(--rifero-primary)]">
-                      {formatMXN(receipt.totalAmount)}
+                      {fmt(receipt.totalAmount)}
                     </span>
                   </div>
                 </div>
 
                 {/* Datos para tu pago: tarjetas bancarias del rifero */}
                 <div>
-                  <p className="mb-2 text-sm font-bold">Datos para tu pago</p>
+                  <p className="mb-2 text-sm font-bold">{tr('receipt.paymentData')}</p>
                   <PaymentCard pay={receipt.paymentProfile} />
                 </div>
 
@@ -1110,15 +1122,16 @@ export default function PublicRaffle({ subdomain }: Props) {
                       size="lg"
                       label={
                         receipt.paymentProfile.whatsappName
-                          ? `Enviar comprobante a ${receipt.paymentProfile.whatsappName}`
-                          : 'Enviar comprobante por WhatsApp'
+                          ? tr('receipt.sendProofTo', { name: receipt.paymentProfile.whatsappName })
+                          : tr('receipt.sendProof')
                       }
                       message={waReserveMessage({
                         raffleName: raffle.title,
                         ticketNumbers: receipt.ticketNumbers.join(', '),
                         giftNumbers: receipt.giftNumbers.join(', '),
-                        total: formatMXN(receipt.totalAmount),
+                        total: fmt(receipt.totalAmount),
                         orderCode: receipt.code,
+                        locale,
                       })}
                     />
                   )}
@@ -1131,13 +1144,13 @@ export default function PublicRaffle({ subdomain }: Props) {
                           rel="noopener noreferrer"
                         >
                           <Download className="h-5 w-5" />
-                          Descargar boleto digital
+                          {tr('receipt.download')}
                         </a>
                       </Button>
                       <Button asChild variant="ghost" size="lg">
                         <a href={`/boleto/${receipt.digitalTicketCode}`} target="_blank" rel="noopener noreferrer">
                           <ExternalLink className="h-5 w-5" />
-                          Ver mi boleto
+                          {tr('receipt.view')}
                         </a>
                       </Button>
                     </>
@@ -1162,10 +1175,8 @@ export default function PublicRaffle({ subdomain }: Props) {
       <Dialog open={folioOpen} onOpenChange={setFolioOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Sube tu pago</DialogTitle>
-            <DialogDescription>
-              Escribe el folio de tu compra (por ejemplo BSK-XXXX) para ver tu boleto y subir tu comprobante.
-            </DialogDescription>
+            <DialogTitle>{tr('folio.title')}</DialogTitle>
+            <DialogDescription>{tr('folio.desc')}</DialogDescription>
           </DialogHeader>
           <form
             onSubmit={(e) => {
@@ -1186,7 +1197,7 @@ export default function PublicRaffle({ subdomain }: Props) {
             />
             <DialogFooter>
               <Button type="submit" size="lg" className="w-full">
-                Ver mi pago
+                {tr('folio.cta')}
               </Button>
             </DialogFooter>
           </form>

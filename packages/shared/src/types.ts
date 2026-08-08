@@ -12,6 +12,7 @@ import type {
   PaymentProofStatus,
 } from './enums.js';
 import type { PriceTier, PriceBundle } from './pricing.js';
+import type { Locale, Currency } from './i18n.js';
 
 export interface ApiError {
   error: string;
@@ -106,6 +107,8 @@ export interface PaymentMethodDTO {
   holderName?: string | null;
   clabe?: string | null;
   cardNumber?: string | null;
+  // Usuario del método (monederos de EE. UU.): $cashtag, @usuario, correo…
+  handle?: string | null;
   concept?: string | null;
   instructions?: string | null;
 }
@@ -156,6 +159,9 @@ export interface RiferoProfileDTO {
   useDigitalDraw: boolean;
   // Pixel de Facebook (Meta): ID numérico. Null = las páginas públicas no lo cargan.
   facebookPixelId: string | null;
+  // Modo USA: idioma de lo que ve el comprador y moneda en la que se cobra.
+  locale: Locale;
+  currency: Currency;
   status: RiferoStatus;
   verified: boolean;
   // Derivados
@@ -188,6 +194,9 @@ export interface PublicRiferoDTO {
   verified: boolean;
   // Pixel de Facebook (Meta) que deben cargar las páginas públicas. Null = ninguno.
   facebookPixelId: string | null;
+  // Modo USA: idioma de la página pública y moneda de los precios.
+  locale: Locale;
+  currency: Currency;
   faqs: FaqItemDTO[];
   raffles: PublicRaffleSummaryDTO[];
 }

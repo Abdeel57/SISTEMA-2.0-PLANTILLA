@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { formatDateTimeMX, RaffleStatus } from '@bismark/shared';
+import { formatDateTime, RaffleStatus } from '@bismark/shared';
+import { useT, useLocale } from '@/store/site';
 
 // Cuenta regresiva al sorteo. Si la rifa sigue activa y la fecha es futura,
 // muestra un cronómetro (días/horas/min/seg) que corre en vivo. Si ya finalizó
@@ -54,6 +55,8 @@ interface Props {
 }
 
 export function RaffleCountdown({ drawDate, status }: Props) {
+  const tr = useT();
+  const locale = useLocale();
   const [now, setNow] = useState(() => Date.now());
   const target = drawDate ? new Date(drawDate) : null;
   const finished = status === RaffleStatus.FINISHED || status === RaffleStatus.CANCELLED;
@@ -80,18 +83,18 @@ export function RaffleCountdown({ drawDate, status }: Props) {
               <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--rifero-primary)]" />
             </span>
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--rifero-primary)]">
-              Faltan para el sorteo
+              {tr('countdown.until')}
             </p>
           </div>
 
           <div className="flex items-stretch justify-center gap-1 sm:gap-2">
-            <Segment value={d} label={d === 1 ? 'Día' : 'Días'} />
+            <Segment value={d} label={tr(d === 1 ? 'countdown.day' : 'countdown.days')} />
             <Colon />
-            <Segment value={h} label="Horas" />
+            <Segment value={h} label={tr('countdown.hours')} />
             <Colon />
-            <Segment value={m} label="Min" />
+            <Segment value={m} label={tr('countdown.minutes')} />
             <Colon />
-            <Segment value={s} label="Seg" pulse />
+            <Segment value={s} label={tr('countdown.seconds')} pulse />
           </div>
         </div>
       </section>
@@ -103,11 +106,11 @@ export function RaffleCountdown({ drawDate, status }: Props) {
     <section className="bg-background px-4 pb-6 pt-2 text-foreground">
       <div className="mx-auto max-w-2xl text-center">
         <p className="text-xs font-bold uppercase tracking-[0.22em] text-muted-foreground">
-          {finished ? 'Sorteo realizado' : 'Fecha del sorteo'}
+          {tr(finished ? 'countdown.drawDone' : 'countdown.drawDate')}
         </p>
         {drawDate && (
           <p className="mt-2 text-lg font-black uppercase tracking-wide text-foreground sm:text-xl">
-            {formatDateTimeMX(drawDate)}
+            {formatDateTime(drawDate, locale)}
           </p>
         )}
       </div>

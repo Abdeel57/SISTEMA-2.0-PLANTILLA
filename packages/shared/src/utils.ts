@@ -1,4 +1,5 @@
 import { RESERVED_SLUGS, SLUG_REGEX, PHONE_COUNTRIES, DEFAULT_COUNTRY, type CountryCode } from './constants.js';
+import { intlLocale, type Currency, type Locale } from './i18n.js';
 
 // ── Slug ────────────────────────────────────────────────────
 export function slugify(input: string): string {
@@ -58,7 +59,20 @@ export function giftTicketRange(
   return { start: manualEnd + 1, end, count: totalTickets * (opportunities - 1) };
 }
 
-// ── Dinero (MXN) ────────────────────────────────────────────
+// ── Dinero ──────────────────────────────────────────────────
+// La moneda la elige el rifero (MXN o USD, "Modo USA"). Los importes se guardan
+// como enteros, así que no se muestran decimales en ninguna de las dos.
+export function formatMoney(amount: number, currency: Currency = 'MXN'): string {
+  return new Intl.NumberFormat(currency === 'USD' ? 'en-US' : 'es-MX', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+// Atajo histórico (pesos). Se conserva para el panel del rifero, que siempre
+// muestra la moneda del sitio vía formatMoney.
 export function formatMXN(pesos: number): string {
   return new Intl.NumberFormat('es-MX', {
     style: 'currency',
@@ -121,54 +135,93 @@ export function formatPhoneIntl(phone: string, country?: string | null): string 
 export interface WaTemplateVars {
   raffleName: string;
   ticketNumbers: string; // ya formateados separados por coma
-  total: string; // ya formateado MXN
+  total: string; // ya formateado en la moneda del sitio
   orderCode: string;
   buyerName?: string; // nombre del comprador (opcional)
   buyerPhone?: string; // teléfono del comprador (opcional). Vacío = sin línea.
   buyerState?: string | null; // estado/origen del comprador (opcional). Vacío/null = sin línea.
   paymentUrl?: string; // liga a "Métodos de pago" de la página (opcional)
   giftNumbers?: string; // boletos de regalo (oportunidades), ya formateados. Vacío = sin línea.
+  locale?: Locale; // idioma del sitio ("Modo USA"). Default español.
 }
+
+// Etiquetas de los mensajes de WhatsApp, por idioma.
+const WA = {
+  es: {
+    reserved: '🎟️ *¡APARTÉ MIS BOLETOS!*',
+    paid: '✅ *¡YA REALICÉ MI PAGO!*',
+    raffle: 'Rifa',
+    name: 'Nombre',
+    phone: 'Teléfono',
+    state: 'Estado',
+    tickets: 'Boletos',
+    gifts: 'Boletos de regalo',
+    totalToPay: 'Total a pagar',
+    total: 'Total',
+    code: 'Folio',
+    payMethods: '💳 *Métodos de pago:*',
+    reservedClose: '🙌 Quedo al pendiente para completar mi pago. ¡Gracias!',
+    paidClose: '📎 Te envío mi comprobante para que confirmes mi pago. ¡Gracias! 🙌',
+  },
+  en: {
+    reserved: '🎟️ *I RESERVED MY TICKETS!*',
+    paid: '✅ *I ALREADY SENT MY PAYMENT!*',
+    raffle: 'Giveaway',
+    name: 'Name',
+    phone: 'Phone',
+    state: 'State',
+    tickets: 'Tickets',
+    gifts: 'Free tickets',
+    totalToPay: 'Total to pay',
+    total: 'Total',
+    code: 'Code',
+    payMethods: '💳 *Payment methods:*',
+    reservedClose: "🙌 I'll complete my payment shortly. Thank you!",
+    paidClose: '📎 Here is my receipt so you can confirm my payment. Thank you! 🙌',
+  },
+} as const;
 
 // Mensaje que el comprador envía al rifero tras apartar. Usa formato de WhatsApp
 // (*negritas*) y saltos de línea para que la información quede ordenada. Si se
 // pasa `paymentUrl`, agrega la liga directa a los métodos de pago de la página.
 export function waReserveMessage(v: WaTemplateVars): string {
+  const w = WA[v.locale === 'en' ? 'en' : 'es'];
   const lines = [
-    '🎟️ *¡APARTÉ MIS BOLETOS!*',
-    `📌 *Rifa:* ${v.raffleName}`,
+    w.reserved,
+    `📌 *${w.raffle}:* ${v.raffleName}`,
     '',
-    v.buyerName ? `👤 *Nombre:* ${v.buyerName}` : null,
-    v.buyerPhone ? `📞 *Teléfono:* ${v.buyerPhone}` : null,
-    v.buyerState ? `📍 *Estado:* ${v.buyerState}` : null,
-    `🔢 *Boletos:* ${v.ticketNumbers}`,
-    v.giftNumbers ? `🎁 *Boletos de regalo:* ${v.giftNumbers}` : null,
-    `💵 *Total a pagar:* ${v.total}`,
-    `🧾 *Folio:* ${v.orderCode}`,
+    v.buyerName ? `👤 *${w.name}:* ${v.buyerName}` : null,
+    v.buyerPhone ? `📞 *${w.phone}:* ${v.buyerPhone}` : null,
+    v.buyerState ? `📍 *${w.state}:* ${v.buyerState}` : null,
+    `🔢 *${w.tickets}:* ${v.ticketNumbers}`,
+    v.giftNumbers ? `🎁 *${w.gifts}:* ${v.giftNumbers}` : null,
+    `💵 *${w.totalToPay}:* ${v.total}`,
+    `🧾 *${w.code}:* ${v.orderCode}`,
     v.paymentUrl ? '' : null,
-    v.paymentUrl ? '💳 *Métodos de pago:*' : null,
+    v.paymentUrl ? w.payMethods : null,
     v.paymentUrl ? v.paymentUrl : null,
     '',
-    '🙌 Quedo al pendiente para completar mi pago. ¡Gracias!',
+    w.reservedClose,
   ].filter((line) => line !== null);
   return lines.join('\n');
 }
 
 // Mensaje que el comprador envía al rifero cuando ya pagó (aviso + comprobante).
 export function waProofMessage(v: WaTemplateVars): string {
+  const w = WA[v.locale === 'en' ? 'en' : 'es'];
   const lines = [
-    '✅ *¡YA REALICÉ MI PAGO!*',
-    `📌 *Rifa:* ${v.raffleName}`,
+    w.paid,
+    `📌 *${w.raffle}:* ${v.raffleName}`,
     '',
-    v.buyerName ? `👤 *Nombre:* ${v.buyerName}` : null,
-    v.buyerPhone ? `📞 *Teléfono:* ${v.buyerPhone}` : null,
-    v.buyerState ? `📍 *Estado:* ${v.buyerState}` : null,
-    `🔢 *Boletos:* ${v.ticketNumbers}`,
-    v.giftNumbers ? `🎁 *Boletos de regalo:* ${v.giftNumbers}` : null,
-    `💵 *Total:* ${v.total}`,
-    `🧾 *Folio:* ${v.orderCode}`,
+    v.buyerName ? `👤 *${w.name}:* ${v.buyerName}` : null,
+    v.buyerPhone ? `📞 *${w.phone}:* ${v.buyerPhone}` : null,
+    v.buyerState ? `📍 *${w.state}:* ${v.buyerState}` : null,
+    `🔢 *${w.tickets}:* ${v.ticketNumbers}`,
+    v.giftNumbers ? `🎁 *${w.gifts}:* ${v.giftNumbers}` : null,
+    `💵 *${w.total}:* ${v.total}`,
+    `🧾 *${w.code}:* ${v.orderCode}`,
     '',
-    '📎 Te envío mi comprobante para que confirmes mi pago. ¡Gracias! 🙌',
+    w.paidClose,
   ].filter((line) => line !== null);
   return lines.join('\n');
 }
@@ -179,6 +232,7 @@ export interface WaTicketReadyVars {
   ticketUrl: string; // liga al boleto digital (página, sin descargar)
   buyerName?: string; // nombre del comprador (se usa solo el primer nombre)
   riferoName?: string; // nombre público del organizador (firma del mensaje)
+  locale?: Locale; // idioma del sitio ("Modo USA"). Default español.
 }
 
 // Mensaje que el ORGANIZADOR envía al comprador al confirmar su pago: avisa que
@@ -186,21 +240,42 @@ export interface WaTicketReadyVars {
 // necesita descargar nada). Pensado para pegarse en WhatsApp tal cual.
 export function waTicketReadyMessage(v: WaTicketReadyVars): string {
   const firstName = (v.buyerName ?? '').trim().split(/\s+/)[0];
-  const greeting = firstName ? `🎉 *¡Hola ${firstName}!*` : '🎉 *¡Hola!*';
-  const lines = [
-    greeting,
-    '*¡Tu pago quedó confirmado!* ✅',
-    '',
-    `📌 *Rifa:* ${v.raffleName}`,
-    `🔢 *Tus boletos:* ${v.ticketNumbers}`,
-    '',
-    '🎟️ *Tu boleto digital* (ábrelo, no necesitas descargar nada):',
-    v.ticketUrl,
-    '',
-    '🍀 ¡Mucha suerte!',
-    v.riferoName ? `— *${v.riferoName}*` : null,
-  ].filter((line) => line !== null);
-  return lines.join('\n');
+  const en = v.locale === 'en';
+  const greeting = en
+    ? firstName
+      ? `🎉 *Hi ${firstName}!*`
+      : '🎉 *Hi!*'
+    : firstName
+      ? `🎉 *¡Hola ${firstName}!*`
+      : '🎉 *¡Hola!*';
+  const lines = en
+    ? [
+        greeting,
+        '*Your payment is confirmed!* ✅',
+        '',
+        `📌 *Giveaway:* ${v.raffleName}`,
+        `🔢 *Your tickets:* ${v.ticketNumbers}`,
+        '',
+        '🎟️ *Your digital ticket* (just open it, no download needed):',
+        v.ticketUrl,
+        '',
+        '🍀 Good luck!',
+        v.riferoName ? `— *${v.riferoName}*` : null,
+      ]
+    : [
+        greeting,
+        '*¡Tu pago quedó confirmado!* ✅',
+        '',
+        `📌 *Rifa:* ${v.raffleName}`,
+        `🔢 *Tus boletos:* ${v.ticketNumbers}`,
+        '',
+        '🎟️ *Tu boleto digital* (ábrelo, no necesitas descargar nada):',
+        v.ticketUrl,
+        '',
+        '🍀 ¡Mucha suerte!',
+        v.riferoName ? `— *${v.riferoName}*` : null,
+      ];
+  return lines.filter((line) => line !== null).join('\n');
 }
 
 // ── URLs / subdominios ──────────────────────────────────────
@@ -226,14 +301,24 @@ export function eventLabel(eventNumber: number): string {
 }
 
 // ── Fechas ──────────────────────────────────────────────────
-export function formatDateMX(date: string | Date): string {
+// El idioma del sitio decide el formato: "8 de agosto de 2026" / "August 8, 2026".
+export function formatDate(date: string | Date, locale: Locale = 'es'): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat('es-MX', { dateStyle: 'long' }).format(d);
+  return new Intl.DateTimeFormat(intlLocale(locale), { dateStyle: 'long' }).format(d);
+}
+
+export function formatDateTime(date: string | Date, locale: Locale = 'es'): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return new Intl.DateTimeFormat(intlLocale(locale), { dateStyle: 'medium', timeStyle: 'short' }).format(d);
+}
+
+// Atajos históricos en español (los usa el panel del rifero).
+export function formatDateMX(date: string | Date): string {
+  return formatDate(date, 'es');
 }
 
 export function formatDateTimeMX(date: string | Date): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(d);
+  return formatDateTime(date, 'es');
 }
 
 // Tiempo restante legible (ej. "1h 23m")

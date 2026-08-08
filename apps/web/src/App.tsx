@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth';
 import { usePwaBranding } from '@/hooks/usePwaBranding';
 import { useFacebookPixel } from '@/hooks/useFacebookPixel';
+import { useSiteConfig } from '@/hooks/useSiteConfig';
 import { BrandLoader } from '@/components/brand/BrandLoader';
 import { OwnerShell } from '@/components/owner/OwnerShell';
 import { AdminDrawer } from '@/components/owner/AdminDrawer';
@@ -53,6 +54,8 @@ export function App() {
   usePwaBranding();
   // Pixel de Facebook del rifero: solo páginas públicas y solo si lo configuró.
   useFacebookPixel();
+  // Idioma y moneda del sitio ("Modo USA") para todo lo que ve el comprador.
+  useSiteConfig();
 
   return (
     <>

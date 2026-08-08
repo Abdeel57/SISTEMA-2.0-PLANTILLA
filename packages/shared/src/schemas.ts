@@ -59,6 +59,9 @@ export const paymentMethodSchema = z.object({
   holderName: z.string().max(120).optional().or(z.literal('')),
   clabe: z.string().max(40).optional().or(z.literal('')),
   cardNumber: z.string().max(40).optional().or(z.literal('')),
+  // Usuario del método para monederos de EE. UU. que no usan CLABE ni tarjeta:
+  // $cashtag de Cash App, @usuario de Venmo, correo/teléfono de Zelle o PayPal.
+  handle: z.string().max(80).optional().or(z.literal('')),
   concept: z.string().max(120).optional().or(z.literal('')),
   instructions: z.string().max(500).optional().or(z.literal('')),
 });
@@ -113,6 +116,9 @@ export const updateRiferoSchema = z.object({
     .regex(/^\d{10,20}$/, 'El ID del pixel son solo números (15-16 dígitos)')
     .optional()
     .or(z.literal('')),
+  // Modo USA: idioma de lo que ve el comprador y moneda en la que se cobra.
+  locale: z.enum(['es', 'en']).optional(),
+  currency: z.enum(['MXN', 'USD']).optional(),
 });
 export type UpdateRiferoInput = z.infer<typeof updateRiferoSchema>;
 

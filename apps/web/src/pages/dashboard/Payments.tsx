@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { PageLoader } from '@/components/ui/misc';
 import { BankCard } from '@/components/public/BankCard';
-import { BANKS } from '@/lib/banks';
+import { BANKS, detectBank } from '@/lib/banks';
 import { toast } from 'sonner';
 
 const MAX_METHODS = 6;
@@ -24,6 +24,7 @@ const emptyMethod = (): PaymentMethodInput => ({
   holderName: '',
   clabe: '',
   cardNumber: '',
+  handle: '',
   concept: '',
   instructions: '',
 });
@@ -42,6 +43,12 @@ function MethodEditor({
 }) {
   const set = (k: keyof PaymentMethodInput) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     onChange({ ...method, [k]: e.target.value });
+
+  // Los monederos de EE. UU. (Zelle, Cash App, Venmo, PayPal) no cobran a una
+  // CLABE ni a una tarjeta, sino a un usuario: el editor cambia los campos según
+  // el método que escriba el rifero.
+  const theme = detectBank(method.bank);
+  const wallet = theme.handleLabel;
 
   return (
     <Card>
@@ -89,14 +96,31 @@ function MethodEditor({
             <Label htmlFor={`holder-${method.id}`}>Titular de la cuenta</Label>
             <Input id={`holder-${method.id}`} placeholder="José Pérez García" value={method.holderName ?? ''} onChange={set('holderName')} />
           </div>
-          <div>
-            <Label htmlFor={`clabe-${method.id}`}>CLABE interbancaria</Label>
-            <Input id={`clabe-${method.id}`} inputMode="numeric" placeholder="18 dígitos" value={method.clabe ?? ''} onChange={set('clabe')} />
-          </div>
-          <div>
-            <Label htmlFor={`card-${method.id}`}>Número de tarjeta</Label>
-            <Input id={`card-${method.id}`} inputMode="numeric" placeholder="16 dígitos" value={method.cardNumber ?? ''} onChange={set('cardNumber')} />
-          </div>
+          {wallet ? (
+            <div className="sm:col-span-2">
+              <Label htmlFor={`handle-${method.id}`}>{wallet.es}</Label>
+              <Input
+                id={`handle-${method.id}`}
+                placeholder={theme.handlePlaceholder}
+                value={method.handle ?? ''}
+                onChange={set('handle')}
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Es a donde te van a enviar el dinero en {theme.name}.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div>
+                <Label htmlFor={`clabe-${method.id}`}>CLABE interbancaria</Label>
+                <Input id={`clabe-${method.id}`} inputMode="numeric" placeholder="18 dígitos" value={method.clabe ?? ''} onChange={set('clabe')} />
+              </div>
+              <div>
+                <Label htmlFor={`card-${method.id}`}>Número de tarjeta</Label>
+                <Input id={`card-${method.id}`} inputMode="numeric" placeholder="16 dígitos" value={method.cardNumber ?? ''} onChange={set('cardNumber')} />
+              </div>
+            </>
+          )}
           <div>
             <Label htmlFor={`concept-${method.id}`}>Concepto / referencia</Label>
             <Input id={`concept-${method.id}`} placeholder="Ej. Rifa + tu folio" value={method.concept ?? ''} onChange={set('concept')} />
@@ -145,6 +169,7 @@ export default function Payments() {
         holderName: m.holderName ?? '',
         clabe: m.clabe ?? '',
         cardNumber: m.cardNumber ?? '',
+        handle: m.handle ?? '',
         concept: m.concept ?? '',
         instructions: m.instructions ?? '',
       })),

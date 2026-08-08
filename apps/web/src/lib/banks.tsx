@@ -17,6 +17,14 @@ export interface BankTheme {
   /** Marca del banco (nodo listo para render). */
   logo: ReactNode;
   keywords: string[];
+  /**
+   * Etiqueta del "usuario" del método, para monederos de Estados Unidos que no
+   * usan CLABE ni número de tarjeta: Cash App cobra a un $cashtag, Venmo a un
+   * @usuario y Zelle a un correo o teléfono. Vacío = método bancario clásico.
+   */
+  handleLabel?: { es: string; en: string };
+  /** Ejemplo que se muestra como placeholder en el panel. */
+  handlePlaceholder?: string;
 }
 
 const wordmark = (text: string, style: React.CSSProperties = {}) => (
@@ -209,6 +217,115 @@ export const BANKS: BankTheme[] = [
     fgSoft: 'rgba(255,255,255,0.6)',
     logo: wordmark('SPEI®', { letterSpacing: '0.06em' }),
     keywords: ['spei', 'transferencia'],
+  },
+
+  // ── Métodos de Estados Unidos ("Modo USA") ────────────────────────────────
+  // Los más usados para cobros entre particulares. Igual que los mexicanos, el
+  // pago sigue siendo manual: el comprador envía y sube su comprobante.
+  {
+    id: 'zelle',
+    name: 'Zelle',
+    bg: 'linear-gradient(135deg, #6d1ed4 0%, #6001d2 50%, #40018c 100%)',
+    fg: '#ffffff',
+    fgSoft: 'rgba(255,255,255,0.7)',
+    logo: (
+      <span className="flex items-center gap-1.5">
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+          <path d="M13.2 2h-2.4v2.3H6.3v2.6h6.1L6 17.1V22h11.7v-2.6h-6.4l6.4-10.2V4.3h-4.5V2z" />
+        </svg>
+        {wordmark('Zelle', { fontWeight: 800 })}
+      </span>
+    ),
+    keywords: ['zelle'],
+    handleLabel: { es: 'Correo o teléfono', en: 'Email or phone' },
+    handlePlaceholder: 'nombre@correo.com',
+  },
+  {
+    id: 'cashapp',
+    name: 'Cash App',
+    bg: 'linear-gradient(135deg, #00d54b 0%, #00c244 50%, #018f33 100%)',
+    fg: '#ffffff',
+    fgSoft: 'rgba(255,255,255,0.75)',
+    logo: (
+      <span className="flex items-center gap-1.5">
+        <span
+          className="grid h-6 w-6 place-items-center rounded-lg text-base font-black"
+          style={{ background: 'rgba(255,255,255,0.9)', color: '#00c244' }}
+        >
+          $
+        </span>
+        {wordmark('Cash App', { fontWeight: 800 })}
+      </span>
+    ),
+    keywords: ['cash app', 'cashapp', 'cashtag'],
+    handleLabel: { es: 'Cashtag', en: 'Cashtag' },
+    handlePlaceholder: '$turifa',
+  },
+  {
+    id: 'venmo',
+    name: 'Venmo',
+    bg: 'linear-gradient(135deg, #3d95ce 0%, #008cff 50%, #0064b8 100%)',
+    fg: '#ffffff',
+    fgSoft: 'rgba(255,255,255,0.72)',
+    logo: wordmark('venmo', { fontWeight: 800, textTransform: 'lowercase' }),
+    keywords: ['venmo'],
+    handleLabel: { es: 'Usuario', en: 'Username' },
+    handlePlaceholder: '@turifa',
+  },
+  {
+    id: 'paypal',
+    name: 'PayPal',
+    bg: 'linear-gradient(135deg, #009cde 0%, #0070ba 45%, #003087 100%)',
+    fg: '#ffffff',
+    fgSoft: 'rgba(255,255,255,0.7)',
+    logo: (
+      <span className="flex items-baseline">
+        {wordmark('Pay', { fontWeight: 800, fontStyle: 'italic' })}
+        <span
+          style={{ fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif', fontWeight: 800, fontStyle: 'italic' }}
+          className="text-xl leading-none opacity-80"
+        >
+          Pal
+        </span>
+      </span>
+    ),
+    keywords: ['paypal', 'pay pal'],
+    handleLabel: { es: 'Correo de PayPal', en: 'PayPal email' },
+    handlePlaceholder: 'nombre@correo.com',
+  },
+  {
+    id: 'applepay',
+    name: 'Apple Pay',
+    bg: 'linear-gradient(135deg, #2e2e2e 0%, #1a1a1a 55%, #000000 100%)',
+    fg: '#ffffff',
+    fgSoft: 'rgba(255,255,255,0.6)',
+    logo: (
+      <span className="flex items-center gap-1">
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+          <path d="M16.2 12.7c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3-1.7-1.3-.1-2.5.8-3.1.8-.6 0-1.6-.7-2.7-.7-1.4 0-2.7.8-3.4 2.1-1.4 2.5-.4 6.2 1 8.3.7 1 1.5 2.1 2.6 2.1 1 0 1.4-.7 2.7-.7 1.2 0 1.6.7 2.7.6 1.1 0 1.8-1 2.5-2 .8-1.2 1.1-2.3 1.1-2.3s-2.2-.9-2.2-3.3zM14.3 5.9c.6-.7 1-1.7.9-2.7-.8 0-1.9.6-2.5 1.3-.5.6-1 1.6-.9 2.6.9.1 1.9-.5 2.5-1.2z" />
+        </svg>
+        {wordmark('Pay', { fontWeight: 700 })}
+      </span>
+    ),
+    keywords: ['apple pay', 'applepay'],
+  },
+  {
+    id: 'chime',
+    name: 'Chime',
+    bg: 'linear-gradient(135deg, #1ec677 0%, #0fae66 55%, #087a47 100%)',
+    fg: '#ffffff',
+    fgSoft: 'rgba(255,255,255,0.72)',
+    logo: wordmark('chime', { fontWeight: 800, textTransform: 'lowercase' }),
+    keywords: ['chime'],
+  },
+  {
+    id: 'ach',
+    name: 'Bank transfer (ACH)',
+    bg: 'linear-gradient(135deg, #1f3a5f 0%, #16293f 55%, #0d1728 100%)',
+    fg: '#ffffff',
+    fgSoft: 'rgba(255,255,255,0.62)',
+    logo: wordmark('ACH Transfer', { fontWeight: 700, fontSize: '1rem' }),
+    keywords: ['ach', 'wire', 'routing', 'bank transfer', 'chase', 'bank of america', 'wells fargo'],
   },
 ];
 

@@ -1,4 +1,5 @@
 import type { FastifyRequest } from 'fastify';
+import { isCurrency, isLocale } from '@bismark/shared';
 import { prisma } from './prisma.js';
 import { env } from '../config/env.js';
 import { escapeHtml } from './mailer.js';
@@ -18,6 +19,8 @@ interface BrandProfile {
   logoUrl: string | null;
   coverUrl: string | null;
   publicDarkMode: boolean;
+  locale: string;
+  currency: string;
 }
 
 let cache: { profile: BrandProfile | null; at: number } | null = null;
@@ -28,7 +31,15 @@ async function getSiteProfile(): Promise<BrandProfile | null> {
   if (cache && now - cache.at < TTL_MS) return cache.profile;
   const profile = await prisma.riferoProfile.findFirst({
     orderBy: { createdAt: 'asc' },
-    select: { publicName: true, description: true, logoUrl: true, coverUrl: true, publicDarkMode: true },
+    select: {
+      publicName: true,
+      description: true,
+      logoUrl: true,
+      coverUrl: true,
+      publicDarkMode: true,
+      locale: true,
+      currency: true,
+    },
   });
   cache = { profile, at: now };
   return profile;
@@ -105,6 +116,16 @@ export async function renderBrandedIndex(rawHtml: string, request: FastifyReques
     });
     html = setName(html, 'theme-color', '#0f172a');
   }
+
+  // Idioma y moneda del sitio ("Modo USA"), por la misma razón que el tema: el
+  // store del frontend los lee de estos atributos en el primer render, así la
+  // página nunca se ve un instante en español antes de cambiar a inglés.
+  const locale = isLocale(profile.locale) ? profile.locale : 'es';
+  const currency = isCurrency(profile.currency) ? profile.currency : 'MXN';
+  html = html.replace(/<html(\s[^>]*)?>/i, (_m, attrs: string | undefined) => {
+    const a = (attrs ?? '').replace(/\slang\s*=\s*"[^"]*"/i, '');
+    return `<html${a} lang="${locale}" data-locale="${locale}" data-currency="${currency}">`;
+  });
 
   // Título de la pestaña → nombre de la página de rifas.
   html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(name)}</title>`);

@@ -4,7 +4,19 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { Save, Clock, Upload, Trophy, Sparkles, Lock, Users, ChevronRight, BarChart3 } from 'lucide-react';
+import {
+  Save,
+  Clock,
+  Upload,
+  Trophy,
+  Sparkles,
+  Lock,
+  Users,
+  ChevronRight,
+  BarChart3,
+  Languages,
+  DollarSign,
+} from 'lucide-react';
 import { updateRiferoSchema } from '@bismark/shared';
 import { riferoService } from '@/services/riferos';
 import { ApiError } from '@/lib/api';
@@ -12,6 +24,7 @@ import { PanelIntro } from '@/components/owner/PanelKit';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator, PageLoader } from '@/components/ui/misc';
@@ -25,6 +38,8 @@ const settingsSchema = updateRiferoSchema.pick({
   showWinners: true,
   useDigitalDraw: true,
   facebookPixelId: true,
+  locale: true,
+  currency: true,
 });
 type SettingsForm = z.infer<typeof settingsSchema>;
 
@@ -111,6 +126,8 @@ export default function Settings() {
       showWinners: true,
       useDigitalDraw: false,
       facebookPixelId: '',
+      locale: 'es',
+      currency: 'MXN',
     },
   });
 
@@ -123,6 +140,8 @@ export default function Settings() {
         showWinners: profile.showWinners,
         useDigitalDraw: profile.useDigitalDraw,
         facebookPixelId: profile.facebookPixelId ?? '',
+        locale: profile.locale,
+        currency: profile.currency,
       });
     }
   }, [profile, reset]);
@@ -141,6 +160,8 @@ export default function Settings() {
         showWinners: res.profile.showWinners,
         useDigitalDraw: res.profile.useDigitalDraw,
         facebookPixelId: res.profile.facebookPixelId ?? '',
+        locale: res.profile.locale,
+        currency: res.profile.currency,
       });
     },
     onError: (e) => toast.error(e instanceof ApiError ? e.message : 'Algo salió mal'),
@@ -309,6 +330,50 @@ export default function Settings() {
                 />
               )}
             />
+          </CardContent>
+        </Card>
+
+        {/* ── Modo USA: idioma de lo que ve el comprador + moneda de cobro ── */}
+        <Card>
+          <CardContent className="flex flex-col gap-4 p-5">
+            <Controller
+              control={control}
+              name="locale"
+              render={({ field }) => (
+                <ToggleRow
+                  icon={Languages}
+                  title="Modo USA (página en inglés)"
+                  description="Todo lo que ve el comprador pasa a inglés: la página, el boleto digital, los mensajes de WhatsApp y los correos. Las rifas se llaman giveaways. Tu panel sigue en español."
+                  checked={field.value === 'en'}
+                  onChange={(v) => {
+                    field.onChange(v ? 'en' : 'es');
+                    // La moneda acompaña al modo, pero se puede cambiar abajo.
+                    setValue('currency', v ? 'USD' : 'MXN', { shouldDirty: true });
+                  }}
+                />
+              )}
+            />
+            <Separator />
+            <div>
+              <Label htmlFor="currency" className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4" />
+                Moneda de tus boletos
+              </Label>
+              <p className="mb-2 mt-1 text-xs text-muted-foreground">
+                Con la que cobras. Cambia cómo se ven los precios en tu página, en los correos y en el boleto
+                digital. <strong>No convierte cantidades</strong>: si cambias a dólares, un boleto de 50 pasa a
+                costar 50 dólares.
+              </p>
+              <Select id="currency" {...register('currency')}>
+                <option value="MXN">🇲🇽 Pesos mexicanos (MXN)</option>
+                <option value="USD">🇺🇸 Dólares (USD)</option>
+              </Select>
+            </div>
+            <p className="rounded-xl bg-muted/50 px-3.5 py-3 text-xs leading-relaxed text-muted-foreground">
+              Recuerda que el <strong>título, la descripción, los términos y las preguntas frecuentes</strong> los
+              escribes tú: si activas el modo USA, reescríbelos en inglés desde Rifas y Perfil. En Métodos de pago
+              ya puedes agregar Zelle, Cash App, Venmo y PayPal.
+            </p>
           </CardContent>
         </Card>
 

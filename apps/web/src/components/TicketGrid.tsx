@@ -4,10 +4,10 @@ import { Search, X } from 'lucide-react';
 import {
   TICKET_STATUS_COLORS,
   TICKET_STATUS_LABELS,
-  formatMXN,
   type TicketLiteDTO,
   type TicketStatus,
 } from '@bismark/shared';
+import { useT, useMoney } from '@/store/site';
 import {
   type TicketMapData,
   statusAt,
@@ -143,6 +143,8 @@ export function TicketGrid({
   const parentRef = useRef<HTMLDivElement>(null);
   const [columns, setColumns] = useState(6);
   // Maquinita de la suerte (en modo solo-maquinita abre desplegada de entrada)
+  const tr = useT();
+  const fmt = useMoney();
   const [luckyOpen, setLuckyOpen] = useState(luckyOnly);
   const [luckyQty, setLuckyQty] = useState(5);
   // Texto del input de cantidad: permite quedar vacío mientras se escribe (la
@@ -232,8 +234,8 @@ export function TicketGrid({
     if (picked.length === 0) {
       toast.error(
         maxSelectable && selected.length >= maxSelectable
-          ? `Ya alcanzaste el máximo de ${maxSelectable} boletos`
-          : 'No hay más boletos disponibles para agregar',
+          ? tr('grid.maxReached', { n: maxSelectable })
+          : tr('grid.noneLeft'),
       );
       return null;
     }
@@ -258,7 +260,7 @@ export function TicketGrid({
       const pos0 = view ? positionInView(view, idx0) : idx0;
       if (pos0 >= 0) rowVirtualizer.scrollToIndex(Math.floor(pos0 / columns), { align: 'center' });
     }
-    toast.success(picked.length === 1 ? '¡1 boleto de la suerte!' : `¡${picked.length} boletos de la suerte!`);
+    toast.success(picked.length === 1 ? tr('grid.luckyOne') : tr('grid.luckyMany', { n: picked.length }));
   };
 
   // "¡A girar!": el botón muestra números girando ~1s, se frena y dispara el confeti.
@@ -300,7 +302,7 @@ export function TicketGrid({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           inputMode="numeric"
-          placeholder={minimal ? 'BUSCAR' : 'Buscar número de boleto...'}
+          placeholder={minimal ? tr('grid.search') : 'Buscar número de boleto...'}
           className={cn(minimal ? 'border-2 text-center font-bold uppercase tracking-wide' : 'pl-9')}
           style={minimal ? { borderColor: brand } : undefined}
         />
@@ -360,14 +362,14 @@ export function TicketGrid({
                 {spinText}
               </span>
             ) : (
-              'Maquinita de la suerte'
+              tr('grid.lucky')
             )}
           </button>
 
           {luckyOpen && (
             <div className="mt-2 animate-slide-up rounded-xl border-2 bg-card p-3" style={{ borderColor: brand }}>
               <p className="mb-2 text-center text-[11px] font-extrabold uppercase tracking-wide text-muted-foreground">
-                ¿Cuántos boletos de la suerte?
+                {tr('grid.howMany')}
               </p>
               <div className="flex items-center justify-center gap-2">
                 <button
@@ -375,7 +377,7 @@ export function TicketGrid({
                   onClick={() => setQty(luckyQty - 1)}
                   className="grid h-11 w-11 place-items-center rounded-lg border-2 text-xl font-bold leading-none active:scale-95"
                   style={{ borderColor: brand, color: brand }}
-                  aria-label="Menos"
+                  aria-label={tr('grid.less')}
                 >
                   −
                 </button>
@@ -395,14 +397,14 @@ export function TicketGrid({
                   onBlur={() => setLuckyQtyText(String(luckyQty))}
                   className="h-11 w-16 rounded-lg border-2 bg-white text-center font-ticket text-base font-bold text-zinc-900 outline-none"
                   style={{ borderColor: brand }}
-                  aria-label="Cantidad de boletos"
+                  aria-label={tr('grid.qty')}
                 />
                 <button
                   type="button"
                   onClick={() => setQty(luckyQty + 1)}
                   className="grid h-11 w-11 place-items-center rounded-lg border-2 text-xl font-bold leading-none active:scale-95"
                   style={{ borderColor: brand, color: brand }}
-                  aria-label="Más"
+                  aria-label={tr('grid.more')}
                 >
                   +
                 </button>
@@ -430,7 +432,7 @@ export function TicketGrid({
                 className="lucky-glow mt-3 w-full rounded-xl py-2.5 font-display text-sm font-extrabold uppercase tracking-wide text-white"
                 style={{ background: brand }}
               >
-                ¡A girar!
+                {tr('grid.spin')}
               </button>
             </div>
           )}
@@ -443,11 +445,11 @@ export function TicketGrid({
         <div className="mb-2 flex items-center gap-4 text-xs font-bold text-muted-foreground lg:justify-center lg:gap-6 lg:text-sm">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-3.5 w-5 rounded border bg-white" style={{ borderColor: brand }} />
-            Disponibles
+            {tr('grid.available')}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="h-3.5 w-5 rounded" style={{ backgroundColor: '#111827' }} />
-            No disponibles
+            {tr('grid.unavailable')}
           </span>
         </div>
       )}
@@ -459,7 +461,7 @@ export function TicketGrid({
         className="relative h-[min(60dvh,540px)] overflow-y-auto overscroll-contain rounded-xl border bg-background p-1.5 lg:h-[min(72dvh,660px)] lg:p-2.5"
       >
         {viewLength === 0 ? (
-          <div className="grid h-full place-items-center text-sm text-muted-foreground">Sin boletos para mostrar</div>
+          <div className="grid h-full place-items-center text-sm text-muted-foreground">{tr('grid.empty')}</div>
         ) : (
           <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
             {rowVirtualizer.getVirtualItems().map((vRow) => {
@@ -538,7 +540,7 @@ export function TicketGrid({
               <p className="text-xs text-muted-foreground">
                 {selected.length} boleto{selected.length !== 1 ? 's' : ''} seleccionado{selected.length !== 1 ? 's' : ''}
               </p>
-              <p className="text-lg font-bold">{formatMXN(total)}</p>
+              <p className="text-lg font-bold">{fmt(total)}</p>
             </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={() => onSelectionChange?.([])}>

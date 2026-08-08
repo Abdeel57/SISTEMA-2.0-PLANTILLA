@@ -2,6 +2,10 @@
 import {
   eventLabel,
   formatTicketNumber,
+  isLocale,
+  isCurrency,
+  type Locale,
+  type Currency,
   type AuthUserDTO,
   type FaqItemDTO,
   type PlanDTO,
@@ -118,6 +122,15 @@ export function riferoPaymentMethods(p: RiferoProfile): PaymentMethodDTO[] {
   return [];
 }
 
+// Idioma y moneda del sitio ("Modo USA"). Las columnas son texto libre en la BD:
+// se normalizan aquí para que el resto de la app confíe en los tipos.
+export function siteLocale(p: RiferoProfile): Locale {
+  return isLocale(p.locale) ? p.locale : 'es';
+}
+export function siteCurrency(p: RiferoProfile): Currency {
+  return isCurrency(p.currency) ? p.currency : 'MXN';
+}
+
 // WhatsApp donde el comprador coordina el PAGO: el de comprobantes y, si no está
 // configurado, el de contacto — cada uno con SU país (lada) y quién atiende.
 export function riferoPaymentContact(p: RiferoProfile): {
@@ -171,6 +184,8 @@ export function toRiferoProfileDTO(p: RiferoProfile, ctx: PlanCtxLite): RiferoPr
     showWinners: p.showWinners,
     useDigitalDraw: p.useDigitalDraw,
     facebookPixelId: p.facebookPixelId ?? null,
+    locale: siteLocale(p),
+    currency: siteCurrency(p),
     status: p.status,
     verified: p.verified,
     hasActivePlan: ctx.hasActivePlan,
@@ -303,6 +318,8 @@ export function toPublicRiferoDTO(p: RiferoProfile, raffles: PublicRaffleSummary
     publicDarkMode: p.publicDarkMode,
     verified: p.verified,
     facebookPixelId: p.facebookPixelId ?? null,
+    locale: siteLocale(p),
+    currency: siteCurrency(p),
     faqs: riferoFaqs(p),
     raffles,
   };

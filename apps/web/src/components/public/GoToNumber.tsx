@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Delete, Search, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { TicketStatus, formatTicketNumber } from '@bismark/shared';
 import { statusOfNumber, type TicketMapData } from '@/lib/ticketMap';
+import { useT } from '@/store/site';
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,7 @@ type Feedback =
  * que PublicRaffle ya controla (contrato C4).
  */
 export function GoToNumber({ open, onOpenChange, map, selected, onSelect }: Props) {
+  const tr = useT();
   const [digits, setDigits] = useState('');
   const [feedback, setFeedback] = useState<Feedback>(null);
 
@@ -97,10 +99,8 @@ export function GoToNumber({ open, onOpenChange, map, selected, onSelect }: Prop
     <Dialog open={open} onOpenChange={close}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-2xl">Ir a mi número</DialogTitle>
-          <DialogDescription className="text-base">
-            Escribe tu número de la suerte y tócalo en "Agregar".
-          </DialogDescription>
+          <DialogTitle className="text-2xl">{tr('goto.title')}</DialogTitle>
+          <DialogDescription className="text-base">{tr('goto.desc')}</DialogDescription>
         </DialogHeader>
 
         {/* Pantalla con el número tecleado, bien grande */}
@@ -128,11 +128,11 @@ export function GoToNumber({ open, onOpenChange, map, selected, onSelect }: Prop
               <AlertTriangle className="h-6 w-6 shrink-0" />
             )}
             <span>
-              {feedback.kind === 'added' && `Boleto ${feedback.label} agregado.`}
-              {feedback.kind === 'already' && `El boleto ${feedback.label} ya está en tu selección.`}
-              {feedback.kind === 'taken' && `El boleto ${feedback.label} ya está apartado. Elige otro.`}
-              {feedback.kind === 'missing' && `No encontramos el boleto ${feedback.label}.`}
-              {feedback.kind === 'range' && `Ese número no existe en esta rifa.`}
+              {feedback.kind === 'added' && tr('goto.added', { label: feedback.label })}
+              {feedback.kind === 'already' && tr('goto.already', { label: feedback.label })}
+              {feedback.kind === 'taken' && tr('goto.taken', { label: feedback.label })}
+              {feedback.kind === 'missing' && tr('goto.missing', { label: feedback.label })}
+              {feedback.kind === 'range' && tr('goto.outOfRange')}
             </span>
           </div>
         )}
@@ -152,7 +152,7 @@ export function GoToNumber({ open, onOpenChange, map, selected, onSelect }: Prop
           <button
             type="button"
             onClick={backspace}
-            aria-label="Borrar"
+            aria-label={tr('goto.delete')}
             className="grid h-16 place-items-center rounded-2xl border-2 border-input bg-background transition-colors hover:bg-accent active:scale-[0.97]"
           >
             <Delete className="h-7 w-7" />
@@ -168,7 +168,7 @@ export function GoToNumber({ open, onOpenChange, map, selected, onSelect }: Prop
             type="button"
             onClick={submit}
             disabled={digits === ''}
-            aria-label="Agregar este número"
+            aria-label={tr('goto.add')}
             className="grid h-16 place-items-center rounded-2xl bg-[var(--rifero-primary)] text-white transition-transform active:scale-[0.97] disabled:opacity-40"
           >
             <Search className="h-7 w-7" />
@@ -176,7 +176,7 @@ export function GoToNumber({ open, onOpenChange, map, selected, onSelect }: Prop
         </div>
 
         <Button type="button" size="lg" className="w-full text-base" onClick={() => close(false)}>
-          Listo
+          {tr('goto.done')}
         </Button>
       </DialogContent>
     </Dialog>

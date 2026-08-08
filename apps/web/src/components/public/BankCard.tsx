@@ -2,6 +2,7 @@ import { Copy, Wifi } from 'lucide-react';
 import { toast } from 'sonner';
 import type { PaymentMethodDTO } from '@bismark/shared';
 import { detectBank } from '@/lib/banks';
+import { t, useT, useLocale } from '@/store/site';
 
 // Tarjeta bancaria realista para un método de pago: degradado del banco,
 // chip, número en relieve y copiar-al-toque. Se tematiza sola con detectBank().
@@ -9,8 +10,8 @@ import { detectBank } from '@/lib/banks';
 function copyText(text: string, label: string) {
   navigator.clipboard
     .writeText(text)
-    .then(() => toast.success(`${label} copiado`))
-    .catch(() => toast.error('No se pudo copiar'));
+    .then(() => toast.success(t('common.copied', { label })))
+    .catch(() => toast.error(t('common.copyFailed')));
 }
 
 // Agrupa el número de tarjeta de 4 en 4 (tolera espacios ya escritos).
@@ -39,11 +40,12 @@ function Chip() {
 }
 
 function CopyPill({ value, label, fg }: { value: string; label: string; fg: string }) {
+  const tr = useT();
   return (
     <button
       type="button"
       onClick={() => copyText(value, label)}
-      aria-label={`Copiar ${label}`}
+      aria-label={`${tr('common.copy')} ${label}`}
       className="grid h-7 w-7 shrink-0 place-items-center rounded-lg transition-transform active:scale-90"
       style={{ background: 'rgba(255,255,255,0.16)', color: fg, backdropFilter: 'blur(4px)' }}
     >
@@ -53,6 +55,8 @@ function CopyPill({ value, label, fg }: { value: string; label: string; fg: stri
 }
 
 export function BankCard({ method }: { method: PaymentMethodDTO }) {
+  const tr = useT();
+  const locale = useLocale();
   const theme = detectBank(method.bank);
   const fg = theme.fg;
   const soft = theme.fgSoft;
@@ -82,31 +86,47 @@ export function BankCard({ method }: { method: PaymentMethodDTO }) {
             <Wifi className="h-5 w-5 rotate-90 opacity-70" />
           </div>
 
-          {/* Chip + número */}
+          {/* Chip + número (o usuario, en monederos de EE. UU.) */}
           <div className="mt-1">
             <Chip />
-            {method.cardNumber ? (
+            {method.handle ? (
+              <div className="mt-2">
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em]" style={{ color: soft }}>
+                  {theme.handleLabel ? theme.handleLabel[locale] : tr('pay.holder')}
+                </p>
+                <div className="mt-0.5 flex items-center gap-2">
+                  <p className="min-w-0 break-all font-ticket text-lg font-bold tracking-[0.06em] sm:text-xl" style={emboss}>
+                    {method.handle}
+                  </p>
+                  <CopyPill
+                    value={method.handle}
+                    label={theme.handleLabel ? theme.handleLabel[locale] : tr('pay.holder')}
+                    fg={fg}
+                  />
+                </div>
+              </div>
+            ) : method.cardNumber ? (
               <div className="mt-2 flex items-center gap-2">
                 <p className="min-w-0 break-all font-ticket text-lg font-bold tracking-[0.12em] sm:text-xl" style={emboss}>
                   {groupCard(method.cardNumber)}
                 </p>
-                <CopyPill value={method.cardNumber.replace(/\s+/g, '')} label="Tarjeta" fg={fg} />
+                <CopyPill value={method.cardNumber.replace(/\s+/g, '')} label={tr('pay.card')} fg={fg} />
               </div>
             ) : method.clabe ? (
               <div className="mt-2 flex items-center gap-2">
                 <p className="font-ticket text-base font-bold tracking-[0.08em] sm:text-lg" style={emboss}>
                   {method.clabe}
                 </p>
-                <CopyPill value={method.clabe} label="CLABE" fg={fg} />
+                <CopyPill value={method.clabe} label={tr('pay.clabe')} fg={fg} />
               </div>
             ) : null}
             {method.cardNumber && method.clabe && (
               <div className="mt-1.5 flex items-center gap-2">
                 <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: soft }}>
-                  CLABE
+                  {tr('pay.clabe')}
                 </p>
                 <p className="font-ticket text-xs font-bold tracking-[0.06em]">{method.clabe}</p>
-                <CopyPill value={method.clabe} label="CLABE" fg={fg} />
+                <CopyPill value={method.clabe} label={tr('pay.clabe')} fg={fg} />
               </div>
             )}
           </div>
@@ -115,7 +135,7 @@ export function BankCard({ method }: { method: PaymentMethodDTO }) {
           <div className="flex items-end justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[9px] font-bold uppercase tracking-[0.18em]" style={{ color: soft }}>
-                Titular
+                {tr('pay.holder')}
               </p>
               <p className="truncate font-ticket text-sm font-bold uppercase tracking-wide" style={emboss}>
                 {method.holderName || '—'}
@@ -124,10 +144,10 @@ export function BankCard({ method }: { method: PaymentMethodDTO }) {
             {method.concept && (
               <button
                 type="button"
-                onClick={() => copyText(method.concept as string, 'Concepto')}
+                onClick={() => copyText(method.concept as string, tr('pay.concept'))}
                 className="max-w-[45%] truncate rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide transition-transform active:scale-95"
                 style={{ background: 'rgba(255,255,255,0.16)', color: fg }}
-                title={`Concepto: ${method.concept} (toca para copiar)`}
+                title={`${tr('pay.concept')}: ${method.concept}`}
               >
                 {method.concept}
               </button>

@@ -201,6 +201,14 @@ model RiferoProfile {
   // Se aplica únicamente a las páginas públicas (nunca al panel del admin).
   facebookPixelId String?
 
+  // ── Modo USA ────────────────────────────────────────────────
+  // Idioma de TODO lo que ve el comprador (página pública, boleto digital,
+  // WhatsApp y correos): "es" | "en". El panel del rifero sigue en español.
+  locale   String @default("es")
+  // Moneda en la que se cobran los boletos: "MXN" | "USD". Define el formato de
+  // los precios en la página, los correos y el PDF del boleto.
+  currency String @default("MXN")
+
   primaryColor   String  @default("#1d4ed8")
   secondaryColor String  @default("#0f172a")
   templateKey    String  @default("classic")

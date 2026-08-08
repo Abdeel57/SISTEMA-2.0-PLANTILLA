@@ -10,7 +10,8 @@ import {
   Trophy,
   CalendarDays,
 } from 'lucide-react';
-import { BRAND, formatMXN, formatDateTimeMX, formatDateMX } from '@bismark/shared';
+import { BRAND, formatDateTime, formatDate } from '@bismark/shared';
+import { useT, useMoney, useLocale } from '@/store/site';
 import { apiAssetUrl } from '@/lib/api';
 import { publicService } from '@/services/publicSite';
 import { Card, CardContent } from '@/components/ui/card';
@@ -61,6 +62,9 @@ function BrandLogo({
 }
 
 export default function DigitalTicket() {
+  const tr = useT();
+  const fmt = useMoney();
+  const locale = useLocale();
   const { code = '' } = useParams<{ code: string }>();
 
   const { data, isLoading, isError } = useQuery({
@@ -114,14 +118,12 @@ export default function DigitalTicket() {
                 <div className="grid h-16 w-16 place-items-center rounded-full bg-muted">
                   <AlertCircle className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <h1 className="text-2xl font-extrabold">Boleto no disponible</h1>
-                <p className="max-w-xs text-base text-muted-foreground">
-                  No encontramos este boleto digital. Revisa que el enlace sea correcto.
-                </p>
+                <h1 className="text-2xl font-extrabold">{tr('ticket.unavailable')}</h1>
+                <p className="max-w-xs text-base text-muted-foreground">{tr('ticket.unavailableBody')}</p>
                 <Button asChild variant="outline" size="lg" className="mt-2">
                   <Link to="/">
                     <Home className="h-4 w-4" />
-                    Ir al inicio
+                    {tr('common.goHome')}
                   </Link>
                 </Button>
               </CardContent>
@@ -132,15 +134,13 @@ export default function DigitalTicket() {
               {fromCache ? (
                 <div className="mb-4 flex items-center gap-3 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
                   <WifiOff className="h-7 w-7 shrink-0" />
-                  <p className="text-base font-bold leading-tight">
-                    Estás sin internet. Te mostramos tu boleto guardado.
-                  </p>
+                  <p className="text-base font-bold leading-tight">{tr('ticket.offlineNotice')}</p>
                 </div>
               ) : (
                 savedAt && (
                   <div className="mb-4 flex items-center gap-3 rounded-2xl border-2 border-emerald-300 bg-emerald-50 p-4 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
                     <ShieldCheck className="h-7 w-7 shrink-0" />
-                    <p className="text-base font-bold leading-tight">Guardado para verlo sin internet</p>
+                    <p className="text-base font-bold leading-tight">{tr('ticket.savedOffline')}</p>
                   </div>
                 )
               )}
@@ -169,7 +169,7 @@ export default function DigitalTicket() {
                         </p>
                         <span className="inline-flex items-center gap-1 text-xs font-semibold opacity-90">
                           <TicketIcon className="h-3.5 w-3.5" />
-                          {ticket.eventLabel} · Boleto digital
+                          {ticket.eventLabel} · {tr('ticket.digital')}
                         </span>
                       </div>
                     </div>
@@ -194,7 +194,7 @@ export default function DigitalTicket() {
                 {/* Cuerpo */}
                 <div className="px-6 py-5">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Números de boleto
+                    {tr('ticket.numbers')}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {ticket.ticketNumbers.map((n) => (
@@ -212,32 +212,32 @@ export default function DigitalTicket() {
                   </div>
 
                   <dl className="mt-5 space-y-3 text-sm">
-                    <Row label="A nombre de" value={ticket.buyerName} />
-                    {ticket.buyerState && <Row label="Estado" value={ticket.buyerState} />}
+                    <Row label={tr('ticket.holder')} value={ticket.buyerName} />
+                    {ticket.buyerState && <Row label={tr('ticket.state')} value={ticket.buyerState} />}
                     <div className="flex items-center justify-between gap-4">
-                      <dt className="text-muted-foreground">Estatus</dt>
+                      <dt className="text-muted-foreground">{tr('ticket.status')}</dt>
                       <dd>
                         <OrderStatusBadge status={ticket.status} />
                       </dd>
                     </div>
                     <Row
-                      label="Total"
-                      value={<span className="font-extrabold">{formatMXN(ticket.totalAmount)}</span>}
+                      label={tr('ticket.total')}
+                      value={<span className="font-extrabold">{fmt(ticket.totalAmount)}</span>}
                     />
-                    <Row label="Fecha" value={formatDateTimeMX(ticket.createdAt)} />
+                    <Row label={tr('ticket.date')} value={formatDateTime(ticket.createdAt, locale)} />
                     {ticket.drawDate && (
                       <Row
-                        label="Sorteo"
+                        label={tr('ticket.draw')}
                         value={
                           <span className="inline-flex items-center gap-1.5">
                             <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                            {formatDateMX(ticket.drawDate)}
+                            {formatDate(ticket.drawDate, locale)}
                           </span>
                         }
                       />
                     )}
                     <Row
-                      label="Folio"
+                      label={tr('ticket.code')}
                       value={<span className="tabular-nums tracking-wide">{ticket.code}</span>}
                     />
                   </dl>
@@ -249,7 +249,7 @@ export default function DigitalTicket() {
                         <QrCode value={ticket.verifyUrl} size={208} />
                       </div>
                       <p className="text-center text-sm font-semibold text-muted-foreground">
-                        Muestra este código en el sorteo
+                        {tr('ticket.showAtDraw')}
                       </p>
                     </div>
                   )}
@@ -262,7 +262,7 @@ export default function DigitalTicket() {
                     <Button asChild size="lg" className="w-full">
                       <a href={apiAssetUrl(ticket.pdfUrl)} target="_blank" rel="noopener noreferrer">
                         <Download className="h-5 w-5" />
-                        Descargar PDF
+                        {tr('ticket.download')}
                       </a>
                     </Button>
                   )}
@@ -274,7 +274,7 @@ export default function DigitalTicket() {
                       className="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                     >
                       <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                      Verificar autenticidad de este boleto
+                      {tr('ticket.checkAuth')}
                     </a>
                   )}
                 </div>

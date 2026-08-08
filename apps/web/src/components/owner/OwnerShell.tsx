@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Outlet, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { riferoService } from '@/services/riferos';
 import { raffleService } from '@/services/raffles';
+import { useSiteStore } from '@/store/site';
 import { PageLoader } from '@/components/ui/misc';
 import { Button } from '@/components/ui/button';
 import PublicRifero from '@/pages/public/PublicRifero';
@@ -15,6 +16,13 @@ export function OwnerShell() {
 
   const profile = profileQ.data?.profile;
   const raffles = useMemo(() => rafflesQ.data?.items ?? [], [rafflesQ.data]);
+
+  // El panel se queda en español, pero el DINERO debe verse en la moneda real del
+  // sitio: si el rifero cobra en dólares, sus totales y reportes van en dólares.
+  const setSite = useSiteStore((s) => s.setSite);
+  useEffect(() => {
+    if (profile?.currency) setSite({ currency: profile.currency });
+  }, [profile?.currency, setSite]);
 
   // Construye los MISMOS datos que consume la página pública (PublicRifero),
   // pero a partir de los datos del dueño → vista previa siempre fiel.
@@ -44,6 +52,8 @@ export function OwnerShell() {
         publicDarkMode: profile.publicDarkMode,
         // Vista previa dentro del panel: nunca carga el pixel del rifero.
         facebookPixelId: null,
+        locale: profile.locale,
+        currency: profile.currency,
         faqs: profile.faqs,
         raffles: raffles.map((r) => ({
           id: r.id,
