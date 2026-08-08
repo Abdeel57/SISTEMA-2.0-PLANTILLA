@@ -97,6 +97,17 @@ export const MESSAGES = {
   'raffle.removeHint': { es: 'Para eliminar, toca el boleto', en: 'Tap a ticket to remove it' },
   'raffle.clearAll': { es: 'Limpiar todo', en: 'Clear all' },
   'raffle.removeTicket': { es: 'Quitar boleto', en: 'Remove ticket' },
+  'raffle.comingSoonTitle': { es: 'Muy pronto', en: 'Coming soon' },
+  'raffle.comingSoonBody': {
+    es: 'Esta rifa todavía no está a la venta. Guarda la página: aquí mismo podrás apartar tus boletos en cuanto abra.',
+    en: "This giveaway isn't on sale yet. Save this page — you'll be able to reserve your tickets here as soon as it opens.",
+  },
+  'raffle.comingSoonDate': { es: 'Sorteo previsto', en: 'Expected draw' },
+  'raffle.comingSoonNotify': { es: 'Avísame cuando abra', en: 'Notify me when it opens' },
+  'raffle.comingSoonWa': {
+    es: '¡Hola! 👋\n\nMe interesa la rifa *{title}*. ¿Me avisas cuando abra la venta de boletos? 🎟️',
+    en: 'Hi! 👋\n\nI am interested in the *{title}* giveaway. Can you let me know when tickets go on sale? 🎟️',
+  },
   'raffle.reserveFailed': {
     es: 'No se pudo apartar. Intenta de nuevo.',
     en: "Couldn't reserve. Please try again.",
@@ -235,6 +246,9 @@ export const MESSAGES = {
   'profile.winner': { es: 'ganador', en: 'winner' },
   'profile.winners': { es: 'ganadores', en: 'winners' },
   'profile.availableRaffles': { es: 'Rifas disponibles', en: 'Giveaways available' },
+  'profile.comingSoonSection': { es: 'Próximamente', en: 'Coming soon' },
+  'profile.comingSoonBadge': { es: 'Próximamente', en: 'Coming soon' },
+  'profile.comingSoonCta': { es: 'Ver detalles', en: 'See details' },
   'profile.pastRaffles': { es: 'Sorteos realizados', en: 'Past giveaways' },
   'profile.winnersTitle': { es: 'Ganadores', en: 'Winners' },
   'profile.faq': { es: 'Preguntas frecuentes', en: 'Frequently asked questions' },

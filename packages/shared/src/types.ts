@@ -230,6 +230,8 @@ export interface RaffleDTO {
   hidden: boolean;
   // Selección manual de boletos: false = solo maquinita de la suerte.
   manualSelection: boolean;
+  // "Próximamente": visible en la página pero sin poder apartar todavía.
+  comingSoon: boolean;
   terms: string | null;
   paymentInstructions: string | null;
   reserveMinutes: number;
@@ -270,6 +272,8 @@ export interface PublicRaffleSummaryDTO {
   coverUrl: string | null;
   status: RaffleStatus;
   drawDate: string | null;
+  // "Próximamente": se anuncia en el perfil pero aún no se puede comprar.
+  comingSoon: boolean;
 }
 
 export interface PublicRaffleDTO extends RaffleDTO {

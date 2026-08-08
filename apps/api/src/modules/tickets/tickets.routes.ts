@@ -107,6 +107,9 @@ export default async function ticketsRoutes(app: FastifyInstance): Promise<void>
       });
       if (!raffle) throw notFound('Rifa no encontrada');
       if (raffle.status !== 'PUBLISHED') throw forbidden('Esta rifa no está disponible para apartar');
+      // "Próximamente": se anuncia pero aún no se vende. El candado va aquí (no
+      // solo en la interfaz) para que nadie aparte llamando a la API directo.
+      if (raffle.comingSoon) throw forbidden('Esta rifa aún no está a la venta');
 
       const ctx = await getPlanContext(raffle.riferoId);
       if (!ctx.hasActivePlan) throw forbidden('Esta rifa no está disponible en este momento');

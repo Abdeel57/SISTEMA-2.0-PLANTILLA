@@ -67,6 +67,7 @@ export function OwnerShell() {
           coverUrl: r.images[0]?.url ?? null,
           status: r.status,
           drawDate: r.drawDate,
+          comingSoon: r.comingSoon,
         })),
       },
       winners: [],

@@ -16,6 +16,7 @@ import {
   Hash,
   ChevronDown,
   FileText,
+  Clock,
 } from 'lucide-react';
 import {
   formatDate,
@@ -662,14 +663,17 @@ export default function PublicRaffle({ subdomain }: Props) {
           <div className="lg:mx-auto lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:items-start lg:gap-8 lg:px-6 lg:pt-7">
             {/* Columna izquierda (PC): llamado, imagen del premio y cuenta regresiva */}
             <div className="lg:min-w-0">
-              {/* Llamado a la lista de boletos — flechas y texto grandes (según referencia) */}
-              <div className="mt-3 flex items-center justify-center gap-3 lg:mt-0">
-                <Triangle className="h-7 w-7 rotate-180 fill-[var(--rifero-primary)] text-[var(--rifero-primary)] sm:h-9 sm:w-9" />
-                <span className="text-xl font-black uppercase tracking-wide sm:text-2xl">
-                  {tr('raffle.ticketsBelow')}
-                </span>
-                <Triangle className="h-7 w-7 rotate-180 fill-[var(--rifero-primary)] text-[var(--rifero-primary)] sm:h-9 sm:w-9" />
-              </div>
+              {/* Llamado a la lista de boletos — flechas y texto grandes (según
+                  referencia). Sin venta abierta no hay lista a la que apuntar. */}
+              {!raffle.comingSoon && (
+                <div className="mt-3 flex items-center justify-center gap-3 lg:mt-0">
+                  <Triangle className="h-7 w-7 rotate-180 fill-[var(--rifero-primary)] text-[var(--rifero-primary)] sm:h-9 sm:w-9" />
+                  <span className="text-xl font-black uppercase tracking-wide sm:text-2xl">
+                    {tr('raffle.ticketsBelow')}
+                  </span>
+                  <Triangle className="h-7 w-7 rotate-180 fill-[var(--rifero-primary)] text-[var(--rifero-primary)] sm:h-9 sm:w-9" />
+                </div>
+              )}
 
               {/* Imagen del premio con marco de marca */}
               <div className="mx-auto max-w-2xl px-4 pb-4 pt-3 lg:max-w-none lg:px-0">
@@ -683,9 +687,52 @@ export default function PublicRaffle({ subdomain }: Props) {
               {raffle.showCountdown && <RaffleCountdown drawDate={raffle.drawDate} status={raffle.status} />}
             </div>
 
-            {/* ── Tabla de precios (única sección en negro). Cada fila ya refleja la
+            {/* ── "Próximamente": en vez de la lista de precios, un anticipo. El
+                precio no se muestra porque todavía puede cambiar. ── */}
+            {raffle.comingSoon ? (
+              <div className="bg-zinc-950 px-6 py-8 text-center text-white lg:rounded-3xl lg:py-10 lg:shadow-[0_20px_45px_-18px_rgba(0,0,0,0.6)] lg:ring-1 lg:ring-white/10">
+                <span
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 font-display text-xs font-extrabold uppercase tracking-[0.2em]"
+                  style={{
+                    background: 'color-mix(in srgb, var(--rifero-primary) 18%, transparent)',
+                    color: 'var(--rifero-primary)',
+                  }}
+                >
+                  <Clock className="h-4 w-4" />
+                  {tr('raffle.comingSoonTitle')}
+                </span>
+                <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-white/70 lg:text-base">
+                  {tr('raffle.comingSoonBody')}
+                </p>
+                {raffle.drawDate && (
+                  <div className="mt-5">
+                    <p className="font-ticket text-[11px] uppercase tracking-[0.22em] text-white/45">
+                      {tr('raffle.comingSoonDate')}
+                    </p>
+                    <p className="mt-1 font-display text-xl font-extrabold uppercase tracking-wide lg:text-2xl">
+                      {formatDate(raffle.drawDate, locale)}
+                    </p>
+                  </div>
+                )}
+                {rifero.whatsapp && (
+                  <a
+                    href={buildWhatsappLink(
+                      rifero.whatsapp,
+                      tr('raffle.comingSoonWa', { title: raffle.title }),
+                      dialCodeForCountry(rifero.whatsappCountry),
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-6 py-3 font-display text-sm font-extrabold uppercase tracking-wide text-white transition-transform hover:-translate-y-0.5"
+                  >
+                    {tr('raffle.comingSoonNotify')}
+                  </a>
+                )}
+              </div>
+            ) : (
+            /* ── Tabla de precios (única sección en negro). Cada fila ya refleja la
                 mejor oferta (paquetes/niveles) para esa cantidad. En PC es la tarjeta
-                de la derecha; en móvil, la banda negra de siempre. ── */}
+                de la derecha; en móvil, la banda negra de siempre. ── */
             <div className="bg-zinc-950 py-5 text-white lg:rounded-3xl lg:py-7 lg:shadow-[0_20px_45px_-18px_rgba(0,0,0,0.6)] lg:ring-1 lg:ring-white/10">
               <div className="mx-auto max-w-2xl px-4 lg:max-w-none lg:px-7">
                 {/* Encabezado (solo PC): da contexto a la columna de precios */}
@@ -751,6 +798,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                 </a>
               </div>
             </div>
+            )}
           </div>
         </header>
 
@@ -768,7 +816,9 @@ export default function PublicRaffle({ subdomain }: Props) {
               </p>
             ))}
 
-          {/* Selector de boletos */}
+          {/* Selector de boletos. En "Próximamente" no se muestra: la rifa se
+              anuncia, pero todavía no hay nada que apartar. */}
+          {!raffle.comingSoon && (
           <div id="apartar" className="mt-8 scroll-mt-20">
             {/* Banner negro de instrucción (en PC, tarjeta redondeada dentro del ancho) */}
             <div className="-mx-4 mb-4 bg-zinc-950 px-4 py-3 text-center lg:mx-0 lg:rounded-2xl lg:py-4">
@@ -802,11 +852,12 @@ export default function PublicRaffle({ subdomain }: Props) {
                 onSelectionChange={setSelected}
                 maxSelectable={raffle.maxTicketsPerOrder ?? undefined}
                 ticketPrice={raffle.ticketPrice}
-                confirmLabel="Apartar boletos"
+                confirmLabel={tr('raffle.reserve')}
                 onConfirm={openBuyer}
               />
             )}
           </div>
+          )}
 
           {/* Ganadores */}
           {raffle.winners.length > 0 && (

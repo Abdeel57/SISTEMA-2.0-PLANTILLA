@@ -353,6 +353,9 @@ model Raffle {
   // Selección manual de boletos en la página pública: true = cuadrícula normal;
   // false = la cuadrícula se oculta y el comprador elige solo con la maquinita.
   manualSelection        Boolean @default(true)
+  // "Próximamente": la rifa se anuncia en la página (foto, premio y fecha) pero
+  // TODAVÍA no se puede apartar. Es visible como anticipo, no como borrador.
+  comingSoon             Boolean @default(false)
 
   // Oportunidades por boleto: por cada boleto manual elegido, el comprador recibe
   // (opportunities - 1) números de regalo del rango de emisiones extra. 1 = sin

@@ -259,6 +259,7 @@ export function toRaffleDTO(raffle: Raffle, images: RaffleImage[], stats: Raffle
     showCountdown: raffle.showCountdown,
     priceListRows: raffle.priceListRows,
     manualSelection: raffle.manualSelection,
+    comingSoon: raffle.comingSoon,
     opportunities: raffle.opportunities,
     pricingTiers: rafflePricingTiers(raffle),
     pricingBundles: rafflePricingBundles(raffle),
@@ -293,6 +294,7 @@ export function toPublicRaffleSummaryDTO(
     coverUrl,
     status: raffle.status,
     drawDate: iso(raffle.drawDate),
+    comingSoon: raffle.comingSoon,
   };
 }
 

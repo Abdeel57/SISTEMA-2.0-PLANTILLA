@@ -115,6 +115,7 @@ export default function RaffleForm() {
       useDigitalDraw: false,
       showCountdown: true,
       manualSelection: true,
+      comingSoon: false,
       priceListRows: 10,
       images: [],
     },
@@ -159,6 +160,7 @@ export default function RaffleForm() {
       useDigitalDraw: r.useDigitalDraw,
       showCountdown: r.showCountdown,
       manualSelection: r.manualSelection,
+      comingSoon: r.comingSoon,
       priceListRows: r.priceListRows,
       images: r.images.map((img) => img.url),
     });
@@ -582,6 +584,21 @@ export default function RaffleForm() {
                 <Switch
                   checked={watch('showCountdown') ?? true}
                   onCheckedChange={(v) => setValue('showCountdown', v)}
+                />
+              </div>
+              {/* "Próximamente": la rifa se anuncia en la página (foto, premio y
+                  fecha) pero todavía no se pueden apartar boletos. */}
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/40">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Próximamente (aún no se vende)</p>
+                  <p className="text-xs text-muted-foreground">
+                    La rifa se anuncia en tu página con su foto, premio y fecha, pero nadie puede apartar boletos
+                    todavía. Úsalo para crear expectativa antes de abrir la venta.
+                  </p>
+                </div>
+                <Switch
+                  checked={watch('comingSoon') ?? false}
+                  onCheckedChange={(v) => setValue('comingSoon', v)}
                 />
               </div>
               {/* Selección manual: apagada = la cuadrícula se oculta y el comprador

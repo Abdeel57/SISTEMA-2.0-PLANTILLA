@@ -76,8 +76,19 @@ function RafflePost({ raffle, basePath }: { raffle: PublicRaffleSummaryDTO; base
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent" />
 
+        {/* "Próximamente": sello arriba, para que se distinga de un vistazo. */}
+        {raffle.comingSoon && (
+          <span
+            className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-md"
+            style={{ background: 'rgba(0,0,0,0.7)', border: '1.5px solid rgba(255,255,255,0.55)' }}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            {tr('profile.comingSoonBadge')}
+          </span>
+        )}
+
         <div className="absolute bottom-2.5 left-3 flex items-center gap-2 text-white">
-          {days !== null && (
+          {days !== null && !raffle.comingSoon && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] font-bold backdrop-blur">
               <Clock className="h-3.5 w-3.5" />
               {days === 1 ? tr('profile.drawsTomorrow') : tr('profile.daysLeft', { n: days as number })}
@@ -100,26 +111,37 @@ function RafflePost({ raffle, basePath }: { raffle: PublicRaffleSummaryDTO; base
             </h3>
             {raffle.prize && <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">{raffle.prize}</p>}
           </div>
-          <div className="shrink-0 text-right">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              {tr('profile.perTicket')}
-            </p>
-            <p className="font-ticket text-2xl font-bold leading-tight" style={{ color: BRAND }}>
-              {fmt(raffle.ticketPrice)}
-            </p>
-          </div>
+          {/* Sin venta abierta no se muestra precio: aún puede cambiar. */}
+          {!raffle.comingSoon && (
+            <div className="shrink-0 text-right">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                {tr('profile.perTicket')}
+              </p>
+              <p className="font-ticket text-2xl font-bold leading-tight" style={{ color: BRAND }}>
+                {fmt(raffle.ticketPrice)}
+              </p>
+            </div>
+          )}
         </div>
 
         <Button
           asChild
           size="lg"
-          className={`mt-3.5 w-full rounded-xl font-display font-extrabold uppercase tracking-wide text-white ${
-            finished ? '' : 'attn-pulse'
-          }`}
-          style={{ background: BRAND }}
+          variant={raffle.comingSoon ? 'outline' : 'default'}
+          className={`mt-3.5 w-full rounded-xl font-display font-extrabold uppercase tracking-wide ${
+            raffle.comingSoon ? '' : 'text-white'
+          } ${finished || raffle.comingSoon ? '' : 'attn-pulse'}`}
+          style={raffle.comingSoon ? { borderColor: BRAND, color: BRAND } : { background: BRAND }}
         >
           <Link to={href}>
-            {tr(finished ? 'profile.seeResult' : 'profile.buyTickets')} <ArrowRight className="h-4 w-4" />
+            {tr(
+              raffle.comingSoon
+                ? 'profile.comingSoonCta'
+                : finished
+                  ? 'profile.seeResult'
+                  : 'profile.buyTickets',
+            )}{' '}
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>
       </div>
@@ -312,7 +334,10 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
   // Foto de perfil (estilo FB), ajustable desde Apariencia, con tope para no romper el layout.
   const photoPx = Math.min(Math.round((120 * (rifero.logoScale ?? 100)) / 100), 168);
 
-  const active = rifero.raffles.filter((r) => r.status === RaffleStatus.PUBLISHED);
+  // Las rifas "próximamente" se anuncian aparte: no compiten con las que sí se
+  // pueden comprar ahora (si no, el comprador toca una que no está a la venta).
+  const active = rifero.raffles.filter((r) => r.status === RaffleStatus.PUBLISHED && !r.comingSoon);
+  const comingSoon = rifero.raffles.filter((r) => r.status === RaffleStatus.PUBLISHED && r.comingSoon);
   const finished = rifero.raffles.filter((r) => r.status === RaffleStatus.FINISHED);
   // FAQ personalizadas del rifero; si no ha guardado las suyas, las de fábrica.
   const faqs =
@@ -527,6 +552,18 @@ export default function PublicRifero({ subdomain, previewData }: Props) {
               />
             )}
           </section>
+
+          {/* ── Próximamente (anunciadas, todavía sin venta) ── */}
+          {comingSoon.length > 0 && (
+            <section className="mt-10 lg:mt-14">
+              <SectionTitle>{tr('profile.comingSoonSection')}</SectionTitle>
+              <div className={comingSoon.length > 1 ? 'grid gap-4 lg:grid-cols-2 lg:gap-5' : 'mx-auto grid max-w-xl gap-4'}>
+                {comingSoon.map((r) => (
+                  <RafflePost key={r.id} raffle={r} basePath={basePath} />
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* ── Sorteos realizados (rifas finalizadas: ver resultado) ── */}
           {finished.length > 0 && (

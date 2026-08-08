@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Image as ImageIcon, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Image as ImageIcon, Eye, EyeOff, Clock } from 'lucide-react';
 import {
   RAFFLE_STATUS_LABELS,
   formatMXN,
@@ -119,6 +119,11 @@ function RaffleCard({ raffle, slug }: { raffle: RaffleDTO; slug?: string }) {
         </span>
         <div className="absolute right-3 top-3 flex flex-col items-end gap-1.5">
           <RaffleStatusBadge status={raffle.status} />
+          {raffle.comingSoon && raffle.status === 'PUBLISHED' && (
+            <Badge variant="warning" className="gap-1">
+              <Clock className="h-3 w-3" /> Próximamente
+            </Badge>
+          )}
           {raffle.hidden && raffle.status !== 'DRAFT' && (
             <Badge variant="muted" className="gap-1">
               <EyeOff className="h-3 w-3" /> Oculta
