@@ -398,9 +398,14 @@ export default function Settings() {
               <p className="text-sm text-destructive">{errors.facebookPixelId.message}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              Se registran: visitas, ver una rifa, elegir boletos, empezar a apartar y apartado hecho (como
-              <strong> Lead</strong>). La venta se confirma cuando tú apruebas el pago, así que no se reporta como
-              compra para no inflar tus resultados.
+              Se registran: visitas <em>(PageView)</em>, ver una rifa <em>(ViewContent)</em>, elegir boletos{' '}
+              <em>(AddToCart)</em>, abrir el formulario <em>(InitiateCheckout)</em> y, al dar clic en APARTAR,{' '}
+              <strong>Completar registro</strong> <em>(CompleteRegistration)</em>: ese es el evento de conversión
+              con el que debes optimizar tus anuncios.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              La compra no se reporta como <em>Purchase</em> a propósito: el pago es manual y tú lo confirmas
+              después, así que reportarlo como venta inflaría tus resultados y Meta optimizaría mal.
             </p>
           </CardContent>
         </Card>

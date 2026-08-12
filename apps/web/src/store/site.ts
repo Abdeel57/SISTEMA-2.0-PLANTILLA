@@ -46,6 +46,10 @@ export function useLocale(): Locale {
   return useSiteStore((s) => s.locale);
 }
 
+export function useCurrency(): Currency {
+  return useSiteStore((s) => s.currency);
+}
+
 // Formatea dinero en la moneda del sitio y re-pinta si la moneda cambia.
 export function useMoney(): (amount: number) => string {
   const currency = useSiteStore((s) => s.currency);

@@ -11,7 +11,15 @@
 
 // Eventos estándar de Meta que usa el embudo de la rifa. Nombres exactos del
 // catálogo de Meta: cualquier otro se reportaría como evento personalizado.
-export type PixelEvent = 'PageView' | 'ViewContent' | 'AddToCart' | 'InitiateCheckout' | 'Lead';
+// CompleteRegistration ("Completar registro" en el Administrador de anuncios) es
+// el que se dispara al apartar: es el evento de conversión con el que el rifero
+// optimiza sus campañas.
+export type PixelEvent =
+  | 'PageView'
+  | 'ViewContent'
+  | 'AddToCart'
+  | 'InitiateCheckout'
+  | 'CompleteRegistration';
 
 type Fbq = ((...args: unknown[]) => void) & {
   callMethod?: (...args: unknown[]) => void;

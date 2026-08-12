@@ -33,7 +33,7 @@ import {
   type OrderReceiptDTO,
   type MessageKey,
 } from '@bismark/shared';
-import { useT, useMoney, useLocale } from '@/store/site';
+import { useT, useMoney, useLocale, useCurrency } from '@/store/site';
 import { ApiError, apiAssetUrl } from '@/lib/api';
 import { sanitizeHtml, isRichHtml } from '@/lib/sanitizeHtml';
 import { decodeTicketMap, applyTicketChanges, type TicketMapData } from '@/lib/ticketMap';
@@ -177,6 +177,9 @@ export default function PublicRaffle({ subdomain }: Props) {
   const tr = useT();
   const fmt = useMoney();
   const locale = useLocale();
+  // Moneda real del sitio para los eventos del pixel: si un sitio cobra en
+  // dólares y reportáramos MXN, Meta calcularía mal el retorno de la inversión.
+  const currency = useCurrency();
   const params = useParams<{ slug: string; eventParam: string; ref?: string }>();
   const slug = subdomain ?? params.slug ?? '';
   const eventNumber = parseInt((params.eventParam ?? '').replace(/^e/i, ''), 10);
@@ -261,7 +264,7 @@ export default function PublicRaffle({ subdomain }: Props) {
       content_ids: [raffle.id],
       content_name: raffle.title,
       value: raffle.ticketPrice,
-      currency: 'MXN',
+      currency,
     });
   }, [raffle?.id, raffle?.title, raffle?.ticketPrice]);
 
@@ -281,7 +284,7 @@ export default function PublicRaffle({ subdomain }: Props) {
       content_name: raffle.title,
       num_items: selected.length,
       value: selected.length * raffle.ticketPrice,
-      currency: 'MXN',
+      currency,
     });
   }, [selected.length, raffle?.id, raffle?.title, raffle?.ticketPrice]);
 
@@ -307,10 +310,12 @@ export default function PublicRaffle({ subdomain }: Props) {
         ticketCount: res.receipt.ticketNumbers.length,
         totalAmount: res.receipt.totalAmount,
       });
-      // Pixel: apartado hecho. Es un LEAD, no un Purchase: el pago es manual y
-      // aún no está confirmado; reportarlo como venta inflaría el ROAS y
-      // entrenaría mal la optimización de Meta.
-      pixelTrack('Lead', {
+      // Pixel: apartado hecho. Se reporta como CompleteRegistration ("Completar
+      // registro"), que es el evento de conversión con el que el rifero optimiza
+      // sus campañas. NO es un Purchase a propósito: el pago es manual y todavía
+      // no está confirmado; reportarlo como venta inflaría el ROAS y entrenaría
+      // mal la optimización de Meta.
+      pixelTrack('CompleteRegistration', {
         content_type: 'product',
         content_ids: [raffle?.id ?? ''],
         content_name: raffle?.title,
@@ -349,7 +354,13 @@ export default function PublicRaffle({ subdomain }: Props) {
           paymentUrl,
           locale,
         });
-        window.location.href = buildWhatsappLink(waNumber, message, waDial);
+        // Pequeña espera antes de salir del sitio: le da tiempo al pixel de
+        // enviar la conversión. Sin esto, el navegador puede cortar la petición
+        // al saltar a WhatsApp y la venta no se registraría en Meta.
+        const url = buildWhatsappLink(waNumber, message, waDial);
+        window.setTimeout(() => {
+          window.location.href = url;
+        }, 400);
         return;
       }
 
@@ -474,7 +485,7 @@ export default function PublicRaffle({ subdomain }: Props) {
       content_name: raffle?.title,
       num_items: selected.length,
       value: priceResult.total,
-      currency: 'MXN',
+      currency,
     });
     const saved = recallBuyer();
     if (saved) {
