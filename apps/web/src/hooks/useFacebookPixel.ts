@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { publicService } from '@/services/publicSite';
-import { initPixel, pixelTrack } from '@/lib/pixel';
+import { initPixel, pixelTrack, serverSentInitialPageView } from '@/lib/pixel';
 
 const SITE = '_'; // alias single-tenant: "el rifero de este sitio"
 
@@ -32,6 +32,10 @@ export function useFacebookPixel(): void {
   useEffect(() => {
     if (isAdmin || !pixelId) return;
     initPixel(pixelId);
+    // Si el backend ya inyectó el código base en el <head>, su PageView ya salió:
+    // repetirlo aquí contaría dos visitas por cada carga. Las navegaciones
+    // siguientes sí se reportan (en una SPA no hay recarga del documento).
+    if (serverSentInitialPageView()) return;
     pixelTrack('PageView');
   }, [isAdmin, pixelId, pathname]);
 }

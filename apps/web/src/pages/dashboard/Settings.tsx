@@ -16,6 +16,7 @@ import {
   BarChart3,
   Languages,
   DollarSign,
+  ShieldCheck,
 } from 'lucide-react';
 import { updateRiferoSchema } from '@bismark/shared';
 import { riferoService } from '@/services/riferos';
@@ -38,6 +39,7 @@ const settingsSchema = updateRiferoSchema.pick({
   showWinners: true,
   useDigitalDraw: true,
   facebookPixelId: true,
+  facebookDomainVerification: true,
   locale: true,
   currency: true,
 });
@@ -126,6 +128,7 @@ export default function Settings() {
       showWinners: true,
       useDigitalDraw: false,
       facebookPixelId: '',
+      facebookDomainVerification: '',
       locale: 'es',
       currency: 'MXN',
     },
@@ -140,6 +143,7 @@ export default function Settings() {
         showWinners: profile.showWinners,
         useDigitalDraw: profile.useDigitalDraw,
         facebookPixelId: profile.facebookPixelId ?? '',
+        facebookDomainVerification: profile.facebookDomainVerification ?? '',
         locale: profile.locale,
         currency: profile.currency,
       });
@@ -160,6 +164,7 @@ export default function Settings() {
         showWinners: res.profile.showWinners,
         useDigitalDraw: res.profile.useDigitalDraw,
         facebookPixelId: res.profile.facebookPixelId ?? '',
+        facebookDomainVerification: res.profile.facebookDomainVerification ?? '',
         locale: res.profile.locale,
         currency: res.profile.currency,
       });
@@ -406,6 +411,32 @@ export default function Settings() {
             <p className="text-xs text-muted-foreground">
               La compra no se reporta como <em>Purchase</em> a propósito: el pago es manual y tú lo confirmas
               después, así que reportarlo como venta inflaría tus resultados y Meta optimizaría mal.
+            </p>
+
+            <Separator className="my-1" />
+
+            <Label htmlFor="facebookDomainVerification" className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              Código de verificación del dominio
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Es la <strong>meta etiqueta</strong> con la que Meta comprueba que este sitio es tuyo. Sácala en
+              Business Manager → Configuración del negocio → Seguridad de la marca → <strong>Dominios</strong> →
+              agrega tu dominio → «Verificación por meta etiqueta». Puedes pegar la etiqueta completa: se guarda
+              solo el código.
+            </p>
+            <Input
+              id="facebookDomainVerification"
+              placeholder="ej. k8s2m1p9v3x7…"
+              {...register('facebookDomainVerification')}
+            />
+            {errors.facebookDomainVerification && (
+              <p className="text-sm text-destructive">{errors.facebookDomainVerification.message}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Sin esto no puedes reclamar tu dominio en Meta, y las conversiones de usuarios de iPhone se miden
+              mal. Al guardar, la etiqueta tarda <strong>hasta un minuto</strong> en aparecer en tu página; luego
+              vuelve a Meta y pulsa «Verificar».
             </p>
           </CardContent>
         </Card>

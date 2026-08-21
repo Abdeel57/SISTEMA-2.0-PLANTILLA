@@ -116,6 +116,18 @@ export const updateRiferoSchema = z.object({
     .regex(/^\d{10,20}$/, 'El ID del pixel son solo números (15-16 dígitos)')
     .optional()
     .or(z.literal('')),
+  // Verificación de dominio de Meta. El rifero suele copiar la etiqueta ENTERA
+  // desde Business Manager, así que se acepta igual y se extrae el `content`.
+  facebookDomainVerification: z
+    .string()
+    .transform((v) => {
+      const tag = v.match(/content\s*=\s*["']([^"']+)["']/i);
+      return (tag ? tag[1] : v).trim();
+    })
+    .refine((v) => v === '' || /^[A-Za-z0-9_-]{10,120}$/.test(v), {
+      message: 'Pega el código de verificación de Meta (o la etiqueta completa)',
+    })
+    .optional(),
   // Modo USA: idioma de lo que ve el comprador y moneda en la que se cobra.
   locale: z.enum(['es', 'en']).optional(),
   currency: z.enum(['MXN', 'USD']).optional(),

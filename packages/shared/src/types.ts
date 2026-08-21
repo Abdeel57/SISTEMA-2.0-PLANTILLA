@@ -159,6 +159,8 @@ export interface RiferoProfileDTO {
   useDigitalDraw: boolean;
   // Pixel de Facebook (Meta): ID numérico. Null = las páginas públicas no lo cargan.
   facebookPixelId: string | null;
+  // Verificación de dominio de Meta: el valor de "content" de la meta etiqueta.
+  facebookDomainVerification: string | null;
   // Modo USA: idioma de lo que ve el comprador y moneda en la que se cobra.
   locale: Locale;
   currency: Currency;

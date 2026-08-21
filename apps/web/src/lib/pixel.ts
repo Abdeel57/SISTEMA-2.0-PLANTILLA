@@ -38,6 +38,35 @@ declare global {
 
 const SCRIPT_URL = 'https://connect.facebook.net/en_US/fbevents.js';
 let currentId: string | null = null;
+
+// ── Pixel puesto por el servidor ────────────────────────────────────────────
+// En producción el backend inyecta el código base de Meta en el <head> y sella
+// <html data-fb-pixel="ID">. Cuando eso pasa, `fbq` ya existe, ya se inicializó
+// y su PageView YA salió: aquí solo se toma nota para no repetir nada.
+// En desarrollo (Vite sirve el index.html tal cual) el atributo no existe y todo
+// sigue por el camino de JavaScript de siempre.
+function serverPixelId(): string | null {
+  if (typeof document === 'undefined') return null;
+  const id = (document.documentElement.getAttribute('data-fb-pixel') ?? '').replace(/[^0-9]/g, '');
+  return id || null;
+}
+
+let pendingInitialPageView = false;
+{
+  const fromServer = serverPixelId();
+  if (fromServer) {
+    currentId = fromServer;
+    pendingInitialPageView = true;
+  }
+}
+
+// ¿El PageView de la primera carga ya lo mandó el servidor? Devuelve true una
+// sola vez: los cambios de ruta posteriores sí deben reportarse (es una SPA).
+export function serverSentInitialPageView(): boolean {
+  if (!pendingInitialPageView) return false;
+  pendingInitialPageView = false;
+  return true;
+}
 // Eventos ocurridos ANTES de conocer el ID del pixel. El perfil del rifero llega
 // por API, así que una rifa puede cargar (y disparar ViewContent) antes: sin esta
 // cola se perderían justo los eventos de la primera pantalla, que son los más

@@ -200,6 +200,9 @@ model RiferoProfile {
   // Pixel de Facebook (Meta) del rifero: solo el ID numérico. Vacío = sin pixel.
   // Se aplica únicamente a las páginas públicas (nunca al panel del admin).
   facebookPixelId String?
+  // Código de verificación de dominio de Meta (Business Manager → Seguridad de la
+  // marca → Dominios). Solo el valor de `content`. Vacío = no se inyecta nada.
+  facebookDomainVerification String?
 
   // ── Modo USA ────────────────────────────────────────────────
   // Idioma de TODO lo que ve el comprador (página pública, boleto digital,

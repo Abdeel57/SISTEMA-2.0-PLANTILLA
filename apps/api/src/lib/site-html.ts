@@ -21,6 +21,8 @@ interface BrandProfile {
   publicDarkMode: boolean;
   locale: string;
   currency: string;
+  facebookPixelId: string | null;
+  facebookDomainVerification: string | null;
 }
 
 let cache: { profile: BrandProfile | null; at: number } | null = null;
@@ -39,6 +41,8 @@ async function getSiteProfile(): Promise<BrandProfile | null> {
       publicDarkMode: true,
       locale: true,
       currency: true,
+      facebookPixelId: true,
+      facebookDomainVerification: true,
     },
   });
   cache = { profile, at: now };
@@ -60,6 +64,68 @@ function setProp(html: string, prop: string, value: string): string {
 function setName(html: string, name: string, value: string): string {
   const re = new RegExp(`(<meta name="${name}" content=")[^"]*(")`);
   return html.replace(re, (_m, a: string, b: string) => `${a}${escapeHtml(value)}${b}`);
+}
+
+// Código base OFICIAL del pixel de Meta, palabra por palabra como lo entrega
+// Events Manager. Va dentro del <head> del HTML que sirve el backend —no
+// inyectado por JavaScript— por dos razones: aparece en el código fuente de la
+// página (es lo que revisa el rastreador de Meta y el cliente al inspeccionar) y
+// el PageView sale de inmediato, sin esperar a que responda la API del perfil.
+//
+// El ID se filtra a DÍGITOS: entra dentro de un <script>, donde escapar HTML no
+// serviría de nada y un valor con comillas sería una inyección de código.
+function metaPixelSnippet(rawId: string): string {
+  const id = rawId.replace(/[^0-9]/g, '');
+  if (!id) return '';
+  return `    <!-- Meta Pixel Code -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '${id}');
+    fbq('track', 'PageView');
+    </script>
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=${id}&ev=PageView&noscript=1"
+    /></noscript>
+    <!-- End Meta Pixel Code -->
+`;
+}
+
+// Mete en el <head> la verificación de dominio y el pixel de Meta. Función pura
+// (recibe el HTML y devuelve el HTML) para poder probarla sin base de datos.
+export function injectMeta(
+  rawHtml: string,
+  rawPixelId: string | null | undefined,
+  rawVerification: string | null | undefined,
+): string {
+  let html = rawHtml;
+
+  // La verificación de dominio es una meta etiqueta que Meta lee SIN ejecutar
+  // JavaScript, así que tiene que venir en el HTML del servidor: por eso el
+  // rifero no podía ponerla desde el panel hasta ahora.
+  const verification = (rawVerification ?? '').replace(/[^A-Za-z0-9_-]/g, '');
+  if (verification) {
+    html = html.replace(
+      '</head>',
+      `  <meta name="facebook-domain-verification" content="${escapeHtml(verification)}" />\n  </head>`,
+    );
+  }
+
+  const pixelId = (rawPixelId ?? '').replace(/[^0-9]/g, '');
+  if (pixelId) {
+    html = html.replace('</head>', `${metaPixelSnippet(pixelId)}  </head>`);
+    // Marca para el frontend: el pixel YA quedó iniciado y su PageView ya salió.
+    // Sin esto, el hook useFacebookPixel mandaría un segundo PageView por carga.
+    html = html.replace('<html', `<html data-fb-pixel="${pixelId}"`);
+  }
+
+  return html;
 }
 
 const ADMIN_TITLE = 'Bismark | ADMIN';
@@ -154,6 +220,10 @@ export async function renderBrandedIndex(rawHtml: string, request: FastifyReques
   } else {
     html = html.replace('</head>', `  <meta property="og:url" content="${escapeHtml(base)}" />\n  </head>`);
   }
+
+  // Meta (Facebook): verificación de dominio + pixel. Solo en páginas públicas
+  // (el administrador salió antes por renderAdminIndex).
+  html = injectMeta(html, profile.facebookPixelId, profile.facebookDomainVerification);
 
   return html;
 }

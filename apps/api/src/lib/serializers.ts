@@ -184,6 +184,7 @@ export function toRiferoProfileDTO(p: RiferoProfile, ctx: PlanCtxLite): RiferoPr
     showWinners: p.showWinners,
     useDigitalDraw: p.useDigitalDraw,
     facebookPixelId: p.facebookPixelId ?? null,
+    facebookDomainVerification: p.facebookDomainVerification ?? null,
     locale: siteLocale(p),
     currency: siteCurrency(p),
     status: p.status,
