@@ -39,16 +39,25 @@ export function RiferoTopBar({
     'flex-1 px-1 text-center text-xs font-extrabold uppercase leading-tight tracking-wide text-white transition-opacity hover:opacity-90 sm:text-sm';
   const glow = { textShadow: '0 0 5px var(--rifero-primary), 0 0 11px var(--rifero-primary)' };
 
+  // Misma banda de color que en la página de la rifa: cubre el área del sistema
+  // del teléfono y no se mueve al deslizar (ver RaffleBrandBar).
+  const bandCss = 'calc(env(safe-area-inset-top, 0px) + 12px)';
+
   return (
-    <div
-      className={cn(
-        'sticky top-0 z-50 text-white safe-top',
-        'transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform',
-        hidden ? '-translate-y-full' : 'translate-y-0',
-      )}
-      // El área del notch se pinta con el color del rifero (antes salía blanca).
-      style={{ background: 'var(--rifero-primary, #1A4DFF)' }}
-    >
+    <>
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 z-[45]"
+        style={{ height: bandCss, background: 'var(--rifero-primary, #1A4DFF)' }}
+      />
+      <div
+        className={cn(
+          'sticky top-0 z-50 text-white',
+          'transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform',
+          hidden ? '-translate-y-full' : 'translate-y-0',
+        )}
+        style={{ background: 'var(--rifero-primary, #1A4DFF)', paddingTop: bandCss }}
+      >
       <div className="border-y-[8px] border-[var(--rifero-primary,#1A4DFF)] bg-zinc-950/95 backdrop-blur">
       <div
         className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-3 lg:max-w-5xl lg:px-6"
@@ -94,6 +103,7 @@ export function RiferoTopBar({
         </a>
       </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

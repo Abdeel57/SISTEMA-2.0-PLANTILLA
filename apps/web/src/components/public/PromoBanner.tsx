@@ -29,6 +29,9 @@ export function PromoBanner({
   hidden?: boolean;
 }) {
   const stickyTop = `var(--brand-bar-h, ${topPx}px)`;
+  // Al esconderse NO sube hasta el borde de la pantalla: se detiene bajo la banda
+  // de color de la marca, que siempre queda a la vista.
+  const hiddenShift = `calc(-1 * (${stickyTop} - var(--brand-top-band, 0px)))`;
 
   return (
     <div
@@ -43,7 +46,7 @@ export function PromoBanner({
               // --brand-bar-h lo publica RaffleBrandBar con su alto real (notch y
               // logo incluidos); el valor fijo queda como respaldo.
               top: stickyTop,
-              transform: hidden ? `translateY(calc(-1 * ${stickyTop}))` : 'translateY(0)',
+              transform: hidden ? `translateY(${hiddenShift})` : 'translateY(0)',
             }
           : {}),
       }}

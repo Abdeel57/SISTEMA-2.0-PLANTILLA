@@ -11,6 +11,12 @@ import { cn } from '@/lib/cn';
 export const BAR_CORE = 44; // alto fijo del contenido (delgado)
 export const BAR_TOTAL = BAR_CORE + 16; // + bordes (border-y-[8px])
 
+// Banda de color de la marca que corona la página. Cubre el área del sistema del
+// teléfono (isla/notch, hora, señal y batería) para que la cabecera se sienta de
+// una app y no de un navegador. En equipos sin isla —Android, PC— no hay área de
+// sistema que cubrir, así que este mínimo garantiza que la banda igual se vea.
+const TOP_BAND_PX = 12;
+
 export interface BarAction {
   line1: string;
   line2?: string;
@@ -89,6 +95,9 @@ export function RaffleBrandBar({
   // de arriba quedaba FUERA de la pantalla y se veía cortada: ese espacio se
   // reserva como relleno superior (pintado con el color del rifero).
   const logoRise = Math.max(0, Math.ceil((barLogoPx - BAR_TOTAL) / 2));
+  // Alto de la banda: el área del sistema del teléfono más el aire que necesite
+  // el logo para sobresalir (nunca menos que el mínimo visible).
+  const bandCss = `calc(env(safe-area-inset-top, 0px) + ${Math.max(logoRise, TOP_BAND_PX)}px)`;
 
   // Alto REAL de la barra (franja + notch + aire del logo) publicado como
   // variable CSS: la promo y el panel de apartado se pegan justo debajo usando
@@ -98,16 +107,21 @@ export function RaffleBrandBar({
   useEffect(() => {
     const el = barRef.current;
     if (!el) return;
-    const publish = () =>
-      document.documentElement.style.setProperty('--brand-bar-h', `${Math.round(el.offsetHeight)}px`);
+    const root = document.documentElement;
+    const publish = () => {
+      root.style.setProperty('--brand-bar-h', `${Math.round(el.offsetHeight)}px`);
+      // La banda no se esconde nunca: la promo y el panel se detienen aquí.
+      root.style.setProperty('--brand-top-band', bandCss);
+    };
     publish();
     const ro = new ResizeObserver(publish);
     ro.observe(el);
     return () => {
       ro.disconnect();
-      document.documentElement.style.removeProperty('--brand-bar-h');
+      root.style.removeProperty('--brand-bar-h');
+      root.style.removeProperty('--brand-top-band');
     };
-  }, []);
+  }, [bandCss]);
 
   // Auto-ocultado al hacer scroll: se desliza al bajar y reaparece al subir o
   // detenerse. La página puede controlarlo (prop `hidden`) para mover en sincronía
@@ -116,21 +130,31 @@ export function RaffleBrandBar({
   const hidden = hiddenProp ?? autoHidden;
 
   return (
-    <div
-      ref={barRef}
-      className={cn(
-        'sticky top-0 z-50 text-white shadow-[0_9px_22px_-6px_rgba(0,0,0,0.5)]',
-        'transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform',
-        hidden ? '-translate-y-full' : 'translate-y-0',
-      )}
-      style={{
-        // Franja superior con el color del rifero: cubre el área del notch/barra
-        // de estado del teléfono (antes se veía blanca) y, de paso, deja el aire
-        // que el logo necesita para sobresalir sin que la pantalla lo corte.
-        background: 'var(--rifero-primary)',
-        paddingTop: `calc(env(safe-area-inset-top, 0px) + ${logoRise}px)`,
-      }}
-    >
+    <>
+      {/* Banda de color SIEMPRE presente, pegada al borde de la pantalla. Va por
+          separado y sin transformaciones para que, cuando la barra se esconda al
+          deslizar, el área de la hora y la señal NUNCA se ponga blanca. Debe
+          quedar fuera del contenedor animado: un ancestro con `transform` haría
+          que `fixed` se posicione contra él y no contra la pantalla. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 z-[45]"
+        style={{ height: bandCss, background: 'var(--rifero-primary)' }}
+      />
+      <div
+        ref={barRef}
+        className={cn(
+          'sticky top-0 z-50 text-white shadow-[0_9px_22px_-6px_rgba(0,0,0,0.5)]',
+          'transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform',
+          hidden ? '-translate-y-full' : 'translate-y-0',
+        )}
+        style={{
+          // El mismo color arriba: mientras la barra está visible tapa la banda
+          // fija sin costura, y el logo sobresale sobre ella sin recortarse.
+          background: 'var(--rifero-primary)',
+          paddingTop: bandCss,
+        }}
+      >
       <div className="border-y-[8px] border-[var(--rifero-primary)] bg-zinc-950/95 backdrop-blur">
       <div
         className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-3 lg:max-w-6xl lg:px-6"
@@ -181,9 +205,10 @@ export function RaffleBrandBar({
           </div>
         </Link>
 
-        <SideButton action={right} />
+          <SideButton action={right} />
+        </div>
       </div>
       </div>
-    </div>
+    </>
   );
 }
