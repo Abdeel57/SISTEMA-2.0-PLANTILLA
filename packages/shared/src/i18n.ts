@@ -374,6 +374,10 @@ export const MESSAGES = {
     es: 'No se pudo subir el comprobante. Intenta de nuevo.',
     en: "Couldn't upload the receipt. Please try again.",
   },
+  'proof.badFile': {
+    es: 'Envía una foto, una captura de pantalla o el PDF de tu comprobante.',
+    en: 'Send a photo, a screenshot or the PDF of your receipt.',
+  },
   'proof.offline': {
     es: 'Conéctate a internet para subir tu comprobante.',
     en: 'Connect to the internet to upload your receipt.',

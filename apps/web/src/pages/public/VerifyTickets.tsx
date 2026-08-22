@@ -16,6 +16,7 @@ import {
 import { formatDate, waProofMessage, waReserveMessage, dialCodeForCountry } from '@bismark/shared';
 import { t, useT, useMoney, useLocale } from '@/store/site';
 import { ApiError } from '@/lib/api';
+import { prepareProofFile, isValidProof, PROOF_ACCEPT } from '@/lib/proofFile';
 import {
   publicService,
   type PublicOrderLookupItem,
@@ -87,9 +88,15 @@ function UploadProof({ orderCode, onUploaded }: { orderCode: string; onUploaded:
   const [uploading, setUploading] = useState(false);
 
   const handleFile = async (file: File) => {
+    if (!isValidProof(file)) {
+      toast.error(tr('proof.badFile'));
+      return;
+    }
     setUploading(true);
     try {
-      await publicService.uploadProof(orderCode, file);
+      // Se comprime/convierte antes de subir (ver lib/proofFile.ts): las fotos
+      // del teléfono pesan de más y el HEIC del iPhone no lo abre cualquiera.
+      await publicService.uploadProof(orderCode, await prepareProofFile(file));
       toast.success(tr('proof.sentToast'));
       onUploaded();
     } catch (e) {
@@ -115,7 +122,7 @@ function UploadProof({ orderCode, onUploaded }: { orderCode: string; onUploaded:
       <input
         ref={inputRef}
         type="file"
-        accept="image/*,application/pdf"
+        accept={PROOF_ACCEPT}
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { ScanLine, Search, X, Store, Gift, Pencil, MapPin } from 'lucide-react';
+import { ScanLine, Search, X, Store, Gift, Pencil, MapPin, FileText, ExternalLink } from 'lucide-react';
 import {
   formatMXN,
   formatDateTimeMX,
@@ -88,24 +88,42 @@ function ProofDialog({ orderId, className }: { orderId: string; className?: stri
           <p className="py-6 text-center text-sm text-muted-foreground">No hay comprobantes para mostrar.</p>
         ) : (
           <div className="flex flex-col gap-3">
-            {proofs.map((proof) => (
-              <a
-                key={proof.id}
-                href={apiAssetUrl(proof.fileUrl)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block overflow-hidden rounded-xl border"
-              >
-                <img
-                  src={apiAssetUrl(proof.fileUrl)}
-                  alt="Comprobante de pago"
-                  loading="lazy"
-                  decoding="async"
-                  className="w-full object-contain"
-                />
-                {proof.note && <p className="p-3 text-sm text-muted-foreground">{proof.note}</p>}
-              </a>
-            ))}
+            {proofs.map((proof) => {
+              // Un PDF (comprobante de banca en línea) no se puede mostrar con
+              // <img>: se ofrece como tarjeta para abrirlo en otra pestaña.
+              const isPdf = /\.pdf($|\?)/i.test(proof.fileUrl);
+              return (
+                <a
+                  key={proof.id}
+                  href={apiAssetUrl(proof.fileUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block overflow-hidden rounded-xl border transition-colors hover:bg-accent"
+                >
+                  {isPdf ? (
+                    <div className="flex items-center gap-3 p-4">
+                      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-300">
+                        <FileText className="h-6 w-6" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block font-semibold leading-tight">Comprobante en PDF</span>
+                        <span className="block text-xs text-muted-foreground">Toca para abrirlo</span>
+                      </span>
+                      <ExternalLink className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <img
+                      src={apiAssetUrl(proof.fileUrl)}
+                      alt="Comprobante de pago"
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full object-contain"
+                    />
+                  )}
+                  {proof.note && <p className="p-3 text-sm text-muted-foreground">{proof.note}</p>}
+                </a>
+              );
+            })}
           </div>
         )}
       </DialogContent>

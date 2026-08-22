@@ -9,6 +9,7 @@ import {
   type DigitalTicketDTO,
 } from '@bismark/shared';
 import { useT, useMoney, useLocale } from '@/store/site';
+import { prepareProofFile, isValidProof, PROOF_ACCEPT } from '@/lib/proofFile';
 import { ApiError } from '@/lib/api';
 import { publicService } from '@/services/publicSite';
 import { WhatsAppButton } from '@/components/brand/WhatsAppButton';
@@ -147,7 +148,10 @@ function ProofUpload({ ticket }: { ticket: DigitalTicketDTO }) {
   const locale = useLocale();
   const [done, setDone] = useState(false);
   const mutation = useMutation({
-    mutationFn: (file: File) => publicService.uploadProof(ticket.orderCode, file),
+    // Se comprime/convierte antes de subir: ver lib/proofFile.ts (fotos de 12 MB,
+    // HEIC de iPhone y subidas lentas por datos móviles).
+    mutationFn: async (file: File) =>
+      publicService.uploadProof(ticket.orderCode, await prepareProofFile(file)),
     onSuccess: () => {
       setDone(true);
       toast.success(tr('proof.sentToast'));
@@ -202,13 +206,18 @@ function ProofUpload({ ticket }: { ticket: DigitalTicketDTO }) {
         {mutation.isPending ? tr('proof.uploading') : tr('proof.uploadBig')}
         <input
           type="file"
-          accept="image/*"
+          accept={PROOF_ACCEPT}
           className="sr-only"
           disabled={mutation.isPending}
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) mutation.mutate(file);
             e.target.value = ''; // permite volver a elegir el mismo archivo
+            if (!file) return;
+            if (!isValidProof(file)) {
+              toast.error(tr('proof.badFile'));
+              return;
+            }
+            mutation.mutate(file);
           }}
         />
       </label>

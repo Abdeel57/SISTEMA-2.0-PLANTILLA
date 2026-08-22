@@ -54,7 +54,10 @@ export const LIMITS = {
   slugMin: 3,
   slugMax: 32,
   imageMaxBytes: 5 * 1024 * 1024, // 5 MB
-  proofMaxBytes: 5 * 1024 * 1024,
+  // Comprobantes: la página comprime las fotos antes de subirlas, así que en la
+  // práctica pesan menos de 1 MB. El tope alto es para los PDF de la banca y para
+  // los casos en que el navegador no pudo comprimir (una foto suelta de 48 MP).
+  proofMaxBytes: 12 * 1024 * 1024,
   videoMaxBytes: 50 * 1024 * 1024, // 50 MB (evidencia de sorteo)
   maxTicketsHardCap: 1_000_000, // tope de seguridad del sistema (boletos por rifa)
   maxTicketsPerOrderHardCap: 1000, // tope duro de boletos en una sola orden
@@ -91,6 +94,19 @@ export const ALLOWED_IMAGE_MIME = [
   'image/png',
   'image/webp',
   'image/gif',
+] as const;
+
+// Comprobantes de pago: además de las imágenes, se aceptan los PDF que entrega
+// la banca en línea y el HEIC del iPhone. La página los convierte a JPEG antes
+// de subirlos, pero si el navegador no pudo hacerlo, el servidor no lo rechaza:
+// vale más recibir el comprobante que dejar al comprador atorado.
+export const ALLOWED_PROOF_MIME = [
+  ...ALLOWED_IMAGE_MIME,
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
+  'application/pdf',
 ] as const;
 
 export const ALLOWED_VIDEO_MIME = [
