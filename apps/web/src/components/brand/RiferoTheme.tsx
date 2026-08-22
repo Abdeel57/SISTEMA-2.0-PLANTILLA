@@ -16,24 +16,30 @@ export function RiferoTheme({
     if (primaryColor) root.style.setProperty('--rifero-primary', primaryColor);
     if (secondaryColor) root.style.setProperty('--rifero-secondary', secondaryColor);
 
-    // La franja de arriba del teléfono (donde va la hora y la batería) la pinta
-    // el NAVEGADOR, no la página: se le indica el color con <meta theme-color>.
-    // Sin esto salía blanca y rompía la cabecera de color del rifero.
-    // También se tiñe el fondo del documento para que el "rebote" al arrastrar
-    // la página muestre el color de la marca en vez de blanco.
+    // La franja de arriba del teléfono (hora, señal, batería) la pinta el
+    // NAVEGADOR, no la página. Safari en iPhone la tiñe con el color de fondo
+    // del <body>; <meta theme-color> por sí solo NO basta (se comprobó en el
+    // sitio en vivo: el theme-color era correcto y la franja seguía blanca).
+    // Por eso se pintan los tres: la etiqueta, el <html> y el <body>.
+    // El contenido va sobre un contenedor con `min-h-screen bg-background`, así
+    // que este color solo asoma donde debe: detrás de la barra de estado y en el
+    // "rebote" al arrastrar la página.
     const meta = document.querySelector('meta[name="theme-color"]');
     const prevTheme = meta?.getAttribute('content') ?? null;
-    const prevBg = root.style.backgroundColor;
+    const prevRootBg = root.style.backgroundColor;
+    const prevBodyBg = document.body.style.backgroundColor;
     if (primaryColor) {
       meta?.setAttribute('content', primaryColor);
       root.style.backgroundColor = primaryColor;
+      document.body.style.backgroundColor = primaryColor;
     }
 
     return () => {
       root.style.removeProperty('--rifero-primary');
       root.style.removeProperty('--rifero-secondary');
       if (prevTheme !== null) meta?.setAttribute('content', prevTheme);
-      root.style.backgroundColor = prevBg;
+      root.style.backgroundColor = prevRootBg;
+      document.body.style.backgroundColor = prevBodyBg;
     };
   }, [primaryColor, secondaryColor]);
 

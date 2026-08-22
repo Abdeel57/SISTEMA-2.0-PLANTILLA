@@ -19,6 +19,7 @@ interface BrandProfile {
   logoUrl: string | null;
   coverUrl: string | null;
   publicDarkMode: boolean;
+  primaryColor: string;
   locale: string;
   currency: string;
   facebookPixelId: string | null;
@@ -39,6 +40,7 @@ async function getSiteProfile(): Promise<BrandProfile | null> {
       logoUrl: true,
       coverUrl: true,
       publicDarkMode: true,
+      primaryColor: true,
       locale: true,
       currency: true,
       facebookPixelId: true,
@@ -180,8 +182,20 @@ export async function renderBrandedIndex(rawHtml: string, request: FastifyReques
         ? `<html${a.replace(/class\s*=\s*"([^"]*)"/i, (_x, c: string) => `class="${c} dark"`)}>`
         : `<html${a} class="dark">`;
     });
-    html = setName(html, 'theme-color', '#0f172a');
   }
+
+  // Color de marca DESDE EL PRIMER PINTADO. La franja de arriba del teléfono
+  // (hora, señal, batería) la pinta el navegador: Safari en iPhone la tiñe con
+  // el fondo del <body>, y otros usan <meta theme-color>. Se ponen los tres, y
+  // en el HTML del servidor para que no haya un parpadeo blanco antes del JS.
+  // El estilo va EN LÍNEA a propósito: así gana sobre la hoja de estilos, que
+  // pinta el body de blanco.
+  const brand = /^#[0-9a-fA-F]{6}$/.test(profile.primaryColor) ? profile.primaryColor : '#1A4DFF';
+  html = setName(html, 'theme-color', brand);
+  html = html.replace(/<body(\s[^>]*)?>/i, (_m, attrs: string | undefined) => {
+    const a = (attrs ?? '').replace(/\sstyle\s*=\s*"[^"]*"/i, '');
+    return `<body${a} style="background-color:${brand}">`;
+  });
 
   // Idioma y moneda del sitio ("Modo USA"), por la misma razón que el tema: el
   // store del frontend los lee de estos atributos en el primer render, así la
@@ -190,7 +204,7 @@ export async function renderBrandedIndex(rawHtml: string, request: FastifyReques
   const currency = isCurrency(profile.currency) ? profile.currency : 'MXN';
   html = html.replace(/<html(\s[^>]*)?>/i, (_m, attrs: string | undefined) => {
     const a = (attrs ?? '').replace(/\slang\s*=\s*"[^"]*"/i, '');
-    return `<html${a} lang="${locale}" data-locale="${locale}" data-currency="${currency}">`;
+    return `<html${a} lang="${locale}" data-locale="${locale}" data-currency="${currency}" style="background-color:${brand}">`;
   });
 
   // Título de la pestaña → nombre de la página de rifas.
