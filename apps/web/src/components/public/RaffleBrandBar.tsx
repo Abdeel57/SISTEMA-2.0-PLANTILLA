@@ -146,13 +146,17 @@ export function RaffleBrandBar({
         className={cn(
           'sticky top-0 z-50 text-white shadow-[0_9px_22px_-6px_rgba(0,0,0,0.5)]',
           'transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform',
-          hidden ? '-translate-y-full' : 'translate-y-0',
         )}
         style={{
           // El mismo color arriba: mientras la barra está visible tapa la banda
           // fija sin costura, y el logo sobresale sobre ella sin recortarse.
           background: 'var(--rifero-primary)',
           paddingTop: bandCss,
+          // Al esconderse NO basta con subir el alto de la barra: el logo también
+          // sobresale por ABAJO (está centrado sobre la franja), y quedaba un
+          // pedazo asomando. Se sube ese sobrante y un margen extra para que no
+          // se vean ni el halo del logo ni la sombra de la barra.
+          transform: hidden ? `translateY(calc(-100% - ${logoRise + 16}px))` : 'translateY(0)',
         }}
       >
       <div className="border-y-[8px] border-[var(--rifero-primary)] bg-zinc-950/95 backdrop-blur">
