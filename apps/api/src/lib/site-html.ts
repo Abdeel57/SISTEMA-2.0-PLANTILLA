@@ -19,7 +19,6 @@ interface BrandProfile {
   logoUrl: string | null;
   coverUrl: string | null;
   publicDarkMode: boolean;
-  primaryColor: string;
   locale: string;
   currency: string;
   facebookPixelId: string | null;
@@ -40,7 +39,6 @@ async function getSiteProfile(): Promise<BrandProfile | null> {
       logoUrl: true,
       coverUrl: true,
       publicDarkMode: true,
-      primaryColor: true,
       locale: true,
       currency: true,
       facebookPixelId: true,
@@ -184,17 +182,22 @@ export async function renderBrandedIndex(rawHtml: string, request: FastifyReques
     });
   }
 
-  // Color de marca DESDE EL PRIMER PINTADO. La franja de arriba del teléfono
+  // Color de fondo DESDE EL PRIMER PINTADO. La franja de arriba del teléfono
   // (hora, señal, batería) la pinta el navegador: Safari en iPhone la tiñe con
-  // el fondo del <body>, y otros usan <meta theme-color>. Se ponen los tres, y
-  // en el HTML del servidor para que no haya un parpadeo blanco antes del JS.
-  // El estilo va EN LÍNEA a propósito: así gana sobre la hoja de estilos, que
-  // pinta el body de blanco.
-  const brand = /^#[0-9a-fA-F]{6}$/.test(profile.primaryColor) ? profile.primaryColor : '#1A4DFF';
-  html = setName(html, 'theme-color', brand);
+  // el fondo del <body>, y otros usan <meta theme-color>; por eso se ponen los
+  // dos, en línea para ganarle a la hoja de estilos (que pinta el body blanco).
+  //
+  // Se usa el color de la PANTALLA DE CARGA, no el de la marca: lo primero que
+  // ve el comprador es esa pantalla, y pintar el fondo del color del rifero
+  // provocaba un destello a pantalla completa ANTES de que apareciera y otro al
+  // desvanecerse. Con este color la carga es continua, y al terminar RiferoTheme
+  // cambia fondo y theme-color al color del rifero: aparece todo junto, con el
+  // resto de la página. Debe coincidir con el fondo de BrandLoader.
+  const LOADER_BG = '#070b18';
+  html = setName(html, 'theme-color', LOADER_BG);
   html = html.replace(/<body(\s[^>]*)?>/i, (_m, attrs: string | undefined) => {
     const a = (attrs ?? '').replace(/\sstyle\s*=\s*"[^"]*"/i, '');
-    return `<body${a} style="background-color:${brand}">`;
+    return `<body${a} style="background-color:${LOADER_BG}">`;
   });
 
   // Idioma y moneda del sitio ("Modo USA"), por la misma razón que el tema: el
@@ -204,7 +207,7 @@ export async function renderBrandedIndex(rawHtml: string, request: FastifyReques
   const currency = isCurrency(profile.currency) ? profile.currency : 'MXN';
   html = html.replace(/<html(\s[^>]*)?>/i, (_m, attrs: string | undefined) => {
     const a = (attrs ?? '').replace(/\slang\s*=\s*"[^"]*"/i, '');
-    return `<html${a} lang="${locale}" data-locale="${locale}" data-currency="${currency}" style="background-color:${brand}">`;
+    return `<html${a} lang="${locale}" data-locale="${locale}" data-currency="${currency}" style="background-color:${LOADER_BG}">`;
   });
 
   // Título de la pestaña → nombre de la página de rifas.
