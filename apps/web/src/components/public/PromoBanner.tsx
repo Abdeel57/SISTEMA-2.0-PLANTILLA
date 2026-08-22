@@ -28,6 +28,8 @@ export function PromoBanner({
    *  al borde superior (sin hueco). Solo aplica si es `sticky`. */
   hidden?: boolean;
 }) {
+  const stickyTop = `var(--brand-bar-h, ${topPx}px)`;
+
   return (
     <div
       className={cn(
@@ -36,7 +38,14 @@ export function PromoBanner({
       )}
       style={{
         background: `linear-gradient(100deg, ${colorFrom || DEFAULT_FROM}, ${colorTo || DEFAULT_TO})`,
-        ...(sticky ? { top: topPx, transform: hidden ? `translateY(-${topPx}px)` : 'translateY(0)' } : {}),
+        ...(sticky
+          ? {
+              // --brand-bar-h lo publica RaffleBrandBar con su alto real (notch y
+              // logo incluidos); el valor fijo queda como respaldo.
+              top: stickyTop,
+              transform: hidden ? `translateY(calc(-1 * ${stickyTop}))` : 'translateY(0)',
+            }
+          : {}),
       }}
     >
       <p className="px-4 py-1.5 font-display text-sm font-extrabold uppercase tracking-wide [text-shadow:0_1px_2px_rgba(0,0,0,0.3)] sm:text-base lg:py-2 lg:text-lg">

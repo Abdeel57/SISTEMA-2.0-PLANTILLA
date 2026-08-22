@@ -42,11 +42,14 @@ export function RiferoTopBar({
   return (
     <div
       className={cn(
-        'sticky top-0 z-50 border-y-[8px] border-[var(--rifero-primary,#1A4DFF)] bg-zinc-950/95 text-white backdrop-blur safe-top',
+        'sticky top-0 z-50 text-white safe-top',
         'transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform',
         hidden ? '-translate-y-full' : 'translate-y-0',
       )}
+      // El área del notch se pinta con el color del rifero (antes salía blanca).
+      style={{ background: 'var(--rifero-primary, #1A4DFF)' }}
     >
+      <div className="border-y-[8px] border-[var(--rifero-primary,#1A4DFF)] bg-zinc-950/95 backdrop-blur">
       <div
         className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-3 lg:max-w-5xl lg:px-6"
         style={{ height: 56 }}
@@ -89,6 +92,7 @@ export function RiferoTopBar({
           <br />
           {right2}
         </a>
+      </div>
       </div>
     </div>
   );

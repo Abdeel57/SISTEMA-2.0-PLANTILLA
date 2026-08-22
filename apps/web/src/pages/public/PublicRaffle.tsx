@@ -445,7 +445,10 @@ export default function PublicRaffle({ subdomain }: Props) {
     : { line1: tr('bar.verify.l1'), line2: tr('bar.verify.l2'), href: verificarHref, pulse: true };
   const hasPayInfo = !!(pay.holderName || pay.bank || pay.clabe || pay.cardNumber || pay.concept || pay.instructions);
   // El cintillo (RaffleBrandBar) tiene altura fija; el panel de selección va justo debajo.
-  const panelTopPx = BAR_TOTAL + 6;
+  // La barra publica su alto real en --brand-bar-h (incluye el notch del teléfono
+  // y el aire del logo); el valor fijo queda como respaldo si aún no se midió.
+  const barH = `var(--brand-bar-h, ${BAR_TOTAL}px)`;
+  const panelTopCss = `calc(${barH} + 6px)`;
   const heroPadTopPx = 30;
 
   // Precio con promociones de volumen (niveles + paquetes). El mismo cálculo lo
@@ -561,7 +564,7 @@ export default function PublicRaffle({ subdomain }: Props) {
         {selected.length > 0 && (
           <div
             className="fixed inset-x-0 z-40 animate-fade-in border-b-4 border-[var(--rifero-primary)] bg-zinc-950/95 text-white shadow-[0_16px_30px_-6px_rgba(0,0,0,0.55)] backdrop-blur transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform"
-            style={{ top: panelTopPx, transform: barHidden ? `translateY(-${BAR_TOTAL}px)` : undefined }}
+            style={{ top: panelTopCss, transform: barHidden ? `translateY(calc(-1 * ${barH}))` : undefined }}
           >
             <div className="mx-auto max-w-2xl px-4 py-2.5 lg:max-w-4xl lg:py-3">
               <button

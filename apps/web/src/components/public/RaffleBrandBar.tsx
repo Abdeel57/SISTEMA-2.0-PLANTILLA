@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { VerifiedBadge } from '@/components/brand/VerifiedBadge';
 import { apiAssetUrl } from '@/lib/api';
@@ -84,6 +85,29 @@ export function RaffleBrandBar({
   const centeredTop = Math.round((BAR_TOTAL - barLogoPx) / 2);
   const logoTopOffset = centeredTop - 8;
   const badgeTopPx = Math.max(2, -centeredTop + 2);
+  // Cuánto sobresale el logo por encima de la franja. Con un logo grande la parte
+  // de arriba quedaba FUERA de la pantalla y se veía cortada: ese espacio se
+  // reserva como relleno superior (pintado con el color del rifero).
+  const logoRise = Math.max(0, Math.ceil((barLogoPx - BAR_TOTAL) / 2));
+
+  // Alto REAL de la barra (franja + notch + aire del logo) publicado como
+  // variable CSS: la promo y el panel de apartado se pegan justo debajo usando
+  // --brand-bar-h, así siguen alineados aunque el rifero use un logo enorme o el
+  // teléfono tenga notch. Antes usaban una constante fija y se desfasarían.
+  const barRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const publish = () =>
+      document.documentElement.style.setProperty('--brand-bar-h', `${Math.round(el.offsetHeight)}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty('--brand-bar-h');
+    };
+  }, []);
 
   // Auto-ocultado al hacer scroll: se desliza al bajar y reaparece al subir o
   // detenerse. La página puede controlarlo (prop `hidden`) para mover en sincronía
@@ -93,12 +117,21 @@ export function RaffleBrandBar({
 
   return (
     <div
+      ref={barRef}
       className={cn(
-        'sticky top-0 z-50 border-y-[8px] border-[var(--rifero-primary)] bg-zinc-950/95 text-white shadow-[0_9px_22px_-6px_rgba(0,0,0,0.5)] backdrop-blur',
+        'sticky top-0 z-50 text-white shadow-[0_9px_22px_-6px_rgba(0,0,0,0.5)]',
         'transform-gpu transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform',
         hidden ? '-translate-y-full' : 'translate-y-0',
       )}
+      style={{
+        // Franja superior con el color del rifero: cubre el área del notch/barra
+        // de estado del teléfono (antes se veía blanca) y, de paso, deja el aire
+        // que el logo necesita para sobresalir sin que la pantalla lo corte.
+        background: 'var(--rifero-primary)',
+        paddingTop: `calc(env(safe-area-inset-top, 0px) + ${logoRise}px)`,
+      }}
     >
+      <div className="border-y-[8px] border-[var(--rifero-primary)] bg-zinc-950/95 backdrop-blur">
       <div
         className="mx-auto flex max-w-2xl items-center justify-between gap-2 px-3 lg:max-w-6xl lg:px-6"
         style={{ height: BAR_CORE }}
@@ -149,6 +182,7 @@ export function RaffleBrandBar({
         </Link>
 
         <SideButton action={right} />
+      </div>
       </div>
     </div>
   );

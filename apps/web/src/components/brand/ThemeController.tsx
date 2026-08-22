@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { publicService } from '@/services/publicSite';
-import { applyTheme } from '@/store/theme';
+import { applyTheme, ADMIN_THEME_COLOR } from '@/store/theme';
 
 const SITE = '_'; // alias single-tenant: "el rifero de este sitio"
 
@@ -23,7 +23,8 @@ export function ThemeController(): null {
 
   useEffect(() => {
     if (isAdmin) {
-      applyTheme(false);
+      // El panel impone su color; en público lo decide el rifero (RiferoTheme).
+      applyTheme(false, ADMIN_THEME_COLOR);
       return;
     }
     // En público: hasta no conocer el ajuste del rifero, NO tocamos la clase que
