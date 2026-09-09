@@ -81,6 +81,48 @@ export default async function winnersRoutes(app: FastifyInstance): Promise<void>
     return { winners: winners.map((w) => toWinnerDTO(w, true)) };
   });
 
+  // DELETE /raffles/:id/draw — deshace un sorteo hecho por error.
+  //
+  // El sorteo hace tres cosas (arriba): crea los ganadores, marca sus boletos
+  // como WINNER y cierra la rifa (FINISHED). Cerrada, la rifa deja de aceptar
+  // apartados —tickets.routes.ts exige status PUBLISHED—, así que un clic
+  // accidental deja al rifero sin poder vender el resto de sus boletos.
+  // Esto revierte exactamente esas tres cosas y nada más: las ventas, los pagos
+  // y los compradores quedan intactos.
+  app.delete('/raffles/:id/draw', { preHandler: requireRifero }, async (request) => {
+    const { id } = request.params as { id: string };
+    const raffle = await loadOwnedRaffle(id, request.auth!);
+
+    const winners = await prisma.winner.findMany({
+      where: { raffleId: id },
+      select: { id: true, ticketId: true },
+    });
+    if (winners.length === 0) throw badRequest('Esta rifa no tiene un sorteo que deshacer');
+
+    const ticketIds = winners.map((w) => w.ticketId);
+    // Sólo se reabre si fue el sorteo quien la cerró. Si además la cancelaron a
+    // mano, esa decisión es aparte y se respeta.
+    const reopen = raffle.status === 'FINISHED';
+
+    await prisma.$transaction(async (tx) => {
+      await tx.winner.deleteMany({ where: { raffleId: id } });
+      // Al sorteo sólo entran boletos PAID, así que ahí es donde vuelven.
+      await tx.ticketNumber.updateMany({
+        where: { id: { in: ticketIds }, status: 'WINNER' },
+        data: { status: 'PAID' },
+      });
+      if (reopen) await tx.raffle.update({ where: { id }, data: { status: 'PUBLISHED' } });
+    });
+
+    await logActivity({
+      userId: request.auth!.userId,
+      type: 'DRAW',
+      action: 'undo_draw',
+      meta: { raffleId: id, winners: winners.length, tickets: ticketIds.length },
+    });
+    return { ok: true, restoredTickets: ticketIds.length, reopened: reopen };
+  });
+
   // GET /raffles/:id/winners — vista del rifero dueño (incluye comprador)
   app.get('/raffles/:id/winners', { preHandler: requireRifero }, async (request) => {
     const { id } = request.params as { id: string };

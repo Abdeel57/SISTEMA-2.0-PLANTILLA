@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trophy, Plus, X, Play, Award, CheckCircle2, Info, Video, Upload, Trash2 } from 'lucide-react';
+import { Trophy, Plus, X, Play, Award, CheckCircle2, Info, Video, Upload, Trash2, RotateCcw } from 'lucide-react';
 import {
   formatTicketNumber,
   dialCodeForCountry,
@@ -158,6 +158,7 @@ export default function RaffleDraw() {
   const [prizes, setPrizes] = useState<PrizeRow[]>([{ position: 1, prizeDescription: '' }]);
   const [allowRepeatWinner, setAllowRepeatWinner] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [undoOpen, setUndoOpen] = useState(false);
 
   // Tómbola
   const [spinning, setSpinning] = useState(false);
@@ -234,6 +235,23 @@ export default function RaffleDraw() {
     },
   });
 
+  // Salida de emergencia para un sorteo lanzado por accidente. Revierte las
+  // tres cosas que hace el sorteo; las ventas y los pagos no se tocan.
+  const undo = useMutation({
+    mutationFn: () => winnerService.undoDraw(raffleId),
+    onSuccess: (res) => {
+      setUndoOpen(false);
+      toast.success(res.reopened ? 'Sorteo deshecho. La rifa vuelve a estar abierta.' : 'Sorteo deshecho.');
+      void queryClient.invalidateQueries({ queryKey: ['winners', raffleId] });
+      void queryClient.invalidateQueries({ queryKey: ['raffle', raffleId] });
+      void queryClient.invalidateQueries({ queryKey: ['raffles'] });
+    },
+    onError: (e) => {
+      setUndoOpen(false);
+      toast.error(e instanceof ApiError ? e.message : 'No se pudo deshacer el sorteo');
+    },
+  });
+
   function handleDraw() {
     const cleaned = prizes.map((p, i) => ({
       position: i + 1,
@@ -290,7 +308,7 @@ export default function RaffleDraw() {
         <div className="grid gap-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 className="h-4 w-4" />
-            Este sorteo ya se realizó. No se puede volver a sortear.
+            Este sorteo ya se realizó.
           </div>
           {existingWinners
             .slice()
@@ -299,6 +317,30 @@ export default function RaffleDraw() {
               <WinnerCard key={w.id} winner={w} raffleId={raffleId} />
             ))}
           <DrawEvidence raffleId={raffleId} currentUrl={existingWinners[0]?.evidenceUrl ?? null} />
+
+          {/* Va al final y en tono discreto: deshacer es una corrección, no un
+              paso normal del flujo. */}
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium">¿Sorteaste por error?</p>
+                <p className="text-xs text-muted-foreground">
+                  Borra {existingWinners.length === 1 ? 'al ganador' : `a los ${existingWinners.length} ganadores`}, devuelve
+                  sus boletos a "pagado" y reabre la rifa para seguir vendiendo.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0"
+                loading={undo.isPending}
+                onClick={() => setUndoOpen(true)}
+              >
+                <RotateCcw className="h-4 w-4" />
+                Deshacer sorteo
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       ) : (
         /* Configurador del sorteo */
@@ -391,12 +433,32 @@ export default function RaffleDraw() {
             <span className="font-semibold text-foreground">
               {raffle.soldCount.toLocaleString('es-MX')} boletos pagados
             </span>
-            . El resultado es definitivo: no se puede repetir el sorteo.
+            . Si te equivocas, puedes deshacerlo después desde esta misma pantalla.
           </>
         }
         confirmLabel="Sí, sortear ahora"
         loading={draw.isPending}
         onConfirm={handleDraw}
+      />
+
+      <ConfirmDialog
+        open={undoOpen}
+        onOpenChange={setUndoOpen}
+        destructive
+        title="¿Deshacer el sorteo?"
+        description={
+          <>
+            Se borrará{existingWinners.length > 1 ? 'n' : ''}{' '}
+            <span className="font-semibold text-foreground">
+              {existingWinners.length} ganador{existingWinners.length > 1 ? 'es' : ''}
+            </span>{' '}
+            y la rifa volverá a estar abierta para vender. Las ventas, los pagos y los boletos ya
+            comprados no se tocan. Si ya publicaste al ganador, dejará de verse en tu página.
+          </>
+        }
+        confirmLabel="Sí, deshacer"
+        loading={undo.isPending}
+        onConfirm={() => undo.mutate()}
       />
     </div>
   );
