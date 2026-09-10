@@ -168,6 +168,14 @@ export function TicketGrid({
     return () => window.clearTimeout(t);
   }, [search]);
 
+  // Los números largos (formatos de 6 a 8 dígitos) no caben en la celda
+  // estándar de 48 px: se ensancha lo justo para que quepan y, a partir de 7,
+  // se ajusta la letra. Con 2 a 5 dígitos el cálculo devuelve el mismo 48 de
+  // siempre, así que esas rifas se ven exactamente igual que antes.
+  const digits = Math.max(map.format, String(map.start + map.total - 1).length);
+  const effectiveCell = Math.max(cellSize, digits * 7 + 12);
+  const numberClass = digits >= 7 ? 'text-[10px]' : 'text-[11px] sm:text-xs';
+
   // Calcular columnas según el ancho disponible.
   useEffect(() => {
     const el = parentRef.current;
@@ -178,14 +186,14 @@ export function TicketGrid({
       // ancho (nunca llega al tope de 12), y en PC subimos el tope a 20 para
       // aprovechar la pantalla y ver muchos más números sin desplazar.
       const cap = w >= 900 ? 20 : 12;
-      const cols = Math.max(4, Math.min(cap, Math.floor((w - 4) / cellSize)));
+      const cols = Math.max(4, Math.min(cap, Math.floor((w - 4) / effectiveCell)));
       setColumns(cols);
     };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [cellSize]);
+  }, [effectiveCell]);
 
   // Vista filtrada: índices que pasan filtro/búsqueda. null = todos.
   const view = useMemo(
@@ -486,7 +494,8 @@ export function TicketGrid({
                     onClick={() => toggle({ number, displayNumber, status })}
                     disabled={!onTicketClick && selectable && !selectableNow}
                     className={cn(
-                      'relative flex items-center justify-center rounded-[4px] border text-[11px] tabular-nums transition-all sm:text-xs',
+                      'relative flex items-center justify-center rounded-[4px] border tabular-nums transition-all',
+                      numberClass,
                       isSelected ? 'z-[1] font-extrabold shadow-md' : 'font-bold',
                       justPicked.has(number) ? 'lucky-pop' : '',
                       selectableNow || onTicketClick ? 'cursor-pointer active:scale-95' : 'cursor-default',

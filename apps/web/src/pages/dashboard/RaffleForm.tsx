@@ -418,10 +418,20 @@ export default function RaffleForm() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Formato del número" htmlFor="ticketFormat" error={errors.ticketFormat?.message}>
-                  <Select id="ticketFormat" disabled={isEdit} {...register('ticketFormat', { valueAsNumber: true })}>
-                    <option value={3}>3 dígitos (001)</option>
-                    <option value={4}>4 dígitos (0001)</option>
-                    <option value={5}>5 dígitos (00001)</option>
+                  {/* De 2 a 8 dígitos: hay riferos que hacen rifas de 100 boletos
+                      (00-99) y otros que quieren números largos. Se puede corregir
+                      mientras la rifa no tenga ventas; con la primera venta se
+                      bloquea, porque cambiarlo regenera todos los boletos. */}
+                  <Select
+                    id="ticketFormat"
+                    disabled={raffleHasOrders}
+                    {...register('ticketFormat', { valueAsNumber: true })}
+                  >
+                    {[2, 3, 4, 5, 6, 7, 8].map((d) => (
+                      <option key={d} value={d}>
+                        {d} dígitos ({'0'.repeat(d - 1)}1)
+                      </option>
+                    ))}
                   </Select>
                 </Field>
                 <Field label="Empieza en el número" htmlFor="ticketStart" error={errors.ticketStart?.message}>

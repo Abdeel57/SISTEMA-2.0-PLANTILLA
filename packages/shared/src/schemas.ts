@@ -155,7 +155,7 @@ const raffleBaseSchema = z.object({
   prize: z.string().max(300).optional(),
   ticketPrice: z.number().int().min(1, 'Precio inválido').max(1000000),
   totalTickets: z.number().int().min(1).max(LIMITS.maxTicketsHardCap),
-  ticketFormat: z.number().int().min(2).max(6).default(3),
+  ticketFormat: z.number().int().min(2).max(8).default(3),
   ticketStart: z.number().int().min(0).default(1),
   // Oportunidades por boleto: 1 = sin regalos (original). >1 genera (n-1)
   // números de regalo por cada boleto manual elegido.
@@ -194,7 +194,35 @@ const emissionsCapMessage: { message: string; path: (string | number)[] } = {
   path: ['opportunities'],
 };
 
-export const createRaffleSchema = raffleBaseSchema.refine(emissionsWithinCap, emissionsCapMessage);
+// El formato tiene que alcanzar para el número MÁS GRANDE de la rifa, regalos
+// de las oportunidades incluidos. Si no alcanza, los primeros boletos salen con
+// ceros (01) y los últimos se desbordan (100): una numeración despareja que
+// confunde al comprador. Como el tope de emisiones, sólo aplica cuando vienen
+// los valores necesarios (en update pueden faltar).
+interface NumberingFields {
+  ticketFormat?: number;
+  totalTickets?: number;
+  ticketStart?: number;
+  opportunities?: number;
+}
+function lastNumberOf(d: NumberingFields): number | null {
+  if (d.totalTickets === undefined) return null;
+  return (d.ticketStart ?? 1) + d.totalTickets * Math.max(1, d.opportunities ?? 1) - 1;
+}
+function formatFitsNumbers(d: NumberingFields): boolean {
+  if (d.ticketFormat === undefined) return true;
+  const last = lastNumberOf(d);
+  if (last === null) return true;
+  return String(last).length <= d.ticketFormat;
+}
+const formatFitsMessage = (d: NumberingFields) => ({
+  message: `Con ${d.ticketFormat} dígitos no alcanza: el último número sería ${lastNumberOf(d)?.toLocaleString('es-MX')}. Sube el formato o baja el total de boletos.`,
+  path: ['ticketFormat'] as (string | number)[],
+});
+
+export const createRaffleSchema = raffleBaseSchema
+  .refine(emissionsWithinCap, emissionsCapMessage)
+  .refine(formatFitsNumbers, formatFitsMessage);
 export type CreateRaffleInput = z.infer<typeof createRaffleSchema>;
 
 export const updateRaffleSchema = raffleBaseSchema
@@ -209,7 +237,8 @@ export const updateRaffleSchema = raffleBaseSchema
     promoColorFrom: hexColor.optional().or(z.literal('')),
     promoColorTo: hexColor.optional().or(z.literal('')),
   })
-  .refine(emissionsWithinCap, emissionsCapMessage);
+  .refine(emissionsWithinCap, emissionsCapMessage)
+  .refine(formatFitsNumbers, formatFitsMessage);
 export type UpdateRaffleInput = z.infer<typeof updateRaffleSchema>;
 
 // ── Buyer / Reserva ─────────────────────────────────────────
