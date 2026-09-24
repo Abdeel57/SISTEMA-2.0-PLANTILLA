@@ -304,7 +304,7 @@ export default function VerifyTickets({ subdomain }: Props) {
   const tr = useT();
   useDocumentTitle(tr('profile.verifyTickets'));
 
-  const [mode, setMode] = useState<'phone' | 'name'>('phone');
+  const [mode, setMode] = useState<'phone' | 'name' | 'ticket'>('phone');
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [ticket, setTicket] = useState('');
@@ -343,6 +343,13 @@ export default function VerifyTickets({ subdomain }: Props) {
         return;
       }
       lookup.mutate({ phone: tel });
+    } else if (mode === 'ticket') {
+      const tk = ticket.trim();
+      if (tk.length < 1) {
+        toast.error(tr('verify.needTicket'));
+        return;
+      }
+      lookup.mutate({ ticket: tk });
     } else {
       const nm = name.trim();
       const tk = ticket.trim();
@@ -403,6 +410,7 @@ export default function VerifyTickets({ subdomain }: Props) {
               {(
                 [
                   { key: 'phone', label: tr('verify.byPhone') },
+                  { key: 'ticket', label: tr('verify.byTicket') },
                   { key: 'name', label: tr('verify.byName') },
                 ] as const
               ).map((m) => {
@@ -437,6 +445,17 @@ export default function VerifyTickets({ subdomain }: Props) {
                     onChange={(e) => setPhone(e.target.value)}
                     inputMode="tel"
                     placeholder={tr('verify.phonePlaceholder')}
+                    className="h-12 w-full rounded-xl border-2 border-input bg-card pl-10 pr-3 font-ticket text-base tracking-tight outline-none transition-colors placeholder:font-sans placeholder:text-muted-foreground focus:border-[var(--rifero-primary)]"
+                  />
+                </div>
+              ) : mode === 'ticket' ? (
+                <div className="relative flex-1">
+                  <Ticket className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={ticket}
+                    onChange={(e) => setTicket(e.target.value)}
+                    inputMode="numeric"
+                    placeholder={tr('verify.ticketOnlyPlaceholder')}
                     className="h-12 w-full rounded-xl border-2 border-input bg-card pl-10 pr-3 font-ticket text-base tracking-tight outline-none transition-colors placeholder:font-sans placeholder:text-muted-foreground focus:border-[var(--rifero-primary)]"
                   />
                 </div>
@@ -486,7 +505,9 @@ export default function VerifyTickets({ subdomain }: Props) {
               </div>
               <p className="font-display text-lg font-extrabold uppercase tracking-tight">{tr('verify.emptyTitle')}</p>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                {tr(mode === 'phone' ? 'verify.emptyPhone' : 'verify.emptyName')}
+                {tr(
+                  mode === 'phone' ? 'verify.emptyPhone' : mode === 'ticket' ? 'verify.emptyTicket' : 'verify.emptyName',
+                )}
               </p>
               <Button
                 asChild

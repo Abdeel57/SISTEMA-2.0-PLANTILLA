@@ -183,7 +183,8 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
         methods: riferoPaymentMethods(profile),
       };
 
-      // Dos maneras de buscar: (1) por teléfono; (2) por nombre + número de boleto.
+      // Tres maneras de buscar: (1) por teléfono; (2) por nombre + número de boleto;
+      // (3) sólo por número de boleto.
       // Teléfono: normaliza a SOLO dígitos en ambos lados (ignora espacios, guiones
       // y prefijo +52), porque hay teléfonos guardados con formato y el contains
       // simple fallaba con ellos.
@@ -208,6 +209,17 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
                 { displayNumber: { contains: ticket } },
                 ...(numeric !== null ? [{ number: numeric }] : []),
               ],
+            },
+          },
+        };
+      } else if (ticket.length >= 1) {
+        // (3) Sólo número de boleto: coincidencia EXACTA (no contains), para que
+        // "5" no traiga todos los boletos que contienen un 5.
+        const numeric = /^\d+$/.test(ticket) ? Number(ticket) : null;
+        buyerWhere = {
+          tickets: {
+            some: {
+              OR: [{ displayNumber: ticket }, ...(numeric !== null ? [{ number: numeric }] : [])],
             },
           },
         };

@@ -299,11 +299,13 @@ export const MESSAGES = {
   'verify.title1': { es: 'Verificar', en: 'Verify' },
   'verify.title2': { es: 'mis boletos', en: 'my tickets' },
   'verify.desc': {
-    es: 'Busca tus boletos por teléfono, o por tu nombre y un número de boleto.',
-    en: 'Find your tickets by phone, or by your name and a ticket number.',
+    es: 'Busca tus boletos por teléfono, por tu nombre y un número de boleto, o sólo con el número de boleto.',
+    en: 'Find your tickets by phone, by your name and a ticket number, or just the ticket number.',
   },
   'verify.byPhone': { es: 'Teléfono', en: 'Phone' },
   'verify.byName': { es: 'Nombre y boleto', en: 'Name and ticket' },
+  'verify.byTicket': { es: 'Boleto', en: 'Ticket' },
+  'verify.ticketOnlyPlaceholder': { es: 'Número de boleto', en: 'Ticket number' },
   'verify.phonePlaceholder': { es: 'Tu teléfono (10 dígitos)', en: 'Your phone (10 digits)' },
   'verify.namePlaceholder': { es: 'Tu nombre completo', en: 'Your full name' },
   'verify.ticketPlaceholder': { es: 'N° de boleto', en: 'Ticket #' },
@@ -317,6 +319,10 @@ export const MESSAGES = {
   'verify.emptyName': {
     es: 'Revisa que tu nombre y el número de boleto sean correctos.',
     en: 'Check that your name and ticket number are correct.',
+  },
+  'verify.emptyTicket': {
+    es: 'Revisa que el número de boleto sea correcto.',
+    en: 'Check that the ticket number is correct.',
   },
   'verify.goBuy': { es: 'Ir a comprar boletos', en: 'Go buy tickets' },
   'verify.owe': { es: '¿Debes boletos? Paga aquí', en: 'Owe for tickets? Pay here' },
@@ -334,6 +340,7 @@ export const MESSAGES = {
     es: 'Escribe tu nombre y el número de boleto',
     en: 'Enter your name and the ticket number',
   },
+  'verify.needTicket': { es: 'Escribe el número de boleto', en: 'Enter the ticket number' },
   'verify.searchFailed': { es: 'No se pudo buscar. Intenta de nuevo.', en: "Couldn't search. Please try again." },
 
   // ── Estados de una orden ──
