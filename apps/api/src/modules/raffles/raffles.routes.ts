@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { Prisma } from '@prisma/client';
-import { createRaffleSchema, updateRaffleSchema, slugify } from '@bismark/shared';
+import { createRaffleSchema, updateRaffleSchema, slugify, ticketFormatError } from '@bismark/shared';
 import { prisma } from '../../lib/prisma.js';
 import { validate } from '../../lib/http.js';
 import { badRequest, conflict } from '../../lib/errors.js';
@@ -180,6 +180,13 @@ export default async function rafflesRoutes(app: FastifyInstance): Promise<void>
       const newStart = data.ticketStart ?? raffle.ticketStart;
       const newFormat = data.ticketFormat ?? raffle.ticketFormat;
       const newOpportunities = data.opportunities ?? raffle.opportunities;
+      const formatError = ticketFormatError({
+        ticketFormat: newFormat,
+        totalTickets: newTotal,
+        ticketStart: newStart,
+        opportunities: newOpportunities,
+      });
+      if (formatError) throw badRequest(formatError);
       // Regenerar boletos desde cero (manuales + regalos). Sólo DRAFT sin compromisos.
       await prisma.ticketNumber.deleteMany({ where: { raffleId: id } });
       await generateAllTickets(id, newStart, newTotal, newFormat, newOpportunities);

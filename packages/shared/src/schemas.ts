@@ -197,9 +197,10 @@ const emissionsCapMessage: { message: string; path: (string | number)[] } = {
 // El formato tiene que alcanzar para el número MÁS GRANDE de la rifa, regalos
 // de las oportunidades incluidos. Si no alcanza, los primeros boletos salen con
 // ceros (01) y los últimos se desbordan (100): una numeración despareja que
-// confunde al comprador. Como el tope de emisiones, sólo aplica cuando vienen
-// los valores necesarios (en update pueden faltar).
-interface NumberingFields {
+// confunde al comprador. Sólo se exige al CREAR o al CAMBIAR la numeración: hay
+// rifas anteriores a esta regla que no la cumplen y, con ventas, su numeración
+// ya no se puede tocar; bloquearlas impediría editar cualquier otra cosa.
+export interface NumberingFields {
   ticketFormat?: number;
   totalTickets?: number;
   ticketStart?: number;
@@ -219,11 +220,19 @@ const formatFitsMessage = (d: NumberingFields) => ({
   message: `Con ${d.ticketFormat} dígitos no alcanza: el último número sería ${lastNumberOf(d)?.toLocaleString('es-MX')}. Sube el formato o baja el total de boletos.`,
   path: ['ticketFormat'] as (string | number)[],
 });
+/** Mensaje de error si el formato no alcanza para la numeración; null si sí. */
+export function ticketFormatError(d: NumberingFields): string | null {
+  return formatFitsNumbers(d) ? null : formatFitsMessage(d).message;
+}
 
 export const createRaffleSchema = raffleBaseSchema
   .refine(emissionsWithinCap, emissionsCapMessage)
   .refine(formatFitsNumbers, formatFitsMessage);
 export type CreateRaffleInput = z.infer<typeof createRaffleSchema>;
+
+// Formulario de EDICIÓN: igual que crear pero sin la regla del formato, que el
+// formulario revisa sólo si la numeración cambió (ver ticketFormatError).
+export const editRaffleFormSchema = raffleBaseSchema.refine(emissionsWithinCap, emissionsCapMessage);
 
 export const updateRaffleSchema = raffleBaseSchema
   .partial()
@@ -237,8 +246,8 @@ export const updateRaffleSchema = raffleBaseSchema
     promoColorFrom: hexColor.optional().or(z.literal('')),
     promoColorTo: hexColor.optional().or(z.literal('')),
   })
-  .refine(emissionsWithinCap, emissionsCapMessage)
-  .refine(formatFitsNumbers, formatFitsMessage);
+  // El formato se valida en la ruta, sólo cuando la numeración cambia.
+  .refine(emissionsWithinCap, emissionsCapMessage);
 export type UpdateRaffleInput = z.infer<typeof updateRaffleSchema>;
 
 // ── Buyer / Reserva ─────────────────────────────────────────

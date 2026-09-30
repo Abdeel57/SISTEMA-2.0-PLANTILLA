@@ -5,8 +5,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   createRaffleSchema,
+  editRaffleFormSchema,
   formatTicketNumber,
   giftTicketRange,
+  ticketFormatError,
   totalEmissions,
   type CreateRaffleInput,
   type RaffleDTO,
@@ -99,9 +101,13 @@ export default function RaffleForm() {
     setValue,
     watch,
     trigger,
+    getValues,
+    setError,
     formState: { errors },
   } = useForm<CreateRaffleInput>({
-    resolver: zodResolver(createRaffleSchema),
+    // Al editar no se exige que el formato alcance (ver editRaffleFormSchema):
+    // rifas anteriores a esa regla quedarían atoradas sin poder cambiar ni la fecha.
+    resolver: zodResolver(isEdit ? editRaffleFormSchema : createRaffleSchema),
     defaultValues: {
       title: '',
       description: '',
@@ -241,7 +247,27 @@ export default function RaffleForm() {
   // Guardado MANUAL: solo se dispara al tocar el botón "Guardar cambios" (ver
   // abajo). El <form> nunca se autoenvía, así que llegar al último paso (la
   // fecha) ya no guarda ni saca al usuario antes de tiempo.
+  // Al editar, el formato sólo se revisa si la numeración cambió respecto a la
+  // guardada. Devuelve false (y marca el campo) si no alcanza.
+  const editedNumberingFits = (): boolean => {
+    const r = existing?.raffle;
+    if (!isEdit || !r) return true;
+    const v = getValues();
+    const changed =
+      v.ticketFormat !== r.ticketFormat ||
+      v.totalTickets !== r.totalTickets ||
+      v.ticketStart !== r.ticketStart ||
+      v.opportunities !== r.opportunities;
+    const error = changed ? ticketFormatError(v) : null;
+    if (error) setError('ticketFormat', { message: error });
+    return !error;
+  };
+
   const submitForm = handleSubmit((values) => {
+    if (!editedNumberingFits()) {
+      setStep(1);
+      return;
+    }
     // La fecha del sorteo es obligatoria: de ella depende la cuenta regresiva.
     if (!drawLocal) {
       setDrawError('Indica la fecha y hora del sorteo.');
@@ -256,7 +282,7 @@ export default function RaffleForm() {
   });
 
   const next = async () => {
-    const ok = await trigger(STEP_FIELDS[step]);
+    const ok = (await trigger(STEP_FIELDS[step])) && (step !== 1 || editedNumberingFits());
     if (ok) {
       setStep((s) => Math.min(s + 1, STEPS.length - 1));
     } else {
