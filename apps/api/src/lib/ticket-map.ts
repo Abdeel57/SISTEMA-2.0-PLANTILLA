@@ -1,4 +1,4 @@
-import { TICKET_MAP_CHAR, type TicketMapDTO } from '@bismark/shared';
+import { TICKET_MAP_CHAR, giftTicketRange, type TicketMapDTO } from '@bismark/shared';
 import type { TicketStatus } from '@prisma/client';
 import { prisma } from './prisma.js';
 
@@ -9,6 +9,7 @@ interface RaffleShape {
   ticketStart: number;
   totalTickets: number;
   ticketFormat: number;
+  opportunities: number;
 }
 
 // Construye el mapa compacto de estados: un carácter por boleto (índice =
@@ -40,5 +41,16 @@ export async function buildTicketMap(raffle: RaffleShape): Promise<TicketMapDTO>
     }
   }
 
-  return { start, total, format, map: chars.toString('latin1'), serverTime };
+  // El rango de regalo no entra al mapa (no se elige a mano), pero el cliente lo
+  // necesita para reconocer un número de regalo al buscarlo.
+  const gift = giftTicketRange(start, total, raffle.opportunities);
+
+  return {
+    start,
+    total,
+    format,
+    map: chars.toString('latin1'),
+    serverTime,
+    gift: gift ? { start: gift.start, total: gift.count } : null,
+  };
 }

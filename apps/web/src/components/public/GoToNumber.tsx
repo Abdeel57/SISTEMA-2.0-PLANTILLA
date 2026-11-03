@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Delete, Search, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { TicketStatus, formatTicketNumber } from '@bismark/shared';
-import { statusOfNumber, type TicketMapData } from '@/lib/ticketMap';
+import { Delete, Search, CheckCircle2, AlertTriangle, Gift } from 'lucide-react';
+import { TicketStatus, formatTicketNumber, type TicketLiteDTO } from '@bismark/shared';
+import { statusOfNumber, isGiftNumber, type TicketMapData } from '@/lib/ticketMap';
 import { useT } from '@/store/site';
 import {
   Dialog,
@@ -21,6 +21,8 @@ interface Props {
   selected: number[];
   /** Setter de la selección de PublicRaffle. */
   onSelect: (next: number[]) => void;
+  /** Estado de UN boleto: los de regalo no van en el mapa y se consultan aparte. */
+  lookupNumber?: (n: number) => Promise<TicketLiteDTO>;
 }
 
 type Feedback =
@@ -28,6 +30,7 @@ type Feedback =
   | { kind: 'already'; label: string }
   | { kind: 'taken'; label: string }
   | { kind: 'missing'; label: string }
+  | { kind: 'gift'; label: string; status: TicketStatus | null } // null = aún sin consultar
   | { kind: 'range' }
   | null;
 
@@ -39,13 +42,14 @@ type Feedback =
  * No toca TicketGrid: opera sobre la misma selección (`selected`/`onSelect`)
  * que PublicRaffle ya controla (contrato C4).
  */
-export function GoToNumber({ open, onOpenChange, map, selected, onSelect }: Props) {
+export function GoToNumber({ open, onOpenChange, map, selected, onSelect, lookupNumber }: Props) {
   const tr = useT();
   const [digits, setDigits] = useState('');
   const [feedback, setFeedback] = useState<Feedback>(null);
 
   const ticketFormat = map?.format ?? 3;
-  const lastNumber = map ? map.start + map.total - 1 : 0;
+  // El último número incluye el rango de regalo, para poder teclear esos números.
+  const lastNumber = map ? (map.gift ? map.gift.start + map.gift.total : map.start + map.total) - 1 : 0;
   const maxLen = Math.max(ticketFormat, String(Math.max(lastNumber, 0)).length);
 
   const pad = (n: number) => formatTicketNumber(n, ticketFormat);
@@ -71,6 +75,18 @@ export function GoToNumber({ open, onOpenChange, map, selected, onSelect }: Prop
     // El estado por número es O(1) sobre el mapa; undefined = fuera de rango.
     const status = Number.isFinite(num) ? statusOfNumber(map, num) : undefined;
     if (status === undefined) {
+      // Número de regalo: existe y es válido, pero no se elige a mano. Se avisa y
+      // se consulta su estado (la respuesta solo aplica si sigue en pantalla).
+      if (Number.isFinite(num) && isGiftNumber(map, num)) {
+        const label = pad(num);
+        setFeedback({ kind: 'gift', label, status: null });
+        lookupNumber?.(num).then(
+          (t) =>
+            setFeedback((f) => (f?.kind === 'gift' && f.label === label ? { ...f, status: t.status } : f)),
+          () => {},
+        );
+        return;
+      }
       setFeedback({ kind: 'range' });
       return;
     }
@@ -124,6 +140,8 @@ export function GoToNumber({ open, onOpenChange, map, selected, onSelect }: Prop
           >
             {feedback.kind === 'added' ? (
               <CheckCircle2 className="h-6 w-6 shrink-0" />
+            ) : feedback.kind === 'gift' ? (
+              <Gift className="h-6 w-6 shrink-0" />
             ) : (
               <AlertTriangle className="h-6 w-6 shrink-0" />
             )}
@@ -132,6 +150,15 @@ export function GoToNumber({ open, onOpenChange, map, selected, onSelect }: Prop
               {feedback.kind === 'already' && tr('goto.already', { label: feedback.label })}
               {feedback.kind === 'taken' && tr('goto.taken', { label: feedback.label })}
               {feedback.kind === 'missing' && tr('goto.missing', { label: feedback.label })}
+              {feedback.kind === 'gift' &&
+                tr('goto.gift', {
+                  label: feedback.label,
+                  status: feedback.status
+                    ? ` (${tr(
+                        feedback.status === TicketStatus.AVAILABLE ? 'grid.giftAvailable' : 'grid.giftUnavailable',
+                      ).toLowerCase()})`
+                    : '',
+                })}
               {feedback.kind === 'range' && tr('goto.outOfRange')}
             </span>
           </div>

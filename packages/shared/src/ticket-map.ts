@@ -28,6 +28,10 @@ export interface TicketMapDTO {
   format: number; // dígitos del displayNumber ("001" → 3)
   map: string; // un carácter por boleto (ver TICKET_MAP_CHAR)
   serverTime: string; // ISO; cursor para pedir cambios incrementales después
+  // Rango de boletos de REGALO (oportunidades), justo después del rango manual.
+  // No viaja en `map` (no se eligen a mano); se consulta número por número al
+  // buscarlos. null = la rifa no tiene regalos.
+  gift: { start: number; total: number } | null;
 }
 
 // Para el displayNumber usa formatTicketNumber (utils.ts): relleno SIN truncar.

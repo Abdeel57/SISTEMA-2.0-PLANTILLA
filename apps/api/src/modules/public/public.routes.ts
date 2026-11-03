@@ -151,6 +151,30 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
     return buildTicketMap(raffle);
   });
 
+  // GET /public/raffles/:raffleId/tickets/:number — estado de UN boleto, sin datos
+  // del comprador. Sirve para los boletos de REGALO, que no viajan en el mapa: al
+  // buscarlos se consulta aquí si están disponibles o ya tienen dueño.
+  app.get(
+    '/public/raffles/:raffleId/tickets/:number',
+    { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } },
+    async (request) => {
+      const { raffleId, number } = request.params as { raffleId: string; number: string };
+      const n = Number(number);
+      if (!Number.isInteger(n)) throw notFound('Boleto no encontrado');
+      const raffle = await prisma.raffle.findUnique({
+        where: { id: raffleId },
+        select: { status: true, hidden: true },
+      });
+      if (!raffle || raffle.status === 'DRAFT' || raffle.hidden) throw notFound('Rifa no encontrada');
+      const t = await prisma.ticketNumber.findUnique({
+        where: { raffleId_number: { raffleId, number: n } },
+        select: { number: true, displayNumber: true, status: true, isGift: true },
+      });
+      if (!t) throw notFound('Boleto no encontrado');
+      return { ticket: t };
+    },
+  );
+
   // POST /public/orders/lookup — el comprador busca SUS órdenes por teléfono.
   // Devuelve sólo las órdenes de ese teléfono dentro de este rifero. El código del
   // boleto digital se expone SÓLO cuando la orden está PAGADA (de cara al comprador,
@@ -239,7 +263,7 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
         include: {
           raffle: { select: { eventNumber: true, title: true } },
           buyer: { select: { state: true } },
-          tickets: { select: { displayNumber: true }, orderBy: { number: 'asc' } },
+          tickets: { select: { displayNumber: true, isGift: true }, orderBy: { number: 'asc' } },
           digitalTicket: { select: { code: true } },
           paymentProofs: { select: { id: true } },
         },
@@ -255,7 +279,9 @@ export default async function publicRoutes(app: FastifyInstance): Promise<void> 
           eventLabel: `E${o.raffle.eventNumber}`,
           eventNumber: o.raffle.eventNumber,
           buyerState: o.buyer.state ?? null,
-          ticketNumbers: o.tickets.map((t) => t.displayNumber),
+          // Elegidos y de regalo por separado (igual que en el panel de órdenes).
+          ticketNumbers: o.tickets.filter((t) => !t.isGift).map((t) => t.displayNumber),
+          giftNumbers: o.tickets.filter((t) => t.isGift).map((t) => t.displayNumber),
           totalAmount: o.totalAmount,
           status: o.status,
           paidAt: o.paidAt?.toISOString() ?? null,

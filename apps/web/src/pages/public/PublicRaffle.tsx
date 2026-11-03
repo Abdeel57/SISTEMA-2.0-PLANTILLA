@@ -224,6 +224,13 @@ export default function PublicRaffle({ subdomain }: Props) {
     setTicketMap((m) => (m ? applyTicketChanges(m, items) : m));
   });
 
+  // Estado de UN boleto: los de regalo no van en el mapa, así que el buscador de la
+  // cuadrícula e "Ir a mi número" los consultan aquí.
+  const lookupTicket = (n: number) =>
+    raffle
+      ? publicService.raffleTicket(raffle.id, n).then((r) => r.ticket)
+      : Promise.reject(new Error('Rifa no cargada'));
+
   // ── Vista previa de los NÚMEROS de regalo (oportunidades) ──────────────────
   // Al seleccionar, el backend sortea al azar números de regalo DISPONIBLES y los
   // mostramos antes de apartar. No se reservan aquí; al apartar se reservan esos
@@ -870,6 +877,7 @@ export default function PublicRaffle({ subdomain }: Props) {
                 ticketPrice={raffle.ticketPrice}
                 confirmLabel={tr('raffle.reserve')}
                 onConfirm={openBuyer}
+                lookupNumber={lookupTicket}
               />
             )}
           </div>
@@ -1236,6 +1244,7 @@ export default function PublicRaffle({ subdomain }: Props) {
         map={ticketMap}
         selected={selected}
         onSelect={setSelected}
+        lookupNumber={lookupTicket}
       />
 
       {/* ── "Sube tu pago aquí": abre tu página de pago con tu folio ── */}

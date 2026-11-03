@@ -216,6 +216,13 @@ export const MESSAGES = {
     es: 'No hay más boletos disponibles para agregar',
     en: 'No more tickets available to add',
   },
+  'grid.giftBadge': { es: '🎁 Boleto de regalo', en: '🎁 Free ticket' },
+  'grid.giftAvailable': { es: 'Disponible', en: 'Available' },
+  'grid.giftUnavailable': { es: 'No disponible', en: 'Unavailable' },
+  'grid.giftHow': {
+    es: 'Los boletos de regalo no se eligen a mano: salen al azar con cada boleto que compras.',
+    en: "Free tickets can't be picked by hand: they're drawn at random with each ticket you buy.",
+  },
 
   // ── "Ir a mi número" ──
   'goto.title': { es: 'Ir a mi número', en: 'Go to my number' },
@@ -237,6 +244,10 @@ export const MESSAGES = {
   },
   'goto.missing': { es: 'No encontramos el boleto {label}.', en: "We couldn't find ticket {label}." },
   'goto.outOfRange': { es: 'Ese número no existe en esta rifa.', en: "That number isn't in this giveaway." },
+  'goto.gift': {
+    es: 'El {label} es un boleto de regalo{status}. No se elige a mano: sale al azar con cada boleto que compras.',
+    en: "{label} is a free ticket{status}. It can't be picked by hand: it's drawn at random with each ticket you buy.",
+  },
 
   // ── Perfil público del organizador ──
   'profile.available': { es: 'disponible', en: 'available' },
@@ -327,6 +338,7 @@ export const MESSAGES = {
   'verify.goBuy': { es: 'Ir a comprar boletos', en: 'Go buy tickets' },
   'verify.owe': { es: '¿Debes boletos? Paga aquí', en: 'Owe for tickets? Pay here' },
   'verify.yourTickets': { es: 'Tus boletos', en: 'Your tickets' },
+  'verify.giftTickets': { es: '🎁 De regalo', en: '🎁 Free tickets' },
   'verify.viewDigital': { es: 'Ver boleto digital', en: 'View digital ticket' },
   'verify.sendPayment': { es: 'Envía tu pago', en: 'Send your payment' },
   'verify.proofSent': {

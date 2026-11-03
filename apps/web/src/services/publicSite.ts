@@ -3,6 +3,7 @@ import type {
   PublicRiferoDTO,
   PublicRaffleDTO,
   TicketMapDTO,
+  TicketLiteDTO,
   ValidationResultDTO,
   DigitalTicketDTO,
   PaymentProofDTO,
@@ -17,7 +18,8 @@ export interface PublicOrderLookupItem {
   eventLabel: string;
   eventNumber: number;
   buyerState: string | null; // estado/origen del comprador (para el mensaje al rifero)
-  ticketNumbers: string[];
+  ticketNumbers: string[]; // boletos elegidos
+  giftNumbers: string[]; // boletos de regalo (oportunidades)
   totalAmount: number;
   status: OrderStatus;
   paidAt: string | null;
@@ -70,6 +72,9 @@ export const publicService = {
   // Mapa compacto de estados (1 carácter por boleto): escala a 1M de boletos.
   raffleTicketMap: (raffleId: string) =>
     apiFetch<TicketMapDTO>(`/public/raffles/${raffleId}/ticket-map`),
+  // Estado de UN boleto (sin comprador). Para los de regalo, que no van en el mapa.
+  raffleTicket: (raffleId: string, number: number) =>
+    apiFetch<{ ticket: TicketLiteDTO & { isGift: boolean } }>(`/public/raffles/${raffleId}/tickets/${number}`),
   digitalTicket: (code: string) => apiFetch<{ ticket: DigitalTicketDTO }>(`/tickets/digital/${code}`),
   validate: (code: string) => apiFetch<ValidationResultDTO>(`/validar/${code}`),
   // El comprador sube su comprobante de pago (por folio de la orden).

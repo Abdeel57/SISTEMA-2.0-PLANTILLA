@@ -133,6 +133,25 @@ function UploadProof({ orderCode, onUploaded }: { orderCode: string; onUploaded:
   );
 }
 
+// ── Chips de números (el buscado va resaltado) ──────────────────
+function TicketChips({ numbers, highlight }: { numbers: string[]; highlight?: string }) {
+  const numeric = highlight && /^\d+$/.test(highlight) ? Number(highlight) : null;
+  const isHit = (n: string) => !!highlight && (n === highlight || (numeric !== null && Number(n) === numeric));
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {numbers.map((n) => (
+        <span
+          key={n}
+          className="rounded-md border bg-card px-2 py-0.5 font-ticket text-sm font-bold tabular-nums"
+          style={isHit(n) ? { borderColor: BRAND, background: BRAND, color: '#fff' } : { borderColor: BRAND }}
+        >
+          {n}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // ── Tarjeta-stub de cada orden ──────────────────────────────────
 function OrderCard({
   order,
@@ -142,6 +161,7 @@ function OrderCard({
   whatsappName,
   buyerPhone,
   allowProofUpload,
+  highlight,
   onChanged,
 }: {
   order: PublicOrderLookupItem;
@@ -155,12 +175,15 @@ function OrderCard({
   buyerPhone: string;
   // ¿El sitio recibe comprobantes? Si no, el pago se coordina por WhatsApp.
   allowProofUpload: boolean;
+  // Número de boleto buscado (se resalta entre los de la orden).
+  highlight?: string;
   onChanged: () => void;
 }) {
   const tr = useT();
   const fmt = useMoney();
   const locale = useLocale();
   const pending = isPending(order.status);
+  const gifts = order.giftNumbers ?? [];
   return (
     <article
       className="animate-reveal overflow-hidden rounded-2xl border bg-card shadow-sm"
@@ -188,23 +211,31 @@ function OrderCard({
           <StatusPill status={order.status} />
         </div>
 
-        {/* Boletos: chips estilo boleto (vencidas/rechazadas ya no tienen boletos) */}
-        {order.ticketNumbers.length > 0 && (
+        {/* Boletos: chips estilo boleto (vencidas/rechazadas ya no tienen boletos).
+            Los de regalo van aparte: participan igual que los elegidos. */}
+        {(order.ticketNumbers.length > 0 || gifts.length > 0) && (
         <div className="mt-3 rounded-xl border border-dashed p-2.5" style={{ borderColor: BRAND, background: BRAND_SOFT }}>
-          <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
-            {tr('verify.yourTickets')}
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {order.ticketNumbers.map((n) => (
-              <span
-                key={n}
-                className="rounded-md border bg-card px-2 py-0.5 font-ticket text-sm font-bold tabular-nums"
-                style={{ borderColor: BRAND }}
+          {order.ticketNumbers.length > 0 && (
+            <>
+              <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+                {tr('verify.yourTickets')}
+              </p>
+              <TicketChips numbers={order.ticketNumbers} highlight={highlight} />
+            </>
+          )}
+          {gifts.length > 0 && (
+            <>
+              <p
+                className={
+                  'mb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground' +
+                  (order.ticketNumbers.length > 0 ? ' mt-2.5' : '')
+                }
               >
-                {n}
-              </span>
-            ))}
-          </div>
+                {tr('verify.giftTickets')}
+              </p>
+              <TicketChips numbers={gifts} highlight={highlight} />
+            </>
+          )}
         </div>
         )}
 
@@ -242,6 +273,7 @@ function OrderCard({
                 message={waReserveMessage({
                   raffleName: order.raffleTitle,
                   ticketNumbers: order.ticketNumbers.join(', '),
+                  giftNumbers: gifts.join(', '),
                   total: fmt(order.totalAmount),
                   orderCode: order.code,
                   buyerPhone,
@@ -268,6 +300,7 @@ function OrderCard({
                 message={waProofMessage({
                   raffleName: order.raffleTitle,
                   ticketNumbers: order.ticketNumbers.join(', '),
+                  giftNumbers: gifts.join(', '),
                   total: fmt(order.totalAmount),
                   orderCode: order.code,
                   buyerPhone,
@@ -543,6 +576,7 @@ export default function VerifyTickets({ subdomain }: Props) {
                     }
                     buyerPhone={lookup.variables?.phone ?? ''}
                     allowProofUpload={allowProofUpload}
+                    highlight={lookup.variables?.ticket}
                     onChanged={() => search()}
                   />
                 ))}

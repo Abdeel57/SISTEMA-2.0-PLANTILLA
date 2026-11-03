@@ -20,6 +20,8 @@ export interface TicketMapData {
   format: number;
   statuses: Uint8Array; // charCode del estado por índice (número - start)
   version: number; // cambia con cada parche en vivo (para invalidar memos)
+  // Rango de boletos de regalo (fuera de `statuses`); null = sin regalos.
+  gift: { start: number; total: number } | null;
 }
 
 const AVAILABLE_CODE = TICKET_MAP_CHAR.AVAILABLE.charCodeAt(0);
@@ -33,7 +35,7 @@ for (const [ch, status] of Object.entries(TICKET_STATUS_BY_CHAR)) {
 export function decodeTicketMap(dto: TicketMapDTO): TicketMapData {
   const statuses = new Uint8Array(dto.total);
   for (let i = 0; i < dto.total; i++) statuses[i] = dto.map.charCodeAt(i);
-  return { start: dto.start, total: dto.total, format: dto.format, statuses, version: 0 };
+  return { start: dto.start, total: dto.total, format: dto.format, statuses, version: 0, gift: dto.gift ?? null };
 }
 
 export function statusAt(map: TicketMapData, index: number): TicketStatus {
@@ -45,6 +47,11 @@ export function statusOfNumber(map: TicketMapData, n: number): TicketStatus | un
   const idx = n - map.start;
   if (idx < 0 || idx >= map.total) return undefined;
   return statusAt(map, idx);
+}
+
+// ¿El número cae en el rango de boletos de regalo? (su estado se consulta aparte)
+export function isGiftNumber(map: TicketMapData, n: number): boolean {
+  return !!map.gift && n >= map.gift.start && n < map.gift.start + map.gift.total;
 }
 
 export function displayAt(map: TicketMapData, index: number): string {

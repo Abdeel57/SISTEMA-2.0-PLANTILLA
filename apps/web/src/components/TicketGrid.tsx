@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Search, X } from 'lucide-react';
+import { Search, X, Gift, Loader2 } from 'lucide-react';
 import {
   TICKET_STATUS_COLORS,
   TICKET_STATUS_LABELS,
@@ -15,6 +15,7 @@ import {
   displayOfNumber,
   filterIndices,
   pickRandomAvailable,
+  isGiftNumber,
 } from '@/lib/ticketMap';
 import { cn } from '@/lib/cn';
 import { Input } from '@/components/ui/input';
@@ -102,6 +103,9 @@ interface Props {
   // Selección manual desactivada: sin cuadrícula ni buscador; el comprador solo
   // elige boletos con la maquinita de la suerte (los ve y puede re-tirar).
   luckyOnly?: boolean;
+  // Consulta UN boleto por número (rechaza si no existe). Los de regalo no van en
+  // el mapa: con esto el buscador también los encuentra y muestra su estado.
+  lookupNumber?: (n: number) => Promise<TicketLiteDTO>;
 }
 
 // Posición de un índice dentro de la vista filtrada (asc). -1 si no está.
@@ -132,6 +136,7 @@ export function TicketGrid({
   cellSize = 48,
   minimal = false,
   luckyOnly = false,
+  lookupNumber,
 }: Props) {
   // En la vista pública mostramos TODOS los boletos: los disponibles en blanco y
   // los no disponibles en negro (antes el filtro fijo "Disponibles" los ocultaba).
@@ -203,6 +208,39 @@ export function TicketGrid({
   const viewLength = view ? view.length : map.total;
   const idxAt = (pos: number): number => (view ? view[pos]! : pos);
 
+  // Boletos de REGALO: viven fuera del mapa, así que si se busca un número del
+  // rango de regalo se consulta su estado aparte y se muestra en una tarjeta.
+  const canLookup = !!lookupNumber;
+  const lookupRef = useRef(lookupNumber);
+  lookupRef.current = lookupNumber;
+  const giftQuery = useMemo(() => {
+    const q = debouncedSearch.trim();
+    if (!canLookup || !/^\d+$/.test(q)) return null;
+    const n = Number(q);
+    return isGiftNumber(map, n) ? n : null;
+  }, [canLookup, debouncedSearch, map]);
+  const [giftHit, setGiftHit] = useState<{ n: number; ticket: TicketLiteDTO | null } | null>(null);
+  useEffect(() => {
+    const lookup = lookupRef.current;
+    if (giftQuery === null || !lookup) {
+      setGiftHit(null);
+      return;
+    }
+    let cancelled = false;
+    lookup(giftQuery).then(
+      (ticket) => {
+        if (!cancelled) setGiftHit({ n: giftQuery, ticket });
+      },
+      () => {
+        if (!cancelled) setGiftHit({ n: giftQuery, ticket: null });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+    // map.version: se vuelve a consultar con cada cambio en vivo del mapa.
+  }, [giftQuery, map.version]);
+
   const rowCount = Math.ceil(viewLength / columns);
   const gap = 5;
   const rowHeight = Math.round(cellSize * 0.62); // celdas rectangulares (más anchas que altas)
@@ -232,6 +270,81 @@ export function TicketGrid({
 
   const total = selected.length * ticketPrice;
   const brand = 'var(--rifero-primary, hsl(var(--primary)))';
+
+  // Tarjeta del boleto de regalo buscado. Vista pública: disponible / no disponible
+  // (sin comprador, igual que la cuadrícula). Panel: estado real y acceso al detalle.
+  let giftCard: React.ReactNode = null;
+  if (giftQuery !== null) {
+    const label = displayOfNumber(map, giftQuery);
+    const giftTicket = giftHit?.n === giftQuery ? giftHit.ticket : undefined;
+    if (giftTicket === undefined) {
+      giftCard = (
+        <div className="flex items-center justify-center gap-2 py-4 text-sm font-semibold text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> {label}
+        </div>
+      );
+    } else if (giftTicket === null) {
+      giftCard = (
+        <p className="py-4 text-center text-sm text-muted-foreground">
+          {minimal ? tr('goto.missing', { label }) : `No encontramos el boleto ${label}.`}
+        </p>
+      );
+    } else {
+      const available = giftTicket.status === 'AVAILABLE';
+      giftCard = (
+        <div
+          className="mx-auto w-full max-w-sm rounded-xl border-2 border-dashed bg-card p-4 text-center text-foreground"
+          style={{ borderColor: brand }}
+        >
+          <p
+            className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide"
+            style={{ color: brand }}
+          >
+            {minimal ? (
+              tr('grid.giftBadge')
+            ) : (
+              <>
+                <Gift className="h-3.5 w-3.5" /> Boleto de regalo
+              </>
+            )}
+          </p>
+          <p className="mt-1 font-ticket text-3xl font-black tabular-nums">{giftTicket.displayNumber}</p>
+          {minimal ? (
+            <>
+              <span
+                className={cn(
+                  'mt-2 inline-block rounded-full px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide',
+                  available
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                    : 'bg-zinc-900 text-white',
+                )}
+              >
+                {tr(available ? 'grid.giftAvailable' : 'grid.giftUnavailable')}
+              </span>
+              <p className="mt-2 text-xs text-muted-foreground">{tr('grid.giftHow')}</p>
+            </>
+          ) : (
+            <>
+              <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: TICKET_STATUS_COLORS[giftTicket.status] }}
+                />
+                {TICKET_STATUS_LABELS[giftTicket.status]}
+              </p>
+              {onTicketClick && (
+                <div className="mt-3">
+                  <Button size="sm" variant="outline" onClick={() => onTicketClick(giftTicket)}>
+                    Ver detalle
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      );
+    }
+  }
 
   // Elige N boletos disponibles al azar (sin aplicarlos todavía).
   const computePicks = (n: number): number[] | null => {
@@ -462,6 +575,10 @@ export function TicketGrid({
         </div>
       )}
 
+      {/* Boleto de regalo buscado: arriba de la cuadrícula si además hay
+          coincidencias normales; si no, ocupa el lugar del "sin boletos". */}
+      {!luckyOnly && giftCard && viewLength > 0 && <div className="mb-3">{giftCard}</div>}
+
       {/* Cuadrícula virtualizada (oculta cuando la selección manual está desactivada) */}
       {!luckyOnly && (
       <div
@@ -469,7 +586,9 @@ export function TicketGrid({
         className="relative h-[min(60dvh,540px)] overflow-y-auto overscroll-contain rounded-xl border bg-background p-1.5 lg:h-[min(72dvh,660px)] lg:p-2.5"
       >
         {viewLength === 0 ? (
-          <div className="grid h-full place-items-center text-sm text-muted-foreground">{tr('grid.empty')}</div>
+          <div className="grid h-full place-items-center p-3 text-sm text-muted-foreground">
+            {giftCard ?? tr('grid.empty')}
+          </div>
         ) : (
           <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative', width: '100%' }}>
             {rowVirtualizer.getVirtualItems().map((vRow) => {

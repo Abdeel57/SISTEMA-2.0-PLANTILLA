@@ -181,7 +181,18 @@ export default function RaffleTickets() {
         </Card>
       </div>
 
-      <TicketGrid map={ticketMap} onTicketClick={(t) => setSelectedNumber(t.number)} />
+      {/* Los boletos de regalo no van en el mapa: el buscador los consulta uno por uno. */}
+      <TicketGrid
+        map={ticketMap}
+        onTicketClick={(t) => setSelectedNumber(t.number)}
+        lookupNumber={(n) =>
+          raffleService.ownerTicket(raffleId, n).then(({ ticket }) => ({
+            number: ticket.number,
+            displayNumber: ticket.displayNumber,
+            status: ticket.status as TicketStatus,
+          }))
+        }
+      />
 
       {/* Dialog de boleto individual (el detalle se carga bajo demanda) */}
       <Dialog open={selectedNumber !== null} onOpenChange={(open) => !open && setSelectedNumber(null)}>
